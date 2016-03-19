@@ -1,6 +1,8 @@
 
 cmake_minimum_required (VERSION 3.4)
 
+include(flag_overrides.cmake)
+
 # macro for installations
 macro (ir_add_install _INSTALL_NAME)
 	if (EXISTS ${INSTALL_DIR})
@@ -13,11 +15,13 @@ endmacro()
 
 project(two_dimensional)
 
-if (NOT EXISTS ${SDL_PATH})
-	message(FATAL_ERROR "Path to sdl external location is required and must exist!")
+#option (WTIH_SDL CACHE OFF STRING "Compile the dsdl project")
+# TODO see how its done!
+if (WITH_SDL)
+	add_subdirectory(dsdl)
 endif()
 
-add_subdirectory(dsdl)
+add_subdirectory(dwx)
 
 if (EXISTS ${INSTALL_DIR})
 	install(FILES ${SDL_PATH}/lib/x64/SDL2.dll DESTINATION ${INSTALL_DIR})
