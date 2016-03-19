@@ -70,9 +70,10 @@ bool ViewApp::OnInit() {
 	if (!wxApp::OnInit())
 		return false;
 
+	// must remain here!!!
 	initColor();
 
-	ViewFrame * frame = new ViewFrame(wxT("QuadRay Viewer"));
+	ViewFrame * frame = new ViewFrame(wxT("2d graphics"));
 	frame->Show();
 
 	return true;
