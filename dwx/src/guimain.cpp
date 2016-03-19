@@ -9,6 +9,10 @@
 #include <wx/bitmap.h>
 #include <wx/dcbuffer.h>
 
+#include "guimain.h"
+#include "wx_modes.h"
+#include "wx_bitmap_canvas.h"
+
 #include "color.h"
 #include "bitmap.h"
 
@@ -17,50 +21,9 @@ public:
 	virtual bool OnInit() override;
 };
 
-class BitmapCanvas : public wxPanel {
-public:
-	BitmapCanvas(wxWindow * parent, const Bitmap& initBmp);
 
-	void OnPaint(wxPaintEvent& evt);
-
-	void OnEraseBkg(wxEraseEvent& evt);
-
-	void setBitmap(const Bitmap& bmp);
-private:
-	wxBitmap bmp;
-};
-
-class ViewFrame : public wxFrame {
-public:
-	ViewFrame(const wxString& title);
-
-	void OnRadioButtonChange(wxCommandEvent&);
-
-	// this should trigger the new image copy
-	void OnScrollChange(wxScrollEvent&);
-
-	// this should only change (for now) the value of the text
-	void OnSoftScrollChange(wxScrollEvent&);
-
-	void OnScrollTextEnter(wxCommandEvent&);
-
-	// for now it is only init function - it will become an interface later
-	void initBitcube();
-	enum {
-		ID_RB_XY = wxID_HIGHEST + 1,
-		ID_RB_YZ,
-		ID_RB_ZX,
-		ID_SLIDER,
-		ID_SLIDER_TEXT,
-	};
-private:
-	void setSlice(int value, unsigned plane);
-
-	wxSlider * slider;
-	wxTextCtrl * sliderText;
-	BitmapCanvas * bmpCanvas;
-
-	Bitmap slice;
+const wxString ViewFrame::modeNames[] = {
+	wxT("Negative"),
 };
 
 wxIMPLEMENT_APP(ViewApp);
@@ -74,6 +37,7 @@ bool ViewApp::OnInit() {
 	initColor();
 
 	ViewFrame * frame = new ViewFrame(wxT("2d graphics"));
+	SetTopWindow(frame);
 	frame->Show();
 
 	return true;
@@ -81,127 +45,89 @@ bool ViewApp::OnInit() {
 
 ViewFrame::ViewFrame(const wxString& title)
 	: wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(512, 512))
-	, slider(nullptr)
-	, sliderText(nullptr)
-	, bmpCanvas(nullptr)
+	, mPanel(nullptr)
+	, menuBar(nullptr)
+	, file(nullptr)
+	, fileOpen(nullptr)
+	, fileSave(nullptr)
+	, controlCmp(nullptr)
+	, statusBar(nullptr)
 {
 	SetMinClientSize(wxSize(512, 512));
 	SetDoubleBuffered(true);
 
-	wxPanel * mainPanel = new wxPanel(this);
+	menuBar = new wxMenuBar;
+	
+	file = new wxMenu;
+	fileSave = new wxMenuItem(file, MID_VF_FILE_OPEN, wxT("&Save"));
+	file->Append(fileSave);
+	Connect(MID_VF_FILE_SAVE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
+	fileOpen = new wxMenuItem(file, MID_VF_FILE_SAVE, wxT("&Open"));
+	file->Append(fileOpen);
+	Connect(MID_VF_FILE_OPEN, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
+	file->AppendSeparator();
+	file->Append(wxID_EXIT, wxT("&Quit"));
+	menuBar->Append(file, wxT("&File"));
+	Connect(wxID_EXIT, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnQuit));
 
-	wxBoxSizer * mainSizer = new wxBoxSizer(wxVERTICAL);
-	mainSizer->FitInside(mainPanel);
-	mainPanel->SetSizer(mainSizer);
+	wxMenu * modes = new wxMenu;
+	for (unsigned modei = MID_VF_MODES_START + 1; modei < MID_VF_MODES_END; ++modei) {
+		modes->Append(modei, modeNames[modei - MID_VF_MODES_START - 1]);
+		Connect(modei, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
+	}
+	menuBar->Append(modes, wxT("&Modes"));
+	wxMenu * control = new wxMenu;
+	controlCmp = new wxMenuItem(control, MID_VF_CNT_COMPARE, wxT("&Compare"));
+	control->Append(controlCmp);
+	menuBar->Append(control, wxT("Control"));
+	Connect(MID_VF_CNT_COMPARE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
 
-	wxBoxSizer * rbSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxRadioButton * rbxy = new wxRadioButton(mainPanel, ID_RB_XY, wxT("XY"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
-	rbSizer->Add(rbxy, 1, wxEXPAND | wxALL, 10);
-	wxRadioButton * rbyz = new wxRadioButton(mainPanel, ID_RB_YZ, wxT("YZ"));
-	rbSizer->Add(rbyz, 1, wxEXPAND | wxALL, 10);
-	wxRadioButton * rbzx = new wxRadioButton(mainPanel, ID_RB_ZX, wxT("ZX"));
-	rbSizer->Add(rbzx, 1, wxEXPAND | wxALL, 10);
-	mainSizer->Add(rbSizer, 0, wxALL, 5);
+	SetMenuBar(menuBar);
+	CreateStatusBar();
+	SetStatusText(wxT("Select a Mode to begin"));
 
-	bmpCanvas = new BitmapCanvas(mainPanel, slice);
-	mainSizer->Add(bmpCanvas, 1, wxEXPAND | wxALL, 5);
+	setCustomStyle(VFS_NOTHING_ENABLED);
 
-	wxBoxSizer * sliderSizer = new wxBoxSizer(wxHORIZONTAL);
-	slider = new wxSlider(mainPanel, ID_SLIDER, 0, 0, 255 - 1);
-	sliderSizer->Add(slider, 1, wxEXPAND | wxALL, 5);
-	sliderText = new wxTextCtrl(mainPanel, ID_SLIDER_TEXT, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-	sliderSizer->Add(sliderText, 0, wxALL, 5);
-
-	mainSizer->Add(sliderSizer, 0, wxEXPAND | wxALL, 5);
-
-	// add some event handlers
-	Connect(ID_RB_XY, wxEVT_RADIOBUTTON, wxCommandEventHandler(ViewFrame::OnRadioButtonChange), NULL, this);
-	Connect(ID_RB_YZ, wxEVT_RADIOBUTTON, wxCommandEventHandler(ViewFrame::OnRadioButtonChange), NULL, this);
-	Connect(ID_RB_ZX, wxEVT_RADIOBUTTON, wxCommandEventHandler(ViewFrame::OnRadioButtonChange), NULL, this);
-	Connect(ID_SLIDER, wxEVT_SCROLL_CHANGED, wxScrollEventHandler(ViewFrame::OnScrollChange), NULL, this);
-	Connect(ID_SLIDER, wxEVT_SCROLL_THUMBTRACK, wxScrollEventHandler(ViewFrame::OnSoftScrollChange), NULL, this);
-	Connect(ID_SLIDER_TEXT, wxEVT_TEXT_ENTER, wxCommandEventHandler(ViewFrame::OnScrollTextEnter), NULL, this);
-
-	initBitcube();
 	Update();
 	Refresh();
 }
 
-void ViewFrame::initBitcube() {
+void ViewFrame::setCustomStyle(unsigned style) {
+	fileOpen->Enable((style & VFS_FILE_OPEN) != 0);
+	fileSave->Enable((style & VFS_FILE_SAVE) != 0);
 
+	controlCmp->Enable((style & VFS_CNT_COMPARE) != 0);
 }
 
-void ViewFrame::OnRadioButtonChange(wxCommandEvent& evt) {
-
+void ViewFrame::addCustomMenu(wxMenu * menu) {
 }
 
-void ViewFrame::OnScrollChange(wxScrollEvent& evt) {
-
+void ViewFrame::OnQuit(wxCommandEvent &) {
+	Close();
 }
 
-void ViewFrame::OnSoftScrollChange(wxScrollEvent& evt) {
-
-}
-
-void ViewFrame::OnScrollTextEnter(wxCommandEvent& evt) {
-
-}
-
-void ViewFrame::setSlice(int value, unsigned plane) {
-
-}
-
-BitmapCanvas::BitmapCanvas(wxWindow * parent, const Bitmap& initBmp)
-	: wxPanel(parent)
-{
-	Connect(wxEVT_PAINT, wxPaintEventHandler(BitmapCanvas::OnPaint), NULL, this);
-	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(BitmapCanvas::OnEraseBkg), NULL, this);
-	setBitmap(initBmp);
+void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
+	if (mPanel) {
+		mPanel->Destroy();
+		mPanel = nullptr;
+		setCustomStyle(VFS_NOTHING_ENABLED);
+	}
+	switch (ev.GetId())
+	{
+	case(MID_VF_NEGATIVE) :
+		SetStatusText(wxT("Using negative mode"));
+		mPanel = new NegativePanel(this);
+		break;
+	default:
+		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));
+		break;
+	}
 	Update();
-}
-
-void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
-	//wxPaintDC dc(this);
-	wxBufferedPaintDC dc(this);
-	const wxSize dcSize = GetSize();
-	const wxSize bmpSize = bmp.GetSize();
-	const int xc = (dcSize.GetWidth() > bmpSize.GetWidth() ? (dcSize.GetWidth() / 2) - (bmpSize.GetWidth() / 2) : 0);
-	const int yc = (dcSize.GetHeight() > bmpSize.GetHeight() ? (dcSize.GetHeight() / 2) - (bmpSize.GetHeight() / 2) : 0);
-	//wxMemoryDC bmpDC(bmp);
-	//dc.Blit(wxPoint(xc, yc), bmpSize, &bmpDC, wxPoint(0, 0));
-	dc.DrawBitmap(bmp, xc, yc);
-	// draw fill
-	const wxColour fillColour(127, 127, 127);
-	dc.SetBrush(wxBrush(fillColour));
-	dc.SetPen(wxPen(fillColour));
-	if (xc > 0) {
-		dc.DrawRectangle(0, 0, xc, dcSize.GetHeight());
-		dc.DrawRectangle(xc + bmpSize.GetWidth(), 0, xc, dcSize.GetHeight());
-	}
-	if (yc > 0) {
-		dc.DrawRectangle(0, 0, dcSize.GetWidth(), yc);
-		dc.DrawRectangle(0, yc + bmpSize.GetHeight(), dcSize.GetWidth(), yc);
-	}
-}
-
-void BitmapCanvas::setBitmap(const Bitmap& bmp) {
-	const int w = bmp.getWidth();
-	const int h = bmp.getHeight();
-	wxImage tmpImg = wxImage(wxSize(w, h));
-	unsigned char * imgData = tmpImg.GetData();
-	const Color* colorData = bmp.getDataPtr();
-	for (int y = 0; y < h; ++y) {
-		for (int x = 0; x < w; ++x) {
-			const unsigned rgb = colorData[x + y * w].toRGB32();
-			imgData[0 + (x + y * w) * 3] = static_cast<unsigned char>((rgb & 0xff0000) >> 16);
-			imgData[1 + (x + y * w) * 3] = static_cast<unsigned char>((rgb & 0x00ff00) >> 8);
-			imgData[2 + (x + y * w) * 3] = static_cast<unsigned char>(rgb & 0x0000ff);
-		}
-	}
-	this->bmp = wxBitmap(tmpImg);
 	Refresh();
 }
 
-void BitmapCanvas::OnEraseBkg(wxEraseEvent& evt) {
-	// disable erase - all will be handled in the paint evt
+void ViewFrame::OnCustomMenuSelect(wxCommandEvent & ev) {
+	if (mPanel) {
+		mPanel->onCommandMenu(ev);
+	}
 }

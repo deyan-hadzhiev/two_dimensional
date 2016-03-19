@@ -25,12 +25,17 @@ set (HEADERS
 	include/transform.h
 	include/vector2.h
 	include/util.h
+	include/guimain.h
+	include/wx_modes.h
+	include/wx_bitmap_canvas.h
 )
 
 set (SOURCES
+	src/guimain.cpp
+	src/wx_bitmap_canvas.cpp
+	src/wx_modes.cpp
 	src/bitmap.cpp
 	src/color.cpp
-	src/guimain.cpp
 	src/matrix2.cpp
 )
 
