@@ -11,7 +11,9 @@ constexpr inline int nearestInt(float x) noexcept { return static_cast<int>(x > 
 
 template<class T>
 T clamp(T x, T xMin, T xMax) noexcept {
-	if (xMax < x)
+	if (xMax < xMin)
+		return xMin;
+	else if (xMax < x)
 		return xMax;
 	else if (x < xMin)
 		return xMin;

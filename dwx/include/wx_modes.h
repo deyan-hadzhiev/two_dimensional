@@ -27,9 +27,9 @@ public:
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 protected:
 	BitmapCanvas * inputCanvas;
-	BitmapCanvas * outputCanvas;
+	//BitmapCanvas * outputCanvas;
 	//wxPanel * inputCanvas;
-	//wxPanel * outputCanvas;
+	wxPanel * outputCanvas;
 	wxPanel * compareCanvas;
 	static const wxString ioFileSelector; //!< file selection string - change if a new file type is added
 	static const int panelBorder; //!< the border of the input/output panels

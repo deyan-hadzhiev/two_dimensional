@@ -10,11 +10,12 @@ const int BitmapCanvas::maxZoom = 4;
 BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
 	, mouseOverCanvas(false)
+	, mouseLeftDrag(false)
 	, zoomLvl(0)
 	, currentFocus(0, 0)
 	, mousePos(0, 0)
 	, bmpRect(0, 0, 0, 0)
-	, viewRect(0, 0, 0, 0)
+	, canvasRect(0, 0, 0, 0)
 	, dirtyCanvas(true)
 	, topFrame(topFrame)
 {
@@ -26,6 +27,10 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 	Connect(wxEVT_LEAVE_WINDOW, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
 	Connect(wxEVT_MOUSEWHEEL, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
 	Connect(wxEVT_MOTION, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+	Connect(wxEVT_LEFT_DOWN, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+	Connect(wxEVT_LEFT_UP, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+	// connect the sizing event
+	Connect(wxEVT_SIZE, wxSizeEventHandler(BitmapCanvas::OnSizeEvt), NULL, this);
 
 	if (initBmp) {
 		setBitmap(*initBmp);
@@ -46,20 +51,6 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 	Update();
 }
 
-void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
-	//wxPaintDC dc(this);
-	wxBufferedPaintDC dc(this);
-	const wxSize dcSize = GetSize();
-	const wxSize bmpSize = bmp.GetSize();
-	const int xc = (dcSize.GetWidth() > bmpSize.GetWidth() ? (dcSize.GetWidth() / 2) - (bmpSize.GetWidth() / 2) : 0);
-	const int yc = (dcSize.GetHeight() > bmpSize.GetHeight() ? (dcSize.GetHeight() / 2) - (bmpSize.GetHeight() / 2) : 0);
-	//wxMemoryDC bmpDC(bmp);
-	//dc.Blit(wxPoint(xc, yc), bmpSize, &bmpDC, wxPoint(0, 0));
-	dc.DrawBitmap(bmp, xc, yc);
-
-	drawFill(dc, bmpSize, wxPoint(xc, yc));
-}
-
 void BitmapCanvas::setBitmap(const Bitmap& bmp) {
 	const int w = bmp.getWidth();
 	const int h = bmp.getHeight();
@@ -75,26 +66,129 @@ void BitmapCanvas::setBitmap(const Bitmap& bmp) {
 		}
 	}
 	this->bmp = wxBitmap(tmpImg);
+	resetFocus();
+	dirtyCanvas = true;
 	Refresh();
 }
 
 void BitmapCanvas::setImage(const wxImage & img) {
 	bmp = wxBitmap(img);
+	resetFocus();
+	dirtyCanvas = true;
 	Refresh();
 }
 
 void BitmapCanvas::updateStatus() const {
-	if (mouseOverCanvas) {
+	if (true || mouseOverCanvas) {
+		wxString focusStr;
+		const wxSize sz = GetSize();
+		
+		focusStr.Printf(wxT("focus: x: %4d y: %4d ps: (%d, %d)"), currentFocus.x, currentFocus.y, sz.GetWidth(), sz.GetHeight());
+		topFrame->SetStatusText(focusStr);
 		wxString posStr;
-		posStr.Printf(wxT("x: %4d y: %4d"), mousePos.x, mousePos.y);
+		posStr.Printf(wxT("x: %4d y: %4d bmp(%d, %d, %d, %d)"), mousePos.x, mousePos.y, bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height);
 		topFrame->SetStatusText(posStr, 1);
 		wxString rectStr;
-		rectStr.Printf(wxT("zoom: %d"), zoomLvl);
+		rectStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d)"), zoomLvl, canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height);
 		topFrame->SetStatusText(rectStr, 2);
 	} else {
 		topFrame->SetStatusText(wxT(""), 1);
 		topFrame->SetStatusText(wxT(""), 2);
 	}
+}
+
+void BitmapCanvas::resetFocus() {
+	currentFocus = wxPoint(bmp.GetWidth() / 2, bmp.GetHeight() / 2);
+}
+
+void BitmapCanvas::setFocus(wxPoint f) {
+	const wxSize uphs = unscaleSize(GetSize()) / 2; // unscaledPanelHalfSize
+	currentFocus.x = clamp(f.x, uphs.GetWidth(), bmp.GetWidth() - uphs.GetWidth());
+	currentFocus.y = clamp(f.y, uphs.GetHeight(), bmp.GetHeight() - uphs.GetHeight());
+}
+
+bool BitmapCanvas::clippedCanvas() const {
+	const wxSize unscaledBmpSize = unscaleSize(bmp.GetSize());
+	const wxSize panelSize = GetSize();
+	return unscaledBmpSize.GetWidth() > panelSize.GetWidth() || unscaledBmpSize.GetHeight() < panelSize.GetHeight() || bmpRect.x > 0 || bmpRect.y > 0;
+}
+
+wxSize BitmapCanvas::scaleSize(wxSize input) const {
+	if (zoomLvl == 0) {
+		return input;
+	} else if (zoomLvl > 0) {
+		return input * (zoomLvl + 1);
+	} else {
+		return input / (-zoomLvl + 1);
+	}
+}
+
+wxSize BitmapCanvas::unscaleSize(wxSize input) const {
+	if (zoomLvl == 0) {
+		return input;
+	} else if (zoomLvl > 0) {
+		return input / (zoomLvl + 1);
+	} else {
+		return input * (-zoomLvl + 1);
+	}
+}
+
+wxPoint BitmapCanvas::convertScreenToBmp(const wxPoint in) const {
+
+	return wxPoint();
+}
+
+wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
+	return wxPoint();
+}
+
+void BitmapCanvas::recalcBmpRect() {
+	const wxSize panelSize = GetSize();
+	const wxSize unscaledSize = unscaleSize(panelSize);
+	const wxSize rescaledSize = scaleSize(unscaledSize); //!< for remainder offsets
+	const wxPoint panelCenter(panelSize.GetWidth() / 2, panelSize.GetHeight() / 2);
+	bmpRect.x = clamp(currentFocus.x - unscaledSize.GetWidth() / 2, 0, bmp.GetWidth() - unscaledSize.GetWidth());
+	bmpRect.y = clamp(currentFocus.y - unscaledSize.GetHeight() / 2, 0, bmp.GetHeight() - unscaledSize.GetHeight());
+	bmpRect.width = std::min(bmp.GetWidth() - bmpRect.x, unscaledSize.GetWidth() + (rescaledSize.GetWidth() < panelSize.GetWidth() ? 1 : 0));
+	bmpRect.height = std::min(bmp.GetHeight() - bmpRect.y, unscaledSize.GetHeight() + (rescaledSize.GetHeight() < panelSize.GetHeight() ? 1 : 0));
+}
+
+void BitmapCanvas::recalcCanvasRect() {
+	const wxSize panelSize = GetSize();
+	const wxSize canvasSize = canvas.GetSize();
+	canvasRect.width = canvasSize.GetWidth();
+	canvasRect.height = canvasSize.GetHeight();
+	canvasRect.x = (panelSize.GetWidth() > canvasRect.width ? (panelSize.GetWidth() / 2) - (canvasRect.width / 2) : 0);
+	canvasRect.y = (panelSize.GetHeight() > canvasRect.height ? (panelSize.GetHeight() / 2) - (canvasRect.height / 2) : 0);
+}
+
+void BitmapCanvas::remapCanvas() {
+	recalcBmpRect();
+	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight()) {
+		if (zoomLvl == 0) {
+			canvas = bmp.GetSubBitmap(bmpRect);
+		} else {
+			// TODO zoomed remaping
+		}
+	} else {
+		canvas = bmp;
+	}
+	recalcCanvasRect();
+}
+
+void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
+	wxBufferedPaintDC dc(this);
+	if (dirtyCanvas) {
+		remapCanvas();
+		dirtyCanvas = false;
+	} else {
+		recalcCanvasRect();
+	}
+	pdcs = dc.GetSize();
+
+	dc.DrawBitmap(canvas, canvasRect.x, canvasRect.y);
+
+	drawFill(dc, canvasRect.GetSize(), canvasRect.GetPosition());
 }
 
 void BitmapCanvas::drawFill(wxBufferedPaintDC & pdc, const wxSize & bmpSize, const wxPoint & bmpCoord) {
@@ -140,20 +234,30 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 	if (evType == wxEVT_MOTION) {
 		wxPoint curr(evt.GetX(), evt.GetY());
 		if (curr != mousePos) {
+			if (mouseLeftDrag && clippedCanvas()) {
+				const wxPoint diff = curr - mousePos;
+				setFocus(currentFocus - diff);
+				dirtyCanvas = true;
+				Refresh(); // to force redraw
+			}
 			mousePos = curr;
 			updateStatus();
 		}
+	} else if (evType == wxEVT_LEFT_DOWN) {
+		mousePos = wxPoint(evt.GetX(), evt.GetY());
+		mouseLeftDrag = true;
+	} else if (evType == wxEVT_LEFT_UP) {
+		mouseLeftDrag = false;
 	} else if (evType == wxEVT_ENTER_WINDOW) {
 		if (!mouseOverCanvas) {
 			mouseOverCanvas = true;
-			SetBackgroundColour(*wxGREEN);
 			updateStatus();
 			Refresh();
 		}
 	} else if (evType == wxEVT_LEAVE_WINDOW) {
 		if (mouseOverCanvas) {
 			mouseOverCanvas = false;
-			SetBackgroundColour(*wxRED);
+			mouseLeftDrag = false;
 			updateStatus();
 			Refresh();
 		}
@@ -163,13 +267,26 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		int newZoomLvl = zoomLvl;
 		if (rot > 0) {
 			newZoomLvl += delta / 120;
-			SetBackgroundColour(*wxCYAN);
 		} else {
 			newZoomLvl -= delta / 120;
-			SetBackgroundColour(*wxYELLOW);
 		}
 		zoomLvl = clamp(newZoomLvl, minZoom, maxZoom);
 		updateStatus();
+		remapCanvas();
 		Refresh();
 	}
+}
+
+void BitmapCanvas::OnSizeEvt(wxSizeEvent & evt) {
+	if (GetAutoLayout()) {
+		Layout();
+	}
+	// this makes the canvas dirty only if the new size requires resizing of the canvas
+	if (clippedCanvas()) {
+		dirtyCanvas = true;
+	} else {
+		resetFocus();
+	}
+	updateStatus();
+	evt.Skip();
 }
