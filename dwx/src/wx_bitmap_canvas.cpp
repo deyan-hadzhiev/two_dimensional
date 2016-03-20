@@ -5,7 +5,7 @@
 #include "util.h"
 
 const int BitmapCanvas::minZoom = -4;
-const int BitmapCanvas::maxZoom = 4;
+const int BitmapCanvas::maxZoom = 8;
 
 BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
@@ -164,11 +164,39 @@ void BitmapCanvas::recalcCanvasRect() {
 
 void BitmapCanvas::remapCanvas() {
 	recalcBmpRect();
-	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight()) {
+	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight() || zoomLvl != 0) {
 		if (zoomLvl == 0) {
 			canvas = bmp.GetSubBitmap(bmpRect);
+		} else if (zoomLvl > 0) {
+			const int scale = zoomLvl + 1;
+			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
+			const wxSize scaledSize = scaleSize(subBmp.GetSize());
+			const int width = subBmp.GetWidth();
+			const int height = subBmp.GetHeight();
+			const int bpp = 3;
+			const int bppWidth = width * bpp;
+			const int rowScaledWidth = bppWidth * scale;
+			const wxImage sourceImg = subBmp.ConvertToImage();
+			wxImage scaledImg(scaledSize);
+			const unsigned char * srcData = sourceImg.GetData();
+			unsigned char * imgData = scaledImg.GetData();
+			for (int y = 0; y < height; ++y) {
+				// set a row
+				for (int x = 0; x < width; ++x) {
+					for (int s = 0; s < scale; ++s) {
+						imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 0] = srcData[y * bppWidth + x * bpp + 0];
+						imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 1] = srcData[y * bppWidth + x * bpp + 1];
+						imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 2] = srcData[y * bppWidth + x * bpp + 2];
+					}
+				}
+				// copy the row over the next scales
+				for (int s = 1; s < scale; ++s) {
+					memcpy(imgData + (y * scale + s) * rowScaledWidth, imgData + y * rowScaledWidth * scale, rowScaledWidth);
+				}
+			}
+			canvas = wxBitmap(scaledImg);
 		} else {
-			// TODO zoomed remaping
+			// TODO downscale
 		}
 	} else {
 		canvas = bmp;
@@ -184,8 +212,6 @@ void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
 	} else {
 		recalcCanvasRect();
 	}
-	pdcs = dc.GetSize();
-
 	dc.DrawBitmap(canvas, canvasRect.x, canvasRect.y);
 
 	drawFill(dc, canvasRect.GetSize(), canvasRect.GetPosition());
@@ -272,7 +298,7 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		}
 		zoomLvl = clamp(newZoomLvl, minZoom, maxZoom);
 		updateStatus();
-		remapCanvas();
+		dirtyCanvas = true;
 		Refresh();
 	}
 }

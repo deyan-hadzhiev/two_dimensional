@@ -58,8 +58,6 @@ private:
 
 	// topframe for status bar updates
 	wxFrame * topFrame;
-
-	wxSize pdcs;
 };
 
 #endif // __WX_BITMAP_CANVAS_H__
