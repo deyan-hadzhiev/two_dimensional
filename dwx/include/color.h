@@ -1,8 +1,8 @@
 #ifndef __COLOR_H__
 #define __COLOR_H__
 
+#include <math.h>
 #include "util.h"
-
 
 inline unsigned convertTo8bit(float x) noexcept {
 	if (x < 0)

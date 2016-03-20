@@ -1,16 +1,34 @@
 #include <wx/dcbuffer.h>
+#include <wx/dcmemory.h>
 
 #include "wx_bitmap_canvas.h"
+#include "util.h"
 
-BitmapCanvas::BitmapCanvas(wxWindow * parent, const Bitmap * initBmp)
+const int BitmapCanvas::minZoom = -4;
+const int BitmapCanvas::maxZoom = 4;
+
+BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
-	, initialized(false)
+	, mouseOverCanvas(false)
+	, zoomLvl(0)
+	, currentFocus(0, 0)
+	, mousePos(0, 0)
+	, bmpRect(0, 0, 0, 0)
+	, viewRect(0, 0, 0, 0)
+	, dirtyCanvas(true)
+	, topFrame(topFrame)
 {
+	// connect paint events
 	Connect(wxEVT_PAINT, wxPaintEventHandler(BitmapCanvas::OnPaint), NULL, this);
 	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(BitmapCanvas::OnEraseBkg), NULL, this);
+	// connect mouse events
+	Connect(wxEVT_ENTER_WINDOW, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+	Connect(wxEVT_LEAVE_WINDOW, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+	Connect(wxEVT_MOUSEWHEEL, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+	Connect(wxEVT_MOTION, wxMouseEventHandler(BitmapCanvas::OnMouseEvt), NULL, this);
+
 	if (initBmp) {
 		setBitmap(*initBmp);
-		initialized = true;
 	} else {
 		Bitmap empty;
 		const int bmpDim = 64;
@@ -65,6 +83,20 @@ void BitmapCanvas::setImage(const wxImage & img) {
 	Refresh();
 }
 
+void BitmapCanvas::updateStatus() const {
+	if (mouseOverCanvas) {
+		wxString posStr;
+		posStr.Printf(wxT("x: %4d y: %4d"), mousePos.x, mousePos.y);
+		topFrame->SetStatusText(posStr, 1);
+		wxString rectStr;
+		rectStr.Printf(wxT("zoom: %d"), zoomLvl);
+		topFrame->SetStatusText(rectStr, 2);
+	} else {
+		topFrame->SetStatusText(wxT(""), 1);
+		topFrame->SetStatusText(wxT(""), 2);
+	}
+}
+
 void BitmapCanvas::drawFill(wxBufferedPaintDC & pdc, const wxSize & bmpSize, const wxPoint & bmpCoord) {
 	const int bx = bmpCoord.x;
 	const int by = bmpCoord.y;
@@ -101,4 +133,43 @@ void BitmapCanvas::drawFill(wxBufferedPaintDC & pdc, const wxSize & bmpSize, con
 
 void BitmapCanvas::OnEraseBkg(wxEraseEvent& evt) {
 	// disable erase - all will be handled in the paint evt
+}
+
+void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
+	const wxEventType evType = evt.GetEventType();
+	if (evType == wxEVT_MOTION) {
+		wxPoint curr(evt.GetX(), evt.GetY());
+		if (curr != mousePos) {
+			mousePos = curr;
+			updateStatus();
+		}
+	} else if (evType == wxEVT_ENTER_WINDOW) {
+		if (!mouseOverCanvas) {
+			mouseOverCanvas = true;
+			SetBackgroundColour(*wxGREEN);
+			updateStatus();
+			Refresh();
+		}
+	} else if (evType == wxEVT_LEAVE_WINDOW) {
+		if (mouseOverCanvas) {
+			mouseOverCanvas = false;
+			SetBackgroundColour(*wxRED);
+			updateStatus();
+			Refresh();
+		}
+	} else if (evType == wxEVT_MOUSEWHEEL) {
+		const int delta = evt.GetWheelDelta();
+		const int rot = evt.GetWheelRotation();
+		int newZoomLvl = zoomLvl;
+		if (rot > 0) {
+			newZoomLvl += delta / 120;
+			SetBackgroundColour(*wxCYAN);
+		} else {
+			newZoomLvl -= delta / 120;
+			SetBackgroundColour(*wxYELLOW);
+		}
+		zoomLvl = clamp(newZoomLvl, minZoom, maxZoom);
+		updateStatus();
+		Refresh();
+	}
 }

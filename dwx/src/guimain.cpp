@@ -84,13 +84,13 @@ ViewFrame::ViewFrame(const wxString& title)
 	}
 	menuBar->Append(modes, wxT("&Modes"));
 	wxMenu * control = new wxMenu;
-	controlCmp = new wxMenuItem(control, MID_VF_CNT_COMPARE, wxT("&Compare"));
+	controlCmp = new wxMenuItem(control, MID_VF_CNT_COMPARE, wxT("&Compare"), wxEmptyString, wxITEM_CHECK);
 	control->Append(controlCmp);
 	menuBar->Append(control, wxT("Control"));
 	Connect(MID_VF_CNT_COMPARE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
 
 	SetMenuBar(menuBar);
-	CreateStatusBar();
+	CreateStatusBar(3);
 	SetStatusText(wxT("Select a Mode to begin"));
 
 	setCustomStyle(VFS_NOTHING_ENABLED);

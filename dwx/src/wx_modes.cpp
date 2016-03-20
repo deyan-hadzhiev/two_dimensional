@@ -33,13 +33,13 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
 	, compareCanvas(nullptr)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
-	inputCanvas = new BitmapCanvas(this);
+	inputCanvas = new BitmapCanvas(this, viewFrame);
 	//inputCanvas = new wxPanel(this);
 	canvasSizer->Add(inputCanvas, 1, wxEXPAND | wxALL, panelBorder);
 	inputCanvas->SetBackgroundColour(*wxRED);
 	inputCanvas->SetForegroundColour(*wxGREEN);
 	//canvasSizer->Add(new wxStaticLine, 0);
-	outputCanvas = new BitmapCanvas(this);
+	outputCanvas = new BitmapCanvas(this, viewFrame);
 	//outputCanvas = new wxPanel(this);
 	canvasSizer->Add(outputCanvas, 1, wxEXPAND | wxALL, panelBorder);
 	outputCanvas->SetBackgroundColour(*wxBLUE);
