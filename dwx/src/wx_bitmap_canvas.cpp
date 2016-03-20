@@ -13,15 +13,22 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, const Bitmap * initBmp)
 		initialized = true;
 	} else {
 		Bitmap empty;
-		empty.generateEmptyImage(64, 64);
+		const int bmpDim = 64;
+		empty.generateEmptyImage(bmpDim, bmpDim);
+		const Color border(.5f, .5f, .5f);
+		Color * bmpData = empty.getDataPtr();
+		for (int i = 0; i < bmpDim; ++i) {
+			bmpData[i] = border;
+			bmpData[i * bmpDim] = border;
+			bmpData[bmpDim * (bmpDim - 1) + i] = border;
+			bmpData[bmpDim * i + bmpDim - 1] = border;
+		}
 		setBitmap(empty);
 	}
 	Update();
 }
 
 void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
-	if (!initialized)
-		return;
 	//wxPaintDC dc(this);
 	wxBufferedPaintDC dc(this);
 	const wxSize dcSize = GetSize();
@@ -31,18 +38,8 @@ void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
 	//wxMemoryDC bmpDC(bmp);
 	//dc.Blit(wxPoint(xc, yc), bmpSize, &bmpDC, wxPoint(0, 0));
 	dc.DrawBitmap(bmp, xc, yc);
-	// draw fill
-	const wxColour fillColour(127, 127, 127);
-	dc.SetBrush(wxBrush(fillColour));
-	dc.SetPen(wxPen(fillColour));
-	if (xc > 0) {
-		dc.DrawRectangle(0, 0, xc, dcSize.GetHeight());
-		dc.DrawRectangle(xc + bmpSize.GetWidth(), 0, xc, dcSize.GetHeight());
-	}
-	if (yc > 0) {
-		dc.DrawRectangle(0, 0, dcSize.GetWidth(), yc);
-		dc.DrawRectangle(0, yc + bmpSize.GetHeight(), dcSize.GetWidth(), yc);
-	}
+
+	drawFill(dc, bmpSize, wxPoint(xc, yc));
 }
 
 void BitmapCanvas::setBitmap(const Bitmap& bmp) {
@@ -61,6 +58,45 @@ void BitmapCanvas::setBitmap(const Bitmap& bmp) {
 	}
 	this->bmp = wxBitmap(tmpImg);
 	Refresh();
+}
+
+void BitmapCanvas::setImage(const wxImage & img) {
+	bmp = wxBitmap(img);
+	Refresh();
+}
+
+void BitmapCanvas::drawFill(wxBufferedPaintDC & pdc, const wxSize & bmpSize, const wxPoint & bmpCoord) {
+	const int bx = bmpCoord.x;
+	const int by = bmpCoord.y;
+	const int bw = bmpSize.GetWidth();
+	const int bh = bmpSize.GetHeight();
+	const wxSize& dcSize = pdc.GetSize();
+	const int dw = dcSize.GetWidth();
+	const int dh = dcSize.GetHeight();
+	const int ew = (dw - bw); // the empty space width
+	const int eh = (dh - bh); // the empty space height
+	if (ew > 0 || eh > 0) {
+		const wxColour fillColour = GetBackgroundColour();
+		pdc.SetBrush(wxBrush(fillColour));
+		pdc.SetPen(wxPen(fillColour));
+		const int ewl = (ew >> 1) + (ew & 1); // the leftside leftover width
+		const int ehb = (eh >> 1) + (eh & 1); // the bottom leftover height
+		if (ew > 0) {
+			pdc.DrawRectangle(0, by, bx, bh);
+			pdc.DrawRectangle(bx + bw, by, ewl, bh);
+		}
+		if (eh > 0) {
+			pdc.DrawRectangle(bx, 0, bw, by);
+			pdc.DrawRectangle(bx, by + bh, bw, ehb);
+		}
+		// if both the empty height and width are non-zero - draw four additional rects
+		if (ew > 0 && eh > 0) {
+			pdc.DrawRectangle(0, 0, bx, by);
+			pdc.DrawRectangle(bx + bw, 0, ewl, by);
+			pdc.DrawRectangle(0, by + bh, bx, ehb);
+			pdc.DrawRectangle(bx + bw, by + bh, ewl, ehb);
+		}
+	}
 }
 
 void BitmapCanvas::OnEraseBkg(wxEraseEvent& evt) {

@@ -3,6 +3,7 @@
 
 #include <wx/wx.h>
 #include <wx/panel.h>
+#include <wx/dcbuffer.h>
 
 #include "bitmap.h"
 
@@ -15,7 +16,12 @@ public:
 	void OnEraseBkg(wxEraseEvent& evt);
 
 	void setBitmap(const Bitmap& bmp);
+
+	void setImage(const wxImage& img);
 private:
+
+	void drawFill(wxBufferedPaintDC& pdc, const wxSize& bmpSize, const wxPoint& bmpCoord);
+
 	bool initialized;
 	wxBitmap bmp;
 };

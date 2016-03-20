@@ -26,11 +26,13 @@ public:
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 protected:
-	//BitmapCanvas * inputCanvas;
-	//BitmapCanvas * outputCanvas;
-	wxPanel * inputCanvas;
-	wxPanel * outputCanvas;
+	BitmapCanvas * inputCanvas;
+	BitmapCanvas * outputCanvas;
+	//wxPanel * inputCanvas;
+	//wxPanel * outputCanvas;
 	wxPanel * compareCanvas;
+	static const wxString ioFileSelector; //!< file selection string - change if a new file type is added
+	static const int panelBorder; //!< the border of the input/output panels
 };
 
 class NegativePanel : public InputOutputMode {

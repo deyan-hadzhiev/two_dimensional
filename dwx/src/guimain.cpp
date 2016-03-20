@@ -26,6 +26,9 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Negative"),
 };
 
+const wxSize ViewFrame::vfMinSize = wxSize(320, 320);
+const wxSize ViewFrame::vfInitSize = wxSize(1024, 768);
+
 wxIMPLEMENT_APP(ViewApp);
 
 bool ViewApp::OnInit() {
@@ -35,16 +38,20 @@ bool ViewApp::OnInit() {
 
 	// must remain here!!!
 	initColor();
+	// initialize some image handlers
+	wxImage::AddHandler(new wxPNGHandler);
+	wxImage::AddHandler(new wxJPEGHandler);
 
 	ViewFrame * frame = new ViewFrame(wxT("2d graphics"));
 	SetTopWindow(frame);
 	frame->Show();
+	frame->Center();
 
 	return true;
 }
 
 ViewFrame::ViewFrame(const wxString& title)
-	: wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(512, 512))
+	: wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, vfInitSize)
 	, mPanel(nullptr)
 	, menuBar(nullptr)
 	, file(nullptr)
@@ -53,18 +60,18 @@ ViewFrame::ViewFrame(const wxString& title)
 	, controlCmp(nullptr)
 	, statusBar(nullptr)
 {
-	SetMinClientSize(wxSize(512, 512));
+	SetMinClientSize(vfMinSize);
 	SetDoubleBuffered(true);
 
 	menuBar = new wxMenuBar;
-	
+
 	file = new wxMenu;
-	fileSave = new wxMenuItem(file, MID_VF_FILE_OPEN, wxT("&Save"));
-	file->Append(fileSave);
-	Connect(MID_VF_FILE_SAVE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
-	fileOpen = new wxMenuItem(file, MID_VF_FILE_SAVE, wxT("&Open"));
+	fileOpen = new wxMenuItem(file, MID_VF_FILE_OPEN, wxT("&Open"));
 	file->Append(fileOpen);
 	Connect(MID_VF_FILE_OPEN, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
+	fileSave = new wxMenuItem(file, MID_VF_FILE_SAVE, wxT("&Save"));
+	file->Append(fileSave);
+	Connect(MID_VF_FILE_SAVE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
 	file->AppendSeparator();
 	file->Append(wxID_EXIT, wxT("&Quit"));
 	menuBar->Append(file, wxT("&File"));
@@ -97,9 +104,6 @@ void ViewFrame::setCustomStyle(unsigned style) {
 	fileSave->Enable((style & VFS_FILE_SAVE) != 0);
 
 	controlCmp->Enable((style & VFS_CNT_COMPARE) != 0);
-}
-
-void ViewFrame::addCustomMenu(wxMenu * menu) {
 }
 
 void ViewFrame::OnQuit(wxCommandEvent &) {

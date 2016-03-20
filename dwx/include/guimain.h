@@ -25,8 +25,6 @@ public:
 	// sets various styles to the view frame like open/save file options enabled, etc
 	void setCustomStyle(unsigned style);
 
-	void addCustomMenu(wxMenu * menu);
-
 	enum MenuItems {
 		MID_VF_FILE_OPEN = wxID_HIGHEST + 1,
 		MID_VF_FILE_SAVE,
@@ -38,7 +36,11 @@ public:
 	};
 private:
 
-	static const wxString modeNames[MID_VF_MODES_END - MID_VF_MODES_START - 1];
+	static const wxString modeNames[MID_VF_MODES_END - MID_VF_MODES_START - 1]; // name of the modes supported
+
+	// some layout constants
+	static const wxSize vfMinSize;
+	static const wxSize vfInitSize;
 
 	ModePanel * mPanel;
 	wxMenuBar * menuBar;
