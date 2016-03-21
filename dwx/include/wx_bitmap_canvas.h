@@ -81,7 +81,16 @@ private:
 
 	wxBitmap bmp;
 	wxBitmap canvas;
-	bool dirtyCanvas; //!< whether the current canvas is dirty and has to be updated from the bmp based on focus point and zoomLvl
+	//bool dirtyCanvas; //!< whether the current canvas is dirty and has to be updated from the bmp based on focus point and zoomLvl
+	enum CanvasState {
+		CS_CLEAN = 0,
+		CS_DIRTY_SIZE = 1 << 0,
+		CS_DIRTY_ZOOM = 1 << 1,
+		CS_DIRTY_POS = 1 << 2,
+		CS_DIRTY_FULL = CS_DIRTY_SIZE | CS_DIRTY_ZOOM | CS_DIRTY_POS,
+	};
+	unsigned canvasState;
+	wxSize panelSize; //!< the panel size from the last event (NOTE: use this instead of GetSize() because it may be changed between event handling)
 
 	// topframe for status bar updates
 	wxFrame * topFrame;

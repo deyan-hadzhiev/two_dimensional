@@ -15,7 +15,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 	, mousePos(0, 0)
 	, bmpRect(0, 0, 0, 0)
 	, canvasRect(0, 0, 0, 0)
-	, dirtyCanvas(true)
+	, canvasState(CS_DIRTY_FULL)
 	, topFrame(topFrame)
 {
 	// connect paint events
@@ -78,7 +78,7 @@ void BitmapCanvas::setImage(const wxImage & img) {
 	resetBmpRectPos();
 	recalcCanvasRectSize();
 	resetCanvasRectPos();
-	dirtyCanvas = true;
+	canvasState = CS_DIRTY_FULL;
 	Refresh();
 }
 
@@ -93,7 +93,7 @@ void BitmapCanvas::updateStatus() const {
 		posStr.Printf(wxT("x: %4d y: %4d bmp(%d, %d, %d, %d)"), mousePos.x, mousePos.y, bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height);
 		topFrame->SetStatusText(posStr, 1);
 		wxString rectStr;
-		rectStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d)"), zoomLvl, canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height);
+		rectStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d) %d %d"), zoomLvl, canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height, canvas.GetWidth(), canvas.GetHeight());
 		topFrame->SetStatusText(rectStr, 2);
 	} else {
 		topFrame->SetStatusText(wxT(""), 1);
@@ -102,20 +102,21 @@ void BitmapCanvas::updateStatus() const {
 }
 
 void BitmapCanvas::recalcBmpRectSize() {
-	const wxSize panelSize = GetSize();
 	const wxSize scaledBmpSize = scale(bmp.GetSize());
-	if (panelSize.GetWidth() >= scaledBmpSize.GetWidth()) {
+	// with little hakz for the downscaling to avoid performance issues
+	// always have the full bmp stored on downscales
+	if (panelSize.GetWidth() >= scaledBmpSize.GetWidth() || zoomLvl < 0) {
 		bmpRect.width = bmp.GetWidth();
-		bmpClip.x = false;
+		bmpClip.x = panelSize.GetWidth() < scaledBmpSize.GetWidth();
 	} else {
-		bmpRect.width = unscale(panelSize.GetWidth()) + 2;
+		bmpRect.width = std::min(unscale(panelSize.GetWidth()) + 2, bmp.GetWidth());
 		bmpClip.x = true;
 	}
-	if (panelSize.GetHeight() >= scaledBmpSize.GetHeight()) {
+	if (panelSize.GetHeight() >= scaledBmpSize.GetHeight() || zoomLvl < 0) {
 		bmpRect.height = bmp.GetHeight();
-		bmpClip.y = false;
+		bmpClip.y = panelSize.GetHeight() < scaledBmpSize.GetHeight();
 	} else {
-		bmpRect.height = unscale(panelSize.GetHeight()) + 2;
+		bmpRect.height = std::min(unscale(panelSize.GetHeight()) + 2, bmp.GetHeight());
 		bmpClip.y = true;
 	}
 }
@@ -126,19 +127,18 @@ void BitmapCanvas::resetBmpRectPos() {
 }
 
 void BitmapCanvas::recalcCanvasRectSize() {
-	const wxSize panelSize = GetSize();
 	canvasRect.width = (bmpClip.x ? panelSize.GetWidth() : scale(bmpRect.width));
 	canvasRect.height = (bmpClip.y ? panelSize.GetHeight() : scale(bmpRect.height));
 }
 
 void BitmapCanvas::resetCanvasRectPos() {
-	const wxSize panelSize = GetSize();
 	const wxSize scaledBmpRectSize = scale(bmpRect.GetSize());
 	canvasRect.x = (bmpClip.x ? (scaledBmpRectSize.GetWidth() - canvasRect.width) / 2 : 0);
 	canvasRect.y = (bmpClip.y ? (scaledBmpRectSize.GetHeight() - canvasRect.height) / 2 : 0);
 }
 
 wxPoint BitmapCanvas::convertScreenToBmp(const wxPoint in) const {
+	// TODO - fix previous consideration of canvasRect position
 	const wxPoint unscaled = unscale(in - canvasRect.GetTopLeft());
 	const wxPoint bmpCoord = bmpRect.GetTopLeft() + unscaled;
 	return wxPoint(
@@ -148,9 +148,9 @@ wxPoint BitmapCanvas::convertScreenToBmp(const wxPoint in) const {
 }
 
 wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
+	// TODO - fix previous consideration of canvasRect position
 	const wxPoint clippedBmpCoord = bmpRect.GetTopLeft() + in;
 	const wxPoint scaled = scale(clippedBmpCoord) + canvasRect.GetTopLeft();
-	const wxSize panelSize = GetSize();
 	return wxPoint(
 		clamp(scaled.x, -1, panelSize.GetWidth()),
 		clamp(scaled.y, -1, panelSize.GetHeight())
@@ -158,6 +158,17 @@ wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
 }
 
 void BitmapCanvas::remapCanvas() {
+	if (canvasState == CS_CLEAN)
+		return;
+
+	const BmpClip oldClip = bmpClip;
+	recalcBmpRectSize();
+	resetBmpRectPos();
+	//if (bmpClip.any != 0 || canvasState == CS_DIRTY_FULL) {
+		// this is only for debug for now!
+	recalcCanvasRectSize();
+	resetCanvasRectPos();
+	//}
 	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight() || zoomLvl != 0) {
 		if (zoomLvl == 0) {
 			canvas = bmp.GetSubBitmap(bmpRect);
@@ -189,7 +200,7 @@ void BitmapCanvas::remapCanvas() {
 				}
 			}
 			canvas = wxBitmap(scaledImg);
-		} else {
+		} else if (scale(bmpRect.GetSize()) != canvas.GetSize()) {
 			const int scale = -zoomLvl + 1;
 			const int scaleSqr = scale * scale;
 			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
@@ -226,17 +237,13 @@ void BitmapCanvas::remapCanvas() {
 	} else {
 		canvas = bmp;
 	}
+	updateStatus();
+	canvasState = CS_CLEAN;
 }
 
 void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
 	wxBufferedPaintDC dc(this);
-	if (dirtyCanvas) {
-		remapCanvas();
-		dirtyCanvas = false;
-	} else {
-		//recalcCanvasRect();
-	}
-	const wxSize panelSize(GetSize());
+	remapCanvas();
 	const wxPoint drawPos(
 		(bmpClip.x ? -canvasRect.x : (panelSize.GetWidth() - canvasRect.width) / 2),
 		(bmpClip.y ? -canvasRect.y : (panelSize.GetHeight() - canvasRect.height) / 2)
@@ -251,9 +258,8 @@ void BitmapCanvas::drawFill(wxBufferedPaintDC & pdc, const wxSize & bmpSize, con
 	const int by = bmpCoord.y;
 	const int bw = bmpSize.GetWidth();
 	const int bh = bmpSize.GetHeight();
-	const wxSize& dcSize = pdc.GetSize();
-	const int dw = dcSize.GetWidth();
-	const int dh = dcSize.GetHeight();
+	const int dw = panelSize.GetWidth();
+	const int dh = panelSize.GetHeight();
 	const int ew = (dw - bw); // the empty space width
 	const int eh = (dh - bh); // the empty space height
 	if (ew > 0 || eh > 0) {
@@ -326,13 +332,8 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 			newZoomLvl -= delta / 120;
 		}
 		zoomLvl = clamp(newZoomLvl, minZoom, maxZoom);
-		recalcBmpRectSize();
-		resetBmpRectPos();
-		recalcCanvasRectSize();
-		resetCanvasRectPos();
 
-		updateStatus();
-		dirtyCanvas = true;
+		canvasState = CS_DIRTY_ZOOM;
 		Refresh();
 	}
 }
@@ -341,16 +342,8 @@ void BitmapCanvas::OnSizeEvt(wxSizeEvent & evt) {
 	if (GetAutoLayout()) {
 		Layout();
 	}
+	panelSize = GetSize();
 	// this makes the canvas dirty only if the new size requires resizing of the canvas
-	const BmpClip oldClip = bmpClip;
-	recalcBmpRectSize();
-	if (bmpClip.any) {
-		// this is only for debug for now!
-		resetBmpRectPos();
-		recalcCanvasRectSize();
-		resetCanvasRectPos();
-		dirtyCanvas = (bmpClip.any != 0);
-	}
-	updateStatus();
+	canvasState = CS_DIRTY_SIZE;
 	evt.Skip();
 }
