@@ -28,8 +28,29 @@ private:
 	void resetFocus(); //!< resets the focus to default
 	void setFocus(wxPoint f); //!< sets the new focus if it is in bounds
 	bool clippedCanvas() const; //!< returns true if the full bmp is currently drawn
-	wxSize scaleSize(wxSize input) const; //!< calculates size regarding current zoom
-	wxSize unscaleSize(wxSize input) const; //!< reverse calculation of zoom
+
+	template<class Scalable>
+	Scalable scale(Scalable input) const {
+		if (zoomLvl == 0) {
+			return input;
+		} else if (zoomLvl > 0) {
+			return input * (zoomLvl + 1);
+		} else {
+			return input / (-zoomLvl + 1);
+		}
+	}
+
+	template<class Scalable>
+	Scalable unscale(Scalable input) const {
+		if (zoomLvl == 0) {
+			return input;
+		} else if (zoomLvl > 0) {
+			return input / (zoomLvl + 1);
+		} else {
+			return input * (-zoomLvl + 1);
+		}
+	}
+
 	wxPoint convertScreenToBmp(const wxPoint in) const;
 	wxPoint convertBmpToScreen(const wxPoint in) const;
 

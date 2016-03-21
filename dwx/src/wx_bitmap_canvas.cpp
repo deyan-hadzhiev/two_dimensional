@@ -107,39 +107,18 @@ void BitmapCanvas::resetFocus() {
 }
 
 void BitmapCanvas::setFocus(wxPoint f) {
-	const wxSize uphs = unscaleSize(GetSize()) / 2; // unscaledPanelHalfSize
+	const wxSize uphs = unscale(GetSize()) / 2; // unscaledPanelHalfSize
 	currentFocus.x = clamp(f.x, uphs.GetWidth(), bmp.GetWidth() - uphs.GetWidth());
 	currentFocus.y = clamp(f.y, uphs.GetHeight(), bmp.GetHeight() - uphs.GetHeight());
 }
 
 bool BitmapCanvas::clippedCanvas() const {
-	const wxSize unscaledBmpSize = unscaleSize(bmp.GetSize());
+	const wxSize unscaledBmpSize = unscale(bmp.GetSize());
 	const wxSize panelSize = GetSize();
 	return unscaledBmpSize.GetWidth() > panelSize.GetWidth() || unscaledBmpSize.GetHeight() < panelSize.GetHeight() || bmpRect.x > 0 || bmpRect.y > 0;
 }
 
-wxSize BitmapCanvas::scaleSize(wxSize input) const {
-	if (zoomLvl == 0) {
-		return input;
-	} else if (zoomLvl > 0) {
-		return input * (zoomLvl + 1);
-	} else {
-		return input / (-zoomLvl + 1);
-	}
-}
-
-wxSize BitmapCanvas::unscaleSize(wxSize input) const {
-	if (zoomLvl == 0) {
-		return input;
-	} else if (zoomLvl > 0) {
-		return input / (zoomLvl + 1);
-	} else {
-		return input * (-zoomLvl + 1);
-	}
-}
-
 wxPoint BitmapCanvas::convertScreenToBmp(const wxPoint in) const {
-
 	return wxPoint();
 }
 
@@ -149,8 +128,8 @@ wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
 
 void BitmapCanvas::recalcBmpRect() {
 	const wxSize panelSize = GetSize();
-	const wxSize unscaledSize = unscaleSize(panelSize);
-	const wxSize rescaledSize = scaleSize(unscaledSize); //!< for remainder offsets
+	const wxSize unscaledSize = unscale(panelSize);
+	const wxSize rescaledSize = scale(unscaledSize); //!< for remainder offsets
 	const wxPoint panelCenter(panelSize.GetWidth() / 2, panelSize.GetHeight() / 2);
 	bmpRect.x = clamp(currentFocus.x - unscaledSize.GetWidth() / 2, 0, bmp.GetWidth() - unscaledSize.GetWidth());
 	bmpRect.y = clamp(currentFocus.y - unscaledSize.GetHeight() / 2, 0, bmp.GetHeight() - unscaledSize.GetHeight());
@@ -175,7 +154,7 @@ void BitmapCanvas::remapCanvas() {
 		} else if (zoomLvl > 0) {
 			const int scale = zoomLvl + 1;
 			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
-			const wxSize scaledSize = scaleSize(subBmp.GetSize());
+			const wxSize scaledSize = this->scale(subBmp.GetSize());
 			const int width = subBmp.GetWidth();
 			const int height = subBmp.GetHeight();
 			const int bpp = 3;
@@ -204,7 +183,7 @@ void BitmapCanvas::remapCanvas() {
 			const int scale = -zoomLvl + 1;
 			const int scaleSqr = scale * scale;
 			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
-			const wxSize scaledSize = scaleSize(subBmp.GetSize());
+			const wxSize scaledSize = this->scale(subBmp.GetSize());
 			const int unscaledWidth = subBmp.GetWidth();
 			const int width = scaledSize.GetWidth();
 			const int height = scaledSize.GetHeight();
