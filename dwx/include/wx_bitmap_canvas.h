@@ -25,9 +25,18 @@ public:
 
 	void updateStatus() const;
 private:
-	void resetFocus(); //!< resets the focus to default
-	void setFocus(wxPoint f); //!< sets the new focus if it is in bounds
-	bool clippedCanvas() const; //!< returns true if the full bmp is currently drawn
+	union BmpClip {
+		struct {
+			bool x : 1;
+			bool y : 1;
+		};
+		unsigned char any : 2;
+	} bmpClip;
+	// new zooming functions
+	void recalcBmpRectSize(); //!< must have a valid bmp loaded
+	void resetBmpRectPos(); //!< resets the position of the rect to be centralized
+	void recalcCanvasRectSize(); //!< recalculates the size of the canvas rect
+	void resetCanvasRectPos(); //!< resets the position of the canvas to be centralized on the panel
 
 	template<class Scalable>
 	Scalable scale(Scalable input) const {
@@ -51,15 +60,13 @@ private:
 		}
 	}
 
-	wxPoint convertScreenToBmp(const wxPoint in) const;
-	wxPoint convertBmpToScreen(const wxPoint in) const;
-
-	void recalcBmpRect();
-
-	void recalcCanvasRect();
-
+	wxPoint convertScreenToBmp(const wxPoint in) const; //!< convert screen to bmp coordinates (may return out of bounds!)
+	wxPoint convertBmpToScreen(const wxPoint in) const; //!< convert bmp to screen coordinates (may return out of bounds!)
+	// remaps the current canvas to the new as specified by the zoomLvl
+	// NOTE: Call only when necessary!
 	void remapCanvas();
 
+	// draws fill on the buffered paint dc based on size and position
 	void drawFill(wxBufferedPaintDC& pdc, const wxSize& bmpSize, const wxPoint& bmpCoord);
 
 	bool mouseOverCanvas; //!< whether the mouse is currently over the window
@@ -68,7 +75,6 @@ private:
 	int zoomLvl; //!< the current zoom level
 	static const int maxZoom; //!< maximum zoom level supported
 	static const int minZoom; //!< minimum zoom level supported
-	wxPoint currentFocus; //!< the currently focused point in bmp coordinates
 	wxPoint mousePos; //!< the current pointer position
 	wxRect bmpRect; //!< the currently seen rect from the bitmap in bmp coordinates
 	wxRect canvasRect; //!< the current canvas position and size
