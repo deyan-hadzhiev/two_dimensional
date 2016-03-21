@@ -4,8 +4,8 @@
 #include "wx_bitmap_canvas.h"
 #include "util.h"
 
-const int BitmapCanvas::minZoom = -4;
-const int BitmapCanvas::maxZoom = 8;
+const int BitmapCanvas::minZoom = -8;
+const int BitmapCanvas::maxZoom = 16;
 
 BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
@@ -36,7 +36,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 		setBitmap(*initBmp);
 	} else {
 		Bitmap empty;
-		const int bmpDim = 64;
+		const int bmpDim = 129;
 		empty.generateEmptyImage(bmpDim, bmpDim);
 		const Color border(.5f, .5f, .5f);
 		Color * bmpData = empty.getDataPtr();
@@ -45,6 +45,11 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 			bmpData[i * bmpDim] = border;
 			bmpData[bmpDim * (bmpDim - 1) + i] = border;
 			bmpData[bmpDim * i + bmpDim - 1] = border;
+			// second row
+			bmpData[bmpDim + i] = border;
+			bmpData[i * bmpDim + 1] = border;
+			bmpData[bmpDim * (bmpDim - 2) + i] = border;
+			bmpData[bmpDim * i + bmpDim - 2] = border;
 		}
 		setBitmap(empty);
 	}
@@ -196,7 +201,38 @@ void BitmapCanvas::remapCanvas() {
 			}
 			canvas = wxBitmap(scaledImg);
 		} else {
-			// TODO downscale
+			const int scale = -zoomLvl + 1;
+			const int scaleSqr = scale * scale;
+			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
+			const wxSize scaledSize = scaleSize(subBmp.GetSize());
+			const int unscaledWidth = subBmp.GetWidth();
+			const int width = scaledSize.GetWidth();
+			const int height = scaledSize.GetHeight();
+			const int bpp = 3;
+			int accumulated[bpp] = { 0 };
+			const wxImage sourceImg = subBmp.ConvertToImage();
+			wxImage scaledImg(scaledSize);
+			const unsigned char * srcData = sourceImg.GetData();
+			unsigned char * imgData = scaledImg.GetData();
+			for (int y = 0; y < height; ++y) {
+				for (int x = 0; x < width; ++x) {
+					memset(accumulated, 0, bpp * sizeof(accumulated[0]));
+					for (int s = 0; s < scaleSqr; ++s) {
+						const int row = s / scale;
+						const int column = s % scale;
+						accumulated[0] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 0];
+						accumulated[1] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 1];
+						accumulated[2] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 2];
+					}
+					for (int i = 0; i < bpp; ++i) {
+						accumulated[i] /= scaleSqr;
+					}
+					imgData[(y * width + x) * bpp + 0] = static_cast<unsigned char>(accumulated[0]);
+					imgData[(y * width + x) * bpp + 1] = static_cast<unsigned char>(accumulated[1]);
+					imgData[(y * width + x) * bpp + 2] = static_cast<unsigned char>(accumulated[2]);
+				}
+			}
+			canvas = wxBitmap(scaledImg);
 		}
 	} else {
 		canvas = bmp;
