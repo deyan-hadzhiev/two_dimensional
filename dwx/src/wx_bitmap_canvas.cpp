@@ -86,9 +86,9 @@ void BitmapCanvas::setImage(const wxImage & img) {
 void BitmapCanvas::updateStatus() const {
 	if (true || mouseOverCanvas) {
 		wxString focusStr;
-		const wxSize sz = GetSize();
-		
-		focusStr.Printf(wxT("focus: x: %4d y: %4d ps: (%d, %d)"), currentFocus.x, currentFocus.y, sz.GetWidth(), sz.GetHeight());
+		const wxPoint mouseBmp = convertScreenToBmp(mousePos);
+		const wxPoint screenPos = convertBmpToScreen(mouseBmp);
+		focusStr.Printf(wxT("bmp: ( %4d, %4d) screen: ( %4d, %4d)"), mouseBmp.x, mouseBmp.y, screenPos.x, screenPos.y);
 		topFrame->SetStatusText(focusStr);
 		wxString posStr;
 		posStr.Printf(wxT("x: %4d y: %4d bmp(%d, %d, %d, %d)"), mousePos.x, mousePos.y, bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height);
@@ -119,11 +119,22 @@ bool BitmapCanvas::clippedCanvas() const {
 }
 
 wxPoint BitmapCanvas::convertScreenToBmp(const wxPoint in) const {
-	return wxPoint();
+	const wxPoint unscaled = unscale(in - canvasRect.GetTopLeft());
+	const wxPoint bmpCoord = bmpRect.GetTopLeft() + unscaled;
+	return wxPoint(
+		clamp(bmpCoord.x, -1, bmp.GetWidth()),
+		clamp(bmpCoord.y, -1, bmp.GetHeight())
+		);
 }
 
 wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
-	return wxPoint();
+	const wxPoint clippedBmpCoord = bmpRect.GetTopLeft() + in;
+	const wxPoint scaled = scale(clippedBmpCoord) + canvasRect.GetTopLeft();
+	const wxSize panelSize = GetSize();
+	return wxPoint(
+		clamp(scaled.x, -1, panelSize.GetWidth()),
+		clamp(scaled.y, -1, panelSize.GetHeight())
+		);
 }
 
 void BitmapCanvas::recalcBmpRect() {
