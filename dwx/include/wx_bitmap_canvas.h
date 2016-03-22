@@ -59,7 +59,7 @@ private:
 			return input * (-zoomLvl + 1);
 		}
 	}
-
+	wxPoint getCanvasTopLeftInScreen() const; //!< returns the current screen coordinates of the top left corner of the canvas
 	wxPoint convertScreenToBmp(const wxPoint in) const; //!< convert screen to bmp coordinates (may return out of bounds!)
 	wxPoint convertBmpToScreen(const wxPoint in) const; //!< convert bmp to screen coordinates (may return out of bounds!)
 	// remaps the current canvas to the new as specified by the zoomLvl
