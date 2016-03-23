@@ -85,7 +85,9 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 	} else {
 		bmpId = id;
 	}
-	resetFocus();
+	if (id == 0) {
+		resetFocus();
+	}
 	dirtyCanvas = true;
 	Refresh();
 }
@@ -130,6 +132,36 @@ void BitmapCanvas::synchronize() {
 			s->Refresh();
 		}
 	}
+}
+
+bool BitmapCanvas::getInput(Bitmap & ibmp, int & id) const {
+	bool retval = false;
+	if (bmp.Ok()) {
+		const wxImage img(bmp.ConvertToImage());
+		const int w = img.GetWidth();
+		const int h = img.GetHeight();
+		ibmp.generateEmptyImage(w, h);
+		const unsigned char * imgData = img.GetData();
+		for (int dh = 0; dh < h; ++dh) {
+			for (int dw = 0; dw < w; ++dw) {
+				const unsigned char * rgb = imgData + dh * w * 3 + dw * 3;
+				ibmp[dh][dw] = Color(rgb[0], rgb[1], rgb[2]);
+			}
+		}
+		id = bmpId;
+		retval = true;
+	}
+	return retval;
+}
+
+void BitmapCanvas::kernelDone(KernelBase::ProcessResult result) {
+	if (result == KernelBase::KPR_OK) {
+		synchronize();
+	}
+}
+
+void BitmapCanvas::setOutput(const Bitmap & obmp, int id) {
+	setBitmap(obmp, id);
 }
 
 void BitmapCanvas::resetFocus() {

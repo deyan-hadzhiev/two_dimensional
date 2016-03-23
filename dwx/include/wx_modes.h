@@ -4,6 +4,8 @@
 #include <wx/wx.h>
 #include "guimain.h"
 #include "wx_bitmap_canvas.h"
+#include "kernel_base.h"
+#include "kernels.h"
 
 class ViewFrame;
 
@@ -21,16 +23,18 @@ protected:
 
 class InputOutputMode : public ModePanel {
 public:
-	InputOutputMode(ViewFrame * viewFrame);
+	InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel);
 	virtual ~InputOutputMode();
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 protected:
 	BitmapCanvas * inputCanvas;
 	BitmapCanvas * outputCanvas;
+	wxPanel * compareCanvas;
+	SimpleKernel * kernel;
+
 	//wxPanel * inputCanvas;
 	//wxPanel * outputCanvas;
-	wxPanel * compareCanvas;
 	static const wxString ioFileSelector; //!< file selection string - change if a new file type is added
 	static const int panelBorder; //!< the border of the input/output panels
 };

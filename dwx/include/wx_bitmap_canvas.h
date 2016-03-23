@@ -7,8 +7,10 @@
 #include <wx/vector.h>
 
 #include "bitmap.h"
+#include "kernel_base.h"
 
-class BitmapCanvas : public wxPanel {
+// TODO make it a base class and split the input and output - if it makes sense
+class BitmapCanvas : public wxPanel, public InputManager, public OutputManager {
 public:
 	BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp = nullptr);
 
@@ -31,6 +33,15 @@ public:
 	void addSynchronizer(BitmapCanvas * s); //!< adds another canvas that will synchronize zooming/panning
 
 	void synchronize(); //!< synchronizes with other canvases to show the same rect
+
+	// from InputManager
+	virtual bool getInput(Bitmap& inputBmp, int& id) const override;
+
+	virtual void kernelDone(KernelBase::ProcessResult result) override;
+
+	// from OutputManager
+	virtual void setOutput(const Bitmap& outputBmp, int id) override;
+
 protected:
 
 	wxVector<BitmapCanvas*> synchronizers; //!< a vector of synchronizers that have to be synchronized on changes

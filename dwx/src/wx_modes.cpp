@@ -9,6 +9,7 @@
 #include "guimain.h"
 #include "wx_modes.h"
 #include "wx_bitmap_canvas.h"
+#include "kernels.h"
 
 ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 	: wxPanel(viewFrame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxNO_BORDER | wxSIZE_AUTO | wxSIZE_FORCE)
@@ -23,14 +24,15 @@ ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 
 ModePanel::~ModePanel() {}
 
-const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg)|*.png;*.jpeg;*.jpg");
+const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
 const int InputOutputMode::panelBorder = 4;
 
-InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
-	: ModePanel(viewFrame, ViewFrame::VFS_OPEN_SAVE | ViewFrame::VFS_CNT_COMPARE)
+InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
+	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED)
 	, inputCanvas(nullptr)
 	, outputCanvas(nullptr)
 	, compareCanvas(nullptr)
+	, kernel(kernel)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
 	inputCanvas = new BitmapCanvas(this, viewFrame);
@@ -47,6 +49,9 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
 	inputCanvas->SetBackgroundColour(bc);
 	outputCanvas->SetBackgroundColour(bc);
 
+	kernel->addInputManager(inputCanvas);
+	kernel->addOutputManager(outputCanvas);
+
 	compareCanvas = new wxPanel(this);
 	canvasSizer->Add(compareCanvas, 1, wxEXPAND | wxALL, panelBorder);
 	compareCanvas->SetBackgroundColour(*wxGREEN);
@@ -55,8 +60,9 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
 	SendSizeEvent();
 }
 
-InputOutputMode::~InputOutputMode()
-{
+InputOutputMode::~InputOutputMode() {
+	if (kernel)
+		delete kernel;
 }
 
 void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
@@ -73,8 +79,8 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 					inputCanvas->setImage(inputImage);
 					viewFrame->SetStatusText(wxString(wxT("Loaded input image: ") + fdlg.GetPath()));
 					// DEBUG
-					const int id = inputCanvas->getBmpId();
-					outputCanvas->setImage(inputImage, id);
+					//const int id = inputCanvas->getBmpId();
+					//outputCanvas->setImage(inputImage, id);
 					// ENDDEBUG
 					// force synchronziation
 					inputCanvas->synchronize();
@@ -90,6 +96,9 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	case (ViewFrame::MID_VF_FILE_SAVE) :
 		// TODO:
 		break;
+	case (ViewFrame::MID_VF_CNT_RUN) :
+		kernel->runKernel(0);
+		break;
 	case (ViewFrame::MID_VF_CNT_COMPARE) :
 		inputCanvas->Show(!inputCanvas->IsShown());
 		outputCanvas->Show(!outputCanvas->IsShown());
@@ -102,5 +111,5 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 }
 
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
-	: InputOutputMode(viewFrame)
+	: InputOutputMode(viewFrame, new NegativeKernel)
 {}

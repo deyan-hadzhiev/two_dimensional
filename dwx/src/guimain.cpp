@@ -26,6 +26,16 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Negative"),
 };
 
+const wxString ViewFrame::controlNames[] = {
+	wxT("&Run\tF5"),
+	wxT("&Compare\tCtrl+C"),
+};
+
+const wxItemKind ViewFrame::controlKinds[] = {
+	wxITEM_NORMAL, //!< Run
+	wxITEM_CHECK,  //!< Compare
+};
+
 const wxSize ViewFrame::vfMinSize = wxSize(320, 320);
 const wxSize ViewFrame::vfInitSize = wxSize(1024, 768);
 
@@ -52,12 +62,12 @@ bool ViewApp::OnInit() {
 
 ViewFrame::ViewFrame(const wxString& title)
 	: wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, vfInitSize)
+	, controls{nullptr}
 	, mPanel(nullptr)
 	, menuBar(nullptr)
 	, file(nullptr)
 	, fileOpen(nullptr)
 	, fileSave(nullptr)
-	, controlCmp(nullptr)
 	, statusBar(nullptr)
 {
 	SetMinClientSize(vfMinSize);
@@ -66,10 +76,10 @@ ViewFrame::ViewFrame(const wxString& title)
 	menuBar = new wxMenuBar;
 
 	file = new wxMenu;
-	fileOpen = new wxMenuItem(file, MID_VF_FILE_OPEN, wxT("&Open"));
+	fileOpen = new wxMenuItem(file, MID_VF_FILE_OPEN, wxT("&Open\tCtrl+O"));
 	file->Append(fileOpen);
 	Connect(MID_VF_FILE_OPEN, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
-	fileSave = new wxMenuItem(file, MID_VF_FILE_SAVE, wxT("&Save"));
+	fileSave = new wxMenuItem(file, MID_VF_FILE_SAVE, wxT("&Save\tCtrl+S"));
 	file->Append(fileSave);
 	Connect(MID_VF_FILE_SAVE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
 	file->AppendSeparator();
@@ -78,16 +88,18 @@ ViewFrame::ViewFrame(const wxString& title)
 	Connect(wxID_EXIT, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnQuit));
 
 	wxMenu * modes = new wxMenu;
-	for (unsigned modei = MID_VF_MODES_START + 1; modei < MID_VF_MODES_END; ++modei) {
-		modes->Append(modei, modeNames[modei - MID_VF_MODES_START - 1]);
+	for (unsigned modei = MID_VF_MODES_RANGE_START + 1; modei < MID_VF_MODES_RANGE_END; ++modei) {
+		modes->Append(modei, modeNames[modei - MID_VF_MODES_RANGE_START - 1]);
 		Connect(modei, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
 	}
 	menuBar->Append(modes, wxT("&Modes"));
 	wxMenu * control = new wxMenu;
-	controlCmp = new wxMenuItem(control, MID_VF_CNT_COMPARE, wxT("&Compare"), wxEmptyString, wxITEM_CHECK);
-	control->Append(controlCmp);
+	for (int i = 0; i < _countof(controls); ++i) {
+		controls[i] = new wxMenuItem(control, i + MID_VF_CNT_RANGE_START + 1, controlNames[i], wxEmptyString, controlKinds[i]);
+		control->Append(controls[i]);
+		Connect(i + MID_VF_CNT_RANGE_START + 1, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
+	}
 	menuBar->Append(control, wxT("Control"));
-	Connect(MID_VF_CNT_COMPARE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
 
 	SetMenuBar(menuBar);
 	CreateStatusBar(3);
@@ -103,7 +115,9 @@ void ViewFrame::setCustomStyle(unsigned style) {
 	fileOpen->Enable((style & VFS_FILE_OPEN) != 0);
 	fileSave->Enable((style & VFS_FILE_SAVE) != 0);
 
-	controlCmp->Enable((style & VFS_CNT_COMPARE) != 0);
+	for (unsigned i = 0; (VFS_CNT_RUN << i) < VFS_CNT_LAST && i < _countof(controls); ++i) {
+		controls[i]->Enable((style & (VFS_CNT_RUN << i)) != 0);
+	}
 }
 
 void ViewFrame::OnQuit(wxCommandEvent &) {
