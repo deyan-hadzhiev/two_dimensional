@@ -126,6 +126,11 @@ void BitmapCanvas::resetBmpRectPos() {
 	bmpRect.y = (bmpClip.y ? (bmp.GetHeight() - bmpRect.height) / 2 : 0);
 }
 
+void BitmapCanvas::recalcBmpRectPos(wxPoint p, const wxRect& prevRect) {
+	bmpRect.x = (bmpClip.x ? p.x - ((p.x - prevRect.x) * (bmpRect.width - 2)) / (prevRect.width - 2) : 0);
+	bmpRect.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * (bmpRect.height - 2)) / (prevRect.height - 2) : 0);
+}
+
 void BitmapCanvas::recalcCanvasRectSize() {
 	canvasRect.width = (bmpClip.x ? panelSize.GetWidth() : scale(bmpRect.width));
 	canvasRect.height = (bmpClip.y ? panelSize.GetHeight() : scale(bmpRect.height));
@@ -169,14 +174,30 @@ void BitmapCanvas::remapCanvas() {
 	if (canvasState == CS_CLEAN)
 		return;
 
-	const BmpClip oldClip = bmpClip;
-	recalcBmpRectSize();
-	resetBmpRectPos();
-	//if (bmpClip.any != 0 || canvasState == CS_DIRTY_FULL) {
-		// this is only for debug for now!
+	const wxRect prevBmpRect = bmpRect;
+	if ((canvasState & ~CS_DIRTY_POS) != 0) {
+		recalcBmpRectSize();
+	}
+	if (canvasState == CS_DIRTY_FULL) {
+		// todo change with preserved point for convenience
+		resetBmpRectPos();
+	} else {
+		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
+			const wxPoint absolutePreserve = ((canvasState & CS_DIRTY_ZOOM) != 0 ?
+				convertScreenToBmp(mousePos) :
+				wxPoint(
+					(prevBmpRect.x + prevBmpRect.width) / 2,
+					(prevBmpRect.y + prevBmpRect.height) / 2
+					)
+				);
+			recalcBmpRectPos(absolutePreserve, prevBmpRect);
+			SetBackgroundColour(*wxGREEN);
+		} else {
+			SetBackgroundColour(*wxBLUE);
+		}
+	}
 	recalcCanvasRectSize();
 	resetCanvasRectPos();
-	//}
 	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight() || zoomLvl != 0) {
 		if (zoomLvl == 0) {
 			canvas = bmp.GetSubBitmap(bmpRect);

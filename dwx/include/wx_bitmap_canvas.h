@@ -35,6 +35,7 @@ private:
 	// new zooming functions
 	void recalcBmpRectSize(); //!< must have a valid bmp loaded
 	void resetBmpRectPos(); //!< resets the position of the rect to be centralized
+	void recalcBmpRectPos(wxPoint p, const wxRect& prevRect); //!< recalculates the rect position preserving the specified relative position
 	void recalcCanvasRectSize(); //!< recalculates the size of the canvas rect
 	void resetCanvasRectPos(); //!< resets the position of the canvas to be centralized on the panel
 
