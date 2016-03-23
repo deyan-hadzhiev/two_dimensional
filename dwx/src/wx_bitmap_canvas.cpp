@@ -18,6 +18,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 	, canvasRect(0, 0, 0, 0)
 	, dirtyCanvas(true)
 	, topFrame(topFrame)
+	, bmpId(0)
 {
 	// connect paint events
 	Connect(wxEVT_PAINT, wxPaintEventHandler(BitmapCanvas::OnPaint), NULL, this);
@@ -56,7 +57,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 	Update();
 }
 
-void BitmapCanvas::setBitmap(const Bitmap& bmp) {
+void BitmapCanvas::setBitmap(const Bitmap& bmp, int id) {
 	const int w = bmp.getWidth();
 	const int h = bmp.getHeight();
 	wxImage tmpImg = wxImage(wxSize(w, h));
@@ -70,17 +71,27 @@ void BitmapCanvas::setBitmap(const Bitmap& bmp) {
 			imgData[2 + (x + y * w) * 3] = static_cast<unsigned char>(rgb & 0x0000ff);
 		}
 	}
-	this->bmp = wxBitmap(tmpImg);
+	setImage(tmpImg, id);
+}
+
+void BitmapCanvas::setImage(const wxImage & img, int id) {
+	bmp = wxBitmap(img);
+	if (id == 0) {
+		int rndId = rand();
+		while (rndId == 0) {
+			rndId = rand();
+		}
+		bmpId = rndId;
+	} else {
+		bmpId = id;
+	}
 	resetFocus();
 	dirtyCanvas = true;
 	Refresh();
 }
 
-void BitmapCanvas::setImage(const wxImage & img) {
-	bmp = wxBitmap(img);
-	resetFocus();
-	dirtyCanvas = true;
-	Refresh();
+int BitmapCanvas::getBmpId() const {
+	return bmpId;
 }
 
 void BitmapCanvas::updateStatus() const {
@@ -99,6 +110,25 @@ void BitmapCanvas::updateStatus() const {
 	} else {
 		topFrame->SetStatusText(wxT(""), 1);
 		topFrame->SetStatusText(wxT(""), 2);
+	}
+}
+
+void BitmapCanvas::addSynchronizer(BitmapCanvas * s) {
+	synchronizers.push_back(s);
+}
+
+void BitmapCanvas::synchronize() {
+	for (auto i = synchronizers.begin(); i != synchronizers.end(); ++i) {
+		BitmapCanvas * s = *i;
+		const bool needsUpdate = (zoomLvl != s->zoomLvl || currentFocus != s->currentFocus);
+		// this is improtant because it gurads us from bouncing from one synchronization to another recursively
+		// and only if the two ids match, unmatching ids mean that the output image was not generated yet
+		if (needsUpdate && bmpId == s->bmpId) {
+			s->zoomLvl = this->zoomLvl;
+			s->setFocus(currentFocus);
+			s->dirtyCanvas = true;
+			s->Refresh();
+		}
 	}
 }
 
@@ -234,6 +264,8 @@ void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
 	wxBufferedPaintDC dc(this);
 	if (dirtyCanvas) {
 		remapCanvas();
+		// call the synchronization routine, so we can update the synchronized canvases as well
+		synchronize();
 		dirtyCanvas = false;
 	} else {
 		recalcCanvasRect();

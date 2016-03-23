@@ -4,6 +4,7 @@
 #include <wx/wx.h>
 #include <wx/panel.h>
 #include <wx/dcbuffer.h>
+#include <wx/vector.h>
 
 #include "bitmap.h"
 
@@ -19,15 +20,24 @@ public:
 
 	void OnSizeEvt(wxSizeEvent& evt);
 
-	void setBitmap(const Bitmap& bmp);
+	void setBitmap(const Bitmap& bmp, int id = 0);
 
-	void setImage(const wxImage& img);
+	void setImage(const wxImage& img, int id = 0);
+
+	int getBmpId() const;
 
 	void updateStatus() const;
+
+	void addSynchronizer(BitmapCanvas * s); //!< adds another canvas that will synchronize zooming/panning
+
+	void synchronize(); //!< synchronizes with other canvases to show the same rect
+protected:
+
+	wxVector<BitmapCanvas*> synchronizers; //!< a vector of synchronizers that have to be synchronized on changes
 private:
 	void resetFocus(); //!< resets the focus to default
-	void setFocus(wxPoint f); //!< sets the new focus if it is in bounds
 	bool clippedCanvas() const; //!< returns true if the full bmp is currently drawn
+	void setFocus(wxPoint f); //!< sets the new focus if it is in bounds
 
 	template<class Scalable>
 	Scalable scale(Scalable input) const {
@@ -73,6 +83,7 @@ private:
 	wxRect bmpRect; //!< the currently seen rect from the bitmap in bmp coordinates
 	wxRect canvasRect; //!< the current canvas position and size
 
+	int bmpId;
 	wxBitmap bmp;
 	wxBitmap canvas;
 	bool dirtyCanvas; //!< whether the current canvas is dirty and has to be updated from the bmp based on focus point and zoomLvl

@@ -36,14 +36,17 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
 	inputCanvas = new BitmapCanvas(this, viewFrame);
 	//inputCanvas = new wxPanel(this);
 	canvasSizer->Add(inputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
-	inputCanvas->SetBackgroundColour(*wxRED);
-	inputCanvas->SetForegroundColour(*wxGREEN);
-	//canvasSizer->Add(new wxStaticLine, 0);
-	//outputCanvas = new BitmapCanvas(this, viewFrame);
-	outputCanvas = new wxPanel(this);
-	canvasSizer->Add(outputCanvas, 1, wxEXPAND | wxALL, panelBorder);
-	outputCanvas->SetBackgroundColour(*wxBLUE);
-	outputCanvas->SetForegroundColour(*wxGREEN);
+	outputCanvas = new BitmapCanvas(this, viewFrame);
+	//outputCanvas = new wxPanel(this);
+	canvasSizer->Add(outputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	// add synchornizers
+	inputCanvas->addSynchronizer(outputCanvas);
+	outputCanvas->addSynchronizer(inputCanvas);
+	// set the background colours
+	wxColour bc(75, 75, 75);
+	inputCanvas->SetBackgroundColour(bc);
+	outputCanvas->SetBackgroundColour(bc);
+
 	compareCanvas = new wxPanel(this);
 	canvasSizer->Add(compareCanvas, 1, wxEXPAND | wxALL, panelBorder);
 	compareCanvas->SetBackgroundColour(*wxGREEN);
@@ -69,6 +72,12 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 				if (inputImage.Ok()) {
 					inputCanvas->setImage(inputImage);
 					viewFrame->SetStatusText(wxString(wxT("Loaded input image: ") + fdlg.GetPath()));
+					// DEBUG
+					const int id = inputCanvas->getBmpId();
+					outputCanvas->setImage(inputImage, id);
+					// ENDDEBUG
+					// force synchronziation
+					inputCanvas->synchronize();
 				} else {
 					viewFrame->SetStatusText(wxString(wxT("File is NOT a valid image: ")) + fdlg.GetPath());
 				}
