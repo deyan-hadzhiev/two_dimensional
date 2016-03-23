@@ -28,6 +28,8 @@ set (HEADERS
 	include/guimain.h
 	include/wx_modes.h
 	include/wx_bitmap_canvas.h
+	include/kernel_base.h
+	include/kernels.h
 )
 
 set (SOURCES
@@ -37,6 +39,7 @@ set (SOURCES
 	src/bitmap.cpp
 	src/color.cpp
 	src/matrix2.cpp
+	src/kernels.cpp
 )
 
 link_directories (
