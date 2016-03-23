@@ -39,10 +39,16 @@ public:
 		float components[3];
 	};
 	//
-	Color() noexcept {}
+	Color() noexcept
+		: Color(0.0f)
+	{}
 	//!< Construct a color from floatingpoint values
 	Color(float _r, float _g, float _b) noexcept {
 		setColor(_r, _g, _b);
+	}
+
+	explicit Color(float v)	noexcept {
+		setColor(v, v, v);
 	}
 	//!< Construct a color from R8G8B8 value like "0xffce08"
 	explicit Color(unsigned rgbcolor) noexcept {
@@ -50,6 +56,13 @@ public:
 		b = (rgbcolor & 0xff) * divider;
 		g = ((rgbcolor >> 8) & 0xff) * divider;
 		r = ((rgbcolor >> 16) & 0xff) * divider;
+	}
+
+	Color(unsigned char _r, unsigned char _g, unsigned char _b) noexcept {
+		const float divider = 1.0f / 255.0f;
+		r = static_cast<float>(_r * divider);
+		g = static_cast<float>(_g * divider);
+		b = static_cast<float>(_b * divider);
 	}
 	/// convert to RGB32, with channel shift specifications. The default values are for
 	/// the blue channel occupying the least-significant byte

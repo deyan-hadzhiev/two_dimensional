@@ -5,9 +5,9 @@
 #include "color.h"
 
 class Bitmap {
-	friend class Bitcube;
 protected:
 	int width, height;
+	// TODO make Bitmap data a shared ptr, so bitmaps can be easily shared
 	Color* data;
 
 	void remapRGB(std::function<float(float)>) noexcept; // remap R, G, B channels by a function
@@ -28,14 +28,6 @@ public:
 	Color getFilteredPixel(float x, float y) const noexcept;
 	void setPixel(int x, int y, const Color& col) noexcept; //!< Sets the pixel at coordinates (x, y).
 
-	bool loadBMP(const char* filename) noexcept; //!< Loads an image from a BMP file. Returns false in the case of an error
-	//bool loadEXR(const char* filename); //!< Loads an EXR file
-	//virtual bool loadImage(const char* filename); //!< Loads an image (autodetected)
-
-	/// Saves the image to a BMP file (with clamping, etc). Uses the sRGB colorspace.
-	/// Returns false in the case of an error (e.g. read-only media)
-	bool saveBMP(const char* filename) noexcept;
-
 	/// Saves the image into the EXR format, preserving the dynamic range, using Half for storage. Note that
 	/// in contrast with saveBMP(), it does not use gamma-compression on saving.
 	//bool saveEXR(const char* filename);
@@ -51,6 +43,9 @@ public:
 	void differentiate(void) noexcept; //!< differentiate image (red = dx, green = dy, blue = 0)
 
 	Color* getDataPtr() const noexcept; //!< get the current data ptr - fastest data management for reading
+
+	Color * operator[](int row) noexcept;
+	const Color * operator[](int row) const noexcept;
 };
 
 #endif // __BITMAP_H__
