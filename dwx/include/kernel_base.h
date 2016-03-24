@@ -1,23 +1,29 @@
 #ifndef __KERNEL_BASE_H__
 #define __KERNEL_BASE_H__
 
+#include <string>
 #include "bitmap.h"
 
 class InputManager;
 class OutputManager;
+class ParamManager;
 
 class KernelBase {
 public:
 	virtual ~KernelBase() {}
 	// adds an input manager (note there may be more than one (probably))
-	virtual void addInputManager(InputManager * iman) = 0;
+	virtual void addInputManager(InputManager * iman) {}
 
 	// adds an output manager (probably not more than one, but who knows...)
-	virtual void addOutputManager(OutputManager * oman) = 0;
+	virtual void addOutputManager(OutputManager * oman) {}
+
+	// adds a parameter manager for getting user parameters for the kernel
+	virtual void addParamManager(ParamManager * pman) {}
 
 	enum ProcessResult {
 		KPR_OK = 0,
 		KPR_INVALID_INPUT,
+		KRP_NO_IMPLEMENTATION,
 		KPR_FATAL_ERROR,
 	};
 
@@ -45,6 +51,16 @@ public:
 	virtual ~OutputManager() {}
 	// sets the provided bitmap and outputs it in a fine matter
 	virtual void setOutput(const Bitmap& outputBmp, int id) = 0;
+};
+
+class ParamManager {
+public:
+	virtual ~ParamManager() {}
+	// gets a paramter value - may return emtpy string if there is no such parameter
+	virtual std::string getParam(const std::string& paramName) const {}
+
+	// sets an output paramter()
+	virtual void setParam(const std::string& paramName, const std::string& paramValue) {}
 };
 
 #endif
