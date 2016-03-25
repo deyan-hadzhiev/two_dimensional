@@ -48,6 +48,7 @@ public:
 	const FloatColor * operator[](int row) const noexcept;
 };
 
+// TODO Make bitmap a template class regarding the Color type!!!
 class Bitmap {
 protected:
 	int width, height;

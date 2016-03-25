@@ -69,7 +69,7 @@ FloatColor FloatBitmap::getPixel(int x, int y) const  noexcept {
 	return data[x + y * width];
 }
 
-FloatColor FloatBitmap::getFilteredPixel(float x, float y) const  noexcept {
+FloatColor FloatBitmap::getFilteredPixel(float x, float y) const noexcept {
 	if (!data || !width || !height || x < 0 || x >= width || y < 0 || y >= height)
 		return FloatColor(0.0f, 0.0f, 0.0f);
 	int tx = (int)floor(x);
@@ -163,10 +163,13 @@ void Bitmap::freeMem(void) noexcept {
 }
 
 void Bitmap::copy(const Bitmap& rhs) noexcept {
-	freeMem();
+	// free memory only if necessary
+	if (width * height != rhs.width * rhs.height) {
+		freeMem();
+		data = new Color[rhs.width * rhs.height];
+	}
 	width = rhs.width;
 	height = rhs.height;
-	data = new Color[width * height];
 	memcpy(data, rhs.data, width * height * sizeof(Color));
 }
 
@@ -196,12 +199,15 @@ bool Bitmap::isOK(void) const  noexcept {
 }
 
 void Bitmap::generateEmptyImage(int w, int h) noexcept {
-	freeMem();
 	if (w <= 0 || h <= 0)
 		return;
+	// free memory only if necessary
+	if (width * height != w * h) {
+		freeMem();
+		data = new Color[w * h];
+	}
 	width = w;
 	height = h;
-	data = new Color[w * h];
 	memset(data, 0, sizeof(data[0]) * w * h);
 }
 
