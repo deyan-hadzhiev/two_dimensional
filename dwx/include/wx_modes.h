@@ -44,4 +44,14 @@ public:
 	NegativePanel(ViewFrame * viewFrame);
 };
 
+class TextSegmentationPanel : public InputOutputMode, public ParamManager {
+	wxTextCtrl * threshold;
+public:
+	TextSegmentationPanel(ViewFrame * vf);
+
+	std::string getParam(const std::string& paramName) const override final;
+
+	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
+};
+
 #endif // __WX_MODES_H__

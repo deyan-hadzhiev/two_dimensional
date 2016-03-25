@@ -39,7 +39,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 		Bitmap empty;
 		const int bmpDim = 129;
 		empty.generateEmptyImage(bmpDim, bmpDim);
-		const Color border(.5f, .5f, .5f);
+		const Color border(127, 127, 127);
 		Color * bmpData = empty.getDataPtr();
 		for (int i = 0; i < bmpDim; ++i) {
 			bmpData[i] = border;
@@ -63,14 +63,17 @@ void BitmapCanvas::setBitmap(const Bitmap& bmp, int id) {
 	wxImage tmpImg = wxImage(wxSize(w, h));
 	unsigned char * imgData = tmpImg.GetData();
 	const Color* colorData = bmp.getDataPtr();
+	memcpy(imgData, colorData, w * h * 3);
+#if 0
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			const unsigned rgb = colorData[x + y * w].toRGB32();
-			imgData[0 + (x + y * w) * 3] = static_cast<unsigned char>((rgb & 0xff0000) >> 16);
-			imgData[1 + (x + y * w) * 3] = static_cast<unsigned char>((rgb & 0x00ff00) >> 8);
-			imgData[2 + (x + y * w) * 3] = static_cast<unsigned char>(rgb & 0x0000ff);
+			const Color& c = colorData[x + y * w];
+			imgData[0 + (x + y * w) * 3] = c.r;
+			imgData[1 + (x + y * w) * 3] = c.g;
+			imgData[2 + (x + y * w) * 3] = c.b;
 		}
 	}
+#endif
 	setImage(tmpImg, id);
 }
 

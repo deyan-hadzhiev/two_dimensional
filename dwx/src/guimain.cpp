@@ -24,6 +24,7 @@ public:
 
 const wxString ViewFrame::modeNames[] = {
 	wxT("Negative"),
+	wxT("Text Segmentation"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -135,6 +136,10 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_NEGATIVE) :
 		SetStatusText(wxT("Using negative mode"));
 		mPanel = new NegativePanel(this);
+		break;
+	case(MID_VF_TEXT_SEGMENTATION) :
+		SetStatusText(wxT("Using text segmentation mode"));
+		mPanel = new TextSegmentationPanel(this);
 		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));

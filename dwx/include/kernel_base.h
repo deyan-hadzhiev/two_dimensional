@@ -57,10 +57,10 @@ class ParamManager {
 public:
 	virtual ~ParamManager() {}
 	// gets a paramter value - may return emtpy string if there is no such parameter
-	virtual std::string getParam(const std::string& paramName) const {}
+	virtual std::string getParam(const std::string& paramName) const = 0;
 
 	// sets an output paramter()
-	virtual void setParam(const std::string& paramName, const std::string& paramValue) {}
+	virtual void setParam(const std::string& paramName, const std::string& paramValue) = 0;
 };
 
 #endif

@@ -30,7 +30,7 @@ void initColor() noexcept;
 unsigned convertTo8bit_sRGB_cached(float x) noexcept;
 
 /// Represents a color, using floatingpoint components in [0..1]
-class Color {
+class FloatColor {
 public:
 	// a union, that allows us to refer to the channels by name (::r, ::g, ::b),
 	// or by index (::components[0] ...). See operator [].
@@ -39,26 +39,26 @@ public:
 		float components[3];
 	};
 	//
-	Color() noexcept
-		: Color(0.0f)
+	FloatColor() noexcept
+		: FloatColor(0.0f)
 	{}
 	//!< Construct a color from floatingpoint values
-	Color(float _r, float _g, float _b) noexcept {
+	FloatColor(float _r, float _g, float _b) noexcept {
 		setColor(_r, _g, _b);
 	}
 
-	explicit Color(float v)	noexcept {
+	explicit FloatColor(float v)	noexcept {
 		setColor(v, v, v);
 	}
 	//!< Construct a color from R8G8B8 value like "0xffce08"
-	explicit Color(unsigned rgbcolor) noexcept {
+	explicit FloatColor(unsigned rgbcolor) noexcept {
 		const float divider = 1.0f / 255.0f;
 		b = (rgbcolor & 0xff) * divider;
 		g = ((rgbcolor >> 8) & 0xff) * divider;
 		r = ((rgbcolor >> 16) & 0xff) * divider;
 	}
 
-	Color(unsigned char _r, unsigned char _g, unsigned char _b) noexcept {
+	FloatColor(unsigned char _r, unsigned char _g, unsigned char _b) noexcept {
 		const float divider = 1.0f / 255.0f;
 		r = static_cast<float>(_r * divider);
 		g = static_cast<float>(_g * divider);
@@ -91,7 +91,7 @@ public:
 		return (r * 0.299f + g * 0.587f + b * 0.114f);
 	}
 	/// Accumulates some color to the current
-	void operator += (const Color& rhs) noexcept {
+	void operator += (const FloatColor& rhs) noexcept {
 		r += rhs.r;
 		g += rhs.g;
 		b += rhs.b;
@@ -127,34 +127,94 @@ public:
 };
 
 /// adds two colors
-inline Color operator + (const Color& a, const Color& b) noexcept {
-	return Color(a.r + b.r, a.g + b.g, a.b + b.b);
+inline FloatColor operator + (const FloatColor& a, const FloatColor& b) noexcept {
+	return FloatColor(a.r + b.r, a.g + b.g, a.b + b.b);
 }
 
 /// subtracts two colors
-inline Color operator - (const Color& a, const Color& b) noexcept {
-	return Color(a.r - b.r, a.g - b.g, a.b - b.b);
+inline FloatColor operator - (const FloatColor& a, const FloatColor& b) noexcept {
+	return FloatColor(a.r - b.r, a.g - b.g, a.b - b.b);
 }
 
 /// multiplies two colors
-inline Color operator * (const Color& a, const Color& b) noexcept {
-	return Color(a.r * b.r, a.g * b.g, a.b * b.b);
+inline FloatColor operator * (const FloatColor& a, const FloatColor& b) noexcept {
+	return FloatColor(a.r * b.r, a.g * b.g, a.b * b.b);
 }
 
 /// multiplies a color by some multiplier
-inline Color operator * (const Color& a, float multiplier) noexcept {
-	return Color(a.r * multiplier, a.g * multiplier, a.b * multiplier);
+inline FloatColor operator * (const FloatColor& a, float multiplier) noexcept {
+	return FloatColor(a.r * multiplier, a.g * multiplier, a.b * multiplier);
 }
 
 /// multiplies a color by some multiplier
-inline Color operator * (float multiplier, const Color& a) noexcept {
-	return Color(a.r * multiplier, a.g * multiplier, a.b * multiplier);
+inline FloatColor operator * (float multiplier, const FloatColor& a) noexcept {
+	return FloatColor(a.r * multiplier, a.g * multiplier, a.b * multiplier);
 }
 
 /// divides some color
-inline Color operator / (const Color& a, float divider) noexcept {
+inline FloatColor operator / (const FloatColor& a, float divider) noexcept {
 	float mult = 1.0f / divider;
-	return Color(a.r * mult, a.g * mult, a.b * mult);
+	return FloatColor(a.r * mult, a.g * mult, a.b * mult);
 }
+
+__declspec(align(1))
+class Color {
+public:
+	// a union, that allows us to refer to the channels by name (::r, ::g, ::b),
+	// or by index (::components[0] ...). See operator [].
+	union {
+		struct { unsigned char r, g, b; };
+		unsigned char components[3];
+	};
+	//
+	Color() noexcept
+		: r(0)
+		, g(0)
+		, b(0)
+	{}
+
+	explicit Color(unsigned char v)	noexcept {
+		setColor(v, v, v);
+	}
+	//!< Construct a color from R8G8B8 value like "0xffce08"
+	explicit Color(unsigned rgbcolor) noexcept {
+		b = (rgbcolor & 0xff);
+		g = ((rgbcolor >> 8) & 0xff);
+		r = ((rgbcolor >> 16) & 0xff);
+	}
+
+	Color(unsigned char _r, unsigned char _g, unsigned char _b) noexcept
+		: r(_r)
+		, g(_g)
+		, b(_b)
+	{}
+
+	/// make black
+	void makeZero(void) noexcept {
+		r = g = b = 0;
+	}
+	/// set the color explicitly
+	void setColor(unsigned char _r, unsigned char _g, unsigned char _b) noexcept {
+		r = _r;
+		g = _g;
+		b = _b;
+	}
+	/// get the intensity of the color (direct)
+	unsigned char intensity(void) const noexcept {
+		return unsigned char((int(r) + int(g) + int(b)) / 3) ;
+	}
+	/// get the perceptual intensity of the color
+	unsigned char intensityPerceptual(void) const noexcept {
+		return static_cast<unsigned char>(int(r) * 0.299f + int(g) * 0.587f * + int(b) * 0.114f);
+	}
+
+	inline const unsigned char& operator[] (int index) const noexcept {
+		return components[index];
+	}
+
+	inline unsigned char& operator[] (int index) noexcept {
+		return components[index];
+	}
+};
 
 #endif // __COLOR_H__

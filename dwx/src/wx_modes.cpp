@@ -5,6 +5,7 @@
 #include <wx/image.h>
 #include <wx/wfstream.h>
 #include <wx/stdpaths.h>
+#include <wx/valnum.h>
 
 #include "guimain.h"
 #include "wx_modes.h"
@@ -113,3 +114,28 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
 	: InputOutputMode(viewFrame, new NegativeKernel)
 {}
+
+TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
+	: InputOutputMode(vf, new TextSegmentationKernel)
+{
+	wxBoxSizer * inputSizer = new wxBoxSizer(wxHORIZONTAL);
+	wxBoxSizer * statSizer = new wxBoxSizer(wxVERTICAL);
+	statSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Threshold: ")), 1, wxEXPAND | wxALL);
+	inputSizer->Add(statSizer, 1, wxEXPAND | wxALL, panelBorder);
+	threshold = new wxTextCtrl(this, wxID_ANY, "25");
+	//wxIntegerValidator<unsigned char> validator(); // disabling for now because we would need proper overloads and a lot of code
+	//threshold->SetValidator(validator);
+	inputSizer->Add(threshold, 1, wxBOTTOM, panelBorder);
+	mPanelSizer->Prepend(inputSizer, 0, wxALL, panelBorder);
+	// add this class as a param handler for the kernel
+	kernel->addParamManager(this);
+
+	SendSizeEvent();
+}
+
+std::string TextSegmentationPanel::getParam(const std::string & paramName) const {
+	if (paramName == "threshold") {
+		return std::string(threshold->GetValue());
+	}
+	return std::string();
+}

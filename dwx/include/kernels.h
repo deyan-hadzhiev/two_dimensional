@@ -77,4 +77,15 @@ public:
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
 };
 
+using IntervalList = std::vector<std::pair<int, int> >;
+class TextSegmentationKernel : public SimpleKernel {
+	static IntervalList extractIntervals(const int * accumValues, const int count, int threshold);
+public:
+	TextSegmentationKernel() {
+		inputParams.push_back("threshold");
+	}
+
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+};
+
 #endif
