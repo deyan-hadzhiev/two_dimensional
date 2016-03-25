@@ -68,6 +68,7 @@ public:
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
 	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
 	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
+	void fill(Color c, int x = 0, int y = 0, int width = -1, int height = -1);
 	Color getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
 	void remap(std::function<unsigned char(unsigned char)>) noexcept; // remap R, G, B channels by a function
 

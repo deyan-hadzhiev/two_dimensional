@@ -219,6 +219,24 @@ void Bitmap::generateEmptyImage(int w, int h) noexcept {
 	memset(data, 0, sizeof(data[0]) * w * h);
 }
 
+void Bitmap::fill(Color c, int x, int y, int _width, int _height) {
+	if (!data || x < 0 || y < 0 || x >= width || y >= height)
+		return;
+	const int x2 = (_width == -1 || x + _width > width ? width : x + _width);
+	const int y2 = (_height == -1 || y + _height > height ? height : y + _height);
+	Color * rowDest = (data + y * width + x);
+	const int dw = x2 - x;
+	// fill the first row
+	for (int dx = 0; dx < dw; ++dx) {
+		rowDest[dx] = c;
+	}
+	// now copy the row to the rest (Notice y + 1)
+	const int rowSize = (x2 - x) * sizeof(Color);
+	for (int dy = y + 1; dy < y2; ++dy) {
+		memcpy(data + dy * width + x, rowDest, rowSize);
+	}
+}
+
 Color Bitmap::getPixel(int x, int y) const  noexcept {
 	if (!data || x < 0 || x >= width || y < 0 || y >= height)
 		return Color(0, 0, 0);

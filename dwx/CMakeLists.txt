@@ -30,6 +30,7 @@ set (HEADERS
 	include/wx_bitmap_canvas.h
 	include/kernel_base.h
 	include/kernels.h
+	include/geom_primitive.h
 )
 
 set (SOURCES
@@ -40,6 +41,7 @@ set (SOURCES
 	src/color.cpp
 	src/matrix2.cpp
 	src/kernels.cpp
+	src/geom_primitive.cpp
 )
 
 link_directories (

@@ -153,3 +153,31 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 	}
 	return KernelBase::KPR_OK;
 }
+
+void GeometricKernel::setSize(int _width, int _height) {
+	width = _width;
+	height = _height;
+}
+
+KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
+	primitive->resize(width, height);
+	getParameters();
+	for (auto it = paramValues.cbegin(); it != paramValues.cend(); ++it) {
+		if (!it->second.empty()) {
+			primitive->setParam(it->first, it->second);
+		}
+	}
+	primitive->draw(static_cast<GeometricPrimitive::DrawMode>(flags));
+	bmp = primitive->getBitmap();
+	setOutput();
+	if (iman)
+		iman->kernelDone(KPR_OK);
+	return KPR_OK;
+}
+
+SinosoidKernel::SinosoidKernel()
+	: GeometricKernel(new Sinosoid)
+{}

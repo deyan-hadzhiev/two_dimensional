@@ -25,6 +25,7 @@ public:
 const wxString ViewFrame::modeNames[] = {
 	wxT("Negative"),
 	wxT("Text Segmentation"),
+	wxT("Sinosoid curve"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -140,6 +141,10 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_TEXT_SEGMENTATION) :
 		SetStatusText(wxT("Using text segmentation mode"));
 		mPanel = new TextSegmentationPanel(this);
+		break;
+	case(MID_VF_SINOSOID) :
+		SetStatusText(wxT("Using sinosoid geometric kernel"));
+		mPanel = new SinosoidPanel(this);
 		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));

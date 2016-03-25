@@ -25,11 +25,12 @@ ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 
 ModePanel::~ModePanel() {}
 
+const int ModePanel::panelBorder = 4;
+
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
-const int InputOutputMode::panelBorder = 4;
 
 InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
-	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED)
+	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
 	, inputCanvas(nullptr)
 	, outputCanvas(nullptr)
 	, compareCanvas(nullptr)
@@ -111,6 +112,75 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
+GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
+	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
+	, gkernel(gk)
+	, outputCanvas(nullptr)
+	, inputSizer(nullptr)
+	, widthCtrl(nullptr)
+	, heightCtrl(nullptr)
+{
+	inputSizer = new wxBoxSizer(wxHORIZONTAL);
+	// TODO add checkbox for clear output
+	wxBoxSizer * wSizer = new wxBoxSizer(wxVERTICAL);
+	wSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Width: ")), 1, wxEXPAND | wxALL);
+	inputSizer->Add(wSizer, 1, wxEXPAND | wxALL, panelBorder);
+	widthCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << GetSize().GetWidth());
+	inputSizer->Add(widthCtrl, 1, wxEXPAND | wxALL, panelBorder);
+	wxBoxSizer * hSizer = new wxBoxSizer(wxVERTICAL);
+	hSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Height: ")), 1, wxEXPAND | wxALL);
+	inputSizer->Add(hSizer, 1, wxEXPAND | wxALL, panelBorder);
+	heightCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << GetSize().GetHeight());
+	inputSizer->Add(heightCtrl, 1, wxEXPAND | wxALL, panelBorder);
+	mPanelSizer->Add(inputSizer, 0, wxALL, panelBorder);
+	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
+	outputCanvas = new BitmapCanvas(this, vf);
+	canvasSizer->Add(outputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
+
+	gkernel->addOutputManager(outputCanvas);
+	gkernel->addParamManager(this);
+
+	SendSizeEvent();
+}
+
+GeometricOutput::~GeometricOutput() {
+	delete gkernel;
+}
+
+void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
+	switch (ev.GetId())
+	{
+	case(ViewFrame::MID_VF_CNT_RUN) : {
+		const int width = wxAtoi(widthCtrl->GetValue());
+		const int height = wxAtoi(heightCtrl->GetValue());
+		gkernel->setSize(width, height);
+		gkernel->runKernel(0);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+void GeometricOutput::addParam(const std::string & label, wxTextCtrl * wnd) {
+	wxBoxSizer * pSizer = new wxBoxSizer(wxVERTICAL);
+	pSizer->Add(new wxStaticText(this, wxID_ANY, wxString(label)), 1, wxEXPAND | wxALL);
+	inputSizer->Add(pSizer, 1, wxEXPAND | wxALL, panelBorder);
+	customParams[label] = wnd;
+	inputSizer->Add(wnd, 1, wxEXPAND | wxALL, panelBorder);
+	SendSizeEvent();
+}
+
+std::string GeometricOutput::getParam(const std::string & paramName) const {
+	std::string retval;
+	const auto& pv = customParams.find(paramName);
+	if (pv != customParams.end()) {
+		retval = std::string(pv->second->GetValue());
+	}
+	return retval;
+}
+
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
 	: InputOutputMode(viewFrame, new NegativeKernel)
 {}
@@ -139,3 +209,7 @@ std::string TextSegmentationPanel::getParam(const std::string & paramName) const
 	}
 	return std::string();
 }
+
+SinosoidPanel::SinosoidPanel(ViewFrame * vf)
+	: GeometricOutput(vf, new SinosoidKernel)
+{}
