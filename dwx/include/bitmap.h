@@ -48,6 +48,7 @@ public:
 	const FloatColor * operator[](int row) const noexcept;
 };
 
+// TODO Make bitmap a template class regarding the Color type!!!
 class Bitmap {
 protected:
 	int width, height;
@@ -57,10 +58,11 @@ protected:
 	void copy(const Bitmap& rhs) noexcept;
 public:
 	Bitmap() noexcept; //!< Generates an empty bitmap
-										 // make virtual if necessary
+	Bitmap(int width, int height) noexcept; //!< Generates empty bitmap with specified dimensions
 	~Bitmap() noexcept;
 	Bitmap(const Bitmap& rhs) noexcept;
 	Bitmap& operator = (const Bitmap& rhs) noexcept;
+
 	void freeMem(void) noexcept; //!< Deletes the memory, associated with the bitmap
 	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
