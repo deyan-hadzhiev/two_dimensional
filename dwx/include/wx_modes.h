@@ -55,10 +55,14 @@ public:
 protected:
 	GeometricKernel * gkernel;
 	std::unordered_map<std::string, wxTextCtrl*> customParams;
-	wxSizer * inputSizer;
+	wxSizer * customInputSizer;
 	BitmapCanvas * outputCanvas;
 	wxTextCtrl * widthCtrl;
 	wxTextCtrl * heightCtrl;
+	wxCheckBox * additiveCb;
+	wxCheckBox * clearCb;
+	wxCheckBox * showCoords;
+	wxTextCtrl * colorCtrl;
 };
 
 class NegativePanel : public InputOutputMode {

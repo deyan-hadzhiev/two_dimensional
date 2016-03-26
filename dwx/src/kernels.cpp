@@ -155,22 +155,32 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 }
 
 void GeometricKernel::setSize(int _width, int _height) {
-	width = _width;
-	height = _height;
+	if (width != _width || height != _height) {
+		width = _width;
+		height = _height;
+		dirtySize = true;
+	}
+}
+
+void GeometricKernel::setColor(Color rgb) {
+	col = rgb;
 }
 
 KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
-	primitive->resize(width, height);
+	if (dirtySize) {
+		primitive->resize(width, height);
+		dirtySize = false;
+	}
 	getParameters();
 	for (auto it = paramValues.cbegin(); it != paramValues.cend(); ++it) {
 		if (!it->second.empty()) {
 			primitive->setParam(it->first, it->second);
 		}
 	}
-	primitive->draw(static_cast<GeometricPrimitive::DrawMode>(flags));
+	primitive->draw(col, flags);
 	bmp = primitive->getBitmap();
 	setOutput();
 	if (iman)

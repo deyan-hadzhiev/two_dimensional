@@ -98,11 +98,15 @@ protected:
 	GeometricPrimitive * primitive;
 	int width;
 	int height;
+	bool dirtySize;
+	Color col;
 public:
 	GeometricKernel(GeometricPrimitive * p)
 		: primitive(p)
 		, width(0)
 		, height(0)
+		, dirtySize(true)
+		, col(255, 255, 255)
 	{
 		const std::vector<std::string>& paramList = p->getParamList();
 		for (const auto& param : paramList) {
@@ -115,6 +119,8 @@ public:
 	}
 
 	virtual void setSize(int width, int height);
+
+	virtual void setColor(Color rgb);
 
 	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
 };

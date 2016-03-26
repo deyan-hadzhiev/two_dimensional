@@ -2,6 +2,7 @@
 #define __COLOR_H__
 
 #include <math.h>
+#include <algorithm>
 #include "util.h"
 
 inline unsigned convertTo8bit(float x) noexcept {
@@ -173,9 +174,6 @@ public:
 		, b(0)
 	{}
 
-	explicit Color(unsigned char v)	noexcept {
-		setColor(v, v, v);
-	}
 	//!< Construct a color from R8G8B8 value like "0xffce08"
 	explicit Color(unsigned rgbcolor) noexcept {
 		b = (rgbcolor & 0xff);
@@ -214,6 +212,12 @@ public:
 
 	inline unsigned char& operator[] (int index) noexcept {
 		return components[index];
+	}
+
+	void operator += (const Color& rhs) noexcept {
+		r = static_cast<unsigned char>(std::min(rhs.r + r, 255));
+		g = static_cast<unsigned char>(std::min(rhs.g + g, 255));
+		b = static_cast<unsigned char>(std::min(rhs.b + b, 255));
 	}
 };
 
