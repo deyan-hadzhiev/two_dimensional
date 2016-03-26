@@ -7,6 +7,13 @@ Sinosoid::Sinosoid()
 	, sine(false)
 {}
 
+void Sinosoid::setParams(float _k, float _q, float _offset, bool _sine) {
+	k = _k;
+	q = _q;
+	offset = _offset;
+	sine = _sine;
+}
+
 void Sinosoid::setParam(const std::string & p, const std::string & value) {
 	if (p == "k") {
 		k = atof(value.c_str());

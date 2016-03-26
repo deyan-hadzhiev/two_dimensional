@@ -33,7 +33,7 @@ const int ModePanel::panelBorder = 4;
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
 
 InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
-	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
+	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
 	, inputCanvas(nullptr)
 	, outputCanvas(nullptr)
 	, compareCanvas(nullptr)
@@ -257,3 +257,7 @@ SinosoidPanel::SinosoidPanel(ViewFrame * vf)
 	addParam("offset", new wxTextCtrl(this, wxID_ANY, wxT("0.0")));
 	addParam("function", new wxTextCtrl(this, wxID_ANY, wxT("cos")));
 }
+
+HoughRoTheta::HoughRoTheta(ViewFrame * vf)
+	: InputOutputMode(vf, new HoughKernel)
+{}

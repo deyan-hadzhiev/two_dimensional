@@ -85,4 +85,9 @@ public:
 	SinosoidPanel(ViewFrame * vf);
 };
 
+class HoughRoTheta : public InputOutputMode {
+public:
+	HoughRoTheta(ViewFrame * vf);
+};
+
 #endif // __WX_MODES_H__

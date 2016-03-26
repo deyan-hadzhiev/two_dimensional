@@ -3,6 +3,7 @@
 #include <utility>
 #include <algorithm>
 #include "kernels.h"
+#include "vector2.h"
 
 KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
@@ -191,3 +192,39 @@ KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
 SinosoidKernel::SinosoidKernel()
 	: GeometricKernel(new Sinosoid)
 {}
+
+KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const int hs = 2;
+	const int hh = int(sqrt(bw * bw + bh * bh)) / hs;
+	const int hw = hh * 2; // we will sample the input image for 720 angles
+	const float q = 360.0f / hw;
+	Sinosoid aps; // projected space
+	aps.resize(hw, hh);
+	const Color pc(1, 1, 1); // we'll use it for addition - so it has to be one
+	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
+	const Color * bmpData = bmp.getDataPtr();
+	for (int y = 0; y < bh; ++y) {
+		for (int x = 0; x < bw; ++x) {
+			// check if the pixel has intensity below threshhold
+			if (bmpData[y * bw + x].intensity() < 15) {
+				Vector2 p(x + .5f, y + .5f);
+				Vector2 roVec = p - center;
+				const float ro = roVec.length() / hs; // this is the length to the segment - ro
+				const float thetaRad = atan2(roVec.y, roVec.x);
+				// convert to degrees
+				const float thetaDeg = toDegrees(thetaRad);
+				aps.setParams(ro, q, -thetaDeg);
+				aps.draw(pc, GeometricPrimitive::DF_ACCUMULATE | GeometricPrimitive::DF_SHOW_AXIS);
+			}
+		}
+	}
+	// directly set the output because it will be destroyed after this function exits
+	if (oman) {
+		oman->setOutput(aps.getBitmap(), 0); // the zero is important
+	}
+	return KernelBase::KPR_OK;
+}
+// just overriden so we don't output our input bmp
+void HoughKernel::setOutput() const {}

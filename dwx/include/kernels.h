@@ -130,4 +130,12 @@ public:
 	SinosoidKernel();
 };
 
+class HoughKernel : public SimpleKernel {
+	Bitmap houghOut;
+public:
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+
+	virtual void setOutput() const override final;
+};
+
 #endif

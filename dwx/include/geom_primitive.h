@@ -60,6 +60,8 @@ class Sinosoid : public GeometricPrimitive {
 public:
 	Sinosoid();
 
+	virtual void setParams(float _k, float _q, float _offset, bool sine = false);
+
 	virtual void setParam(const std::string& p, const std::string& value) override;
 
 	virtual std::vector<std::string> getParamList() const override;
