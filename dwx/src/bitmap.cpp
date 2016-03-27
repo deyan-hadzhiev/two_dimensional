@@ -145,14 +145,18 @@ const FloatColor * FloatBitmap::operator[](int row) const noexcept {
 	return data + row * width;
 }
 
+template class Pixelmap<Color>;
+template class Pixelmap<uint32>;
 
-Bitmap::Bitmap() noexcept
+template<class ColorType>
+Pixelmap<ColorType>::Pixelmap() noexcept
 	: width(-1)
 	, height(-1)
 	, data(nullptr)
 {}
 
-Bitmap::Bitmap(int width, int height) noexcept
+template<class ColorType>
+Pixelmap<ColorType>::Pixelmap(int width, int height) noexcept
 	: width(width)
 	, height(height)
 	, data(nullptr)
@@ -160,28 +164,32 @@ Bitmap::Bitmap(int width, int height) noexcept
 	generateEmptyImage(width, height);
 }
 
-Bitmap::~Bitmap() noexcept {
+template<class ColorType>
+Pixelmap<ColorType>::~Pixelmap() noexcept {
 	freeMem();
 }
 
-void Bitmap::freeMem(void) noexcept {
+template<class ColorType>
+void Pixelmap<ColorType>::freeMem(void) noexcept {
 	if (data) delete[] data;
 	data = nullptr;
 	width = height = -1;
 }
 
-void Bitmap::copy(const Bitmap& rhs) noexcept {
+template<class ColorType>
+void Pixelmap<ColorType>::copy(const Pixelmap<ColorType>& rhs) noexcept {
 	// free memory only if necessary
 	if (width * height != rhs.width * rhs.height) {
 		freeMem();
-		data = new Color[rhs.width * rhs.height];
+		data = new ColorType[rhs.width * rhs.height];
 	}
 	width = rhs.width;
 	height = rhs.height;
-	memcpy(data, rhs.data, width * height * sizeof(Color));
+	memcpy(data, rhs.data, width * height * sizeof(ColorType));
 }
 
-Bitmap::Bitmap(const Bitmap& rhs) noexcept
+template<class ColorType>
+Pixelmap<ColorType>::Pixelmap(const Pixelmap& rhs) noexcept
 	: width(-1)
 	, height(-1)
 	, data(nullptr)
@@ -189,82 +197,94 @@ Bitmap::Bitmap(const Bitmap& rhs) noexcept
 	copy(rhs);
 }
 
-Bitmap& Bitmap::operator = (const Bitmap& rhs) noexcept {
+template<class ColorType>
+Pixelmap<ColorType>& Pixelmap<ColorType>::operator = (const Pixelmap<ColorType>& rhs) noexcept {
 	if (this != &rhs) {
 		copy(rhs);
 	}
 	return *this;
 }
 
-int Bitmap::getWidth(void) const  noexcept {
+template<class ColorType>
+int Pixelmap<ColorType>::getWidth(void) const noexcept {
 	return width;
 }
-int Bitmap::getHeight(void) const noexcept {
+
+template<class ColorType>
+int Pixelmap<ColorType>::getHeight(void) const noexcept {
 	return height;
 }
-bool Bitmap::isOK(void) const  noexcept {
+
+template<class ColorType>
+bool Pixelmap<ColorType>::isOK(void) const  noexcept {
 	return (data != nullptr);
 }
 
-void Bitmap::generateEmptyImage(int w, int h) noexcept {
+template<class ColorType>
+void Pixelmap<ColorType>::generateEmptyImage(int w, int h) noexcept {
 	if (w <= 0 || h <= 0)
 		return;
 	// free memory only if necessary
 	if ((width * height != w * h) || nullptr == data) {
 		freeMem();
-		data = new Color[w * h];
+		data = new ColorType[w * h];
 	}
 	width = w;
 	height = h;
 	memset(data, 0, sizeof(data[0]) * w * h);
 }
 
-void Bitmap::fill(Color c, int x, int y, int _width, int _height) {
+template<class ColorType>
+void Pixelmap<ColorType>::fill(ColorType c, int x, int y, int _width, int _height) {
 	if (!data || x < 0 || y < 0 || x >= width || y >= height)
 		return;
 	const int x2 = (_width == -1 || x + _width > width ? width : x + _width);
 	const int y2 = (_height == -1 || y + _height > height ? height : y + _height);
-	Color * rowDest = (data + y * width + x);
+	ColorType * rowDest = (data + y * width + x);
 	const int dw = x2 - x;
 	// fill the first row
 	for (int dx = 0; dx < dw; ++dx) {
 		rowDest[dx] = c;
 	}
 	// now copy the row to the rest (Notice y + 1)
-	const int rowSize = (x2 - x) * sizeof(Color);
+	const int rowSize = (x2 - x) * sizeof(ColorType);
 	for (int dy = y + 1; dy < y2; ++dy) {
 		memcpy(data + dy * width + x, rowDest, rowSize);
 	}
 }
 
-Color Bitmap::getPixel(int x, int y) const  noexcept {
+template<class ColorType>
+ColorType Pixelmap<ColorType>::getPixel(int x, int y) const  noexcept {
 	if (!data || x < 0 || x >= width || y < 0 || y >= height)
-		return Color(0, 0, 0);
+		return ColorType();
 	return data[x + y * width];
 }
 
-void Bitmap::setPixel(int x, int y, const Color& color) noexcept {
+template<class ColorType>
+void Pixelmap<ColorType>::setPixel(int x, int y, const ColorType& color) noexcept {
 	if (!data || x < 0 || x >= width || y < 0 || y >= height)
 		return;
 	data[x + y * width] = color;
 }
 
-void Bitmap::remap(std::function<unsigned char(unsigned char)> remapFn) noexcept {
+template<class ColorType>
+void Pixelmap<ColorType>::remap(std::function<ColorType(ColorType)> remapFn) noexcept {
 	for (int i = 0; i < width * height; i++) {
-		data[i].r = remapFn(data[i].r);
-		data[i].g = remapFn(data[i].g);
-		data[i].b = remapFn(data[i].b);
+		data[i] = remapFn(data[i]);
 	}
 }
 
-Color * Bitmap::getDataPtr() const noexcept {
+template<class ColorType>
+ColorType * Pixelmap<ColorType>::getDataPtr() const noexcept {
 	return data;
 }
 
-Color * Bitmap::operator[](int row) noexcept {
+template<class ColorType>
+ColorType * Pixelmap<ColorType>::operator[](int row) noexcept {
 	return data + row * width;
 }
 
-const Color * Bitmap::operator[](int row) const noexcept {
+template<class ColorType>
+const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 	return data + row * width;
 }

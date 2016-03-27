@@ -215,10 +215,32 @@ public:
 	}
 
 	void operator += (const Color& rhs) noexcept {
-		r = static_cast<unsigned char>(std::min(rhs.r + r, 255));
-		g = static_cast<unsigned char>(std::min(rhs.g + g, 255));
-		b = static_cast<unsigned char>(std::min(rhs.b + b, 255));
+		r = static_cast<uint8>(std::min(static_cast<uint16>(r) + static_cast<uint16>(rhs.r), 0xff));
+		g = static_cast<uint8>(std::min(static_cast<uint16>(g) + static_cast<uint16>(rhs.g), 0xff));
+		b = static_cast<uint8>(std::min(static_cast<uint16>(b) + static_cast<uint16>(rhs.b), 0xff));
+	}
+
+	void operator -= (const Color& rhs) noexcept {
+		r = static_cast<uint8>(std::max(static_cast<int16>(r) - static_cast<int16>(rhs.r), 0));
+		g = static_cast<uint8>(std::max(static_cast<int16>(g) - static_cast<int16>(rhs.g), 0));
+		b = static_cast<uint8>(std::max(static_cast<int16>(b) - static_cast<int16>(rhs.b), 0));
 	}
 };
+
+inline Color operator+(const Color& lhs, const Color& rhs) noexcept {
+	return Color(
+		static_cast<uint8>(std::min(static_cast<uint16>(lhs.r) + static_cast<uint16>(rhs.r), 0xff)),
+		static_cast<uint8>(std::min(static_cast<uint16>(lhs.g) + static_cast<uint16>(rhs.g), 0xff)),
+		static_cast<uint8>(std::min(static_cast<uint16>(lhs.b) + static_cast<uint16>(rhs.b), 0xff))
+		);
+}
+
+inline Color operator-(const Color& lhs, const Color& rhs) noexcept {
+	return Color(
+		static_cast<uint8>(std::max(static_cast<int16>(lhs.r) - static_cast<int16>(rhs.r), 0)),
+		static_cast<uint8>(std::max(static_cast<int16>(lhs.g) - static_cast<int16>(rhs.g), 0)),
+		static_cast<uint8>(std::max(static_cast<int16>(lhs.b) - static_cast<int16>(rhs.b), 0))
+		);
+}
 
 #endif // __COLOR_H__

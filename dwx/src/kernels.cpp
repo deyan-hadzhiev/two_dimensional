@@ -23,8 +23,8 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 }
 
 KernelBase::ProcessResult NegativeKernel::kernelImplementation(unsigned flags) {
-	auto negativePix = [](unsigned char a) -> unsigned char {
-		return 255 - a;
+	auto negativePix = [](Color a) -> Color {
+		return Color(255, 255, 255) - a;
 	};
 	bmp.remap(negativePix);
 	return KernelBase::KPR_OK;
@@ -60,8 +60,8 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 		threshold = atoi(tVal->second.c_str());
 	}
 	// first negate the image so black would add less to the accumulators
-	auto negativePix = [](unsigned char a) -> unsigned char {
-		return 255 - a;
+	auto negativePix = [](Color a) -> Color {
+		return Color(255, 255, 255) - a;
 	};
 	// NOTE this should be condition on the mean value
 	Bitmap negative = bmp;
