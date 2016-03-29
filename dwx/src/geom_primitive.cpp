@@ -64,9 +64,9 @@ void Sinosoid::draw(Color col, unsigned flags) {
 	};
 	std::function<float(float)> fx;
 	if (sine) {
-		fx = [this](float x) -> float { return k * sin(q * x + offset); };
+		fx = [this](float x) -> float { return k * sin(q * (x + offset)); };
 	} else {
-		fx = [this](float x) -> float { return k * cos(q * x + offset); };
+		fx = [this](float x) -> float { return k * cos(q * (x + offset)); };
 	}
 	float x0f = xToRad(0);
 	float y0f = fx(x0f);

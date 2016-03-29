@@ -212,10 +212,8 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 				Vector2 p(x + .5f, y + .5f);
 				Vector2 roVec = p - center;
 				const float ro = roVec.length() / hs; // this is the length to the segment - ro
-				const float thetaRad = atan2(roVec.y, roVec.x);
-				// convert to degrees
-				const float thetaDeg = toDegrees(thetaRad);
-				aps.setParams(ro, q, -thetaDeg);
+				const float thetaRad = atan2(roVec.y, roVec.x) + PI;
+				aps.setParams(ro, q, thetaRad);
 				aps.draw(pc, GeometricPrimitive::DF_ACCUMULATE | GeometricPrimitive::DF_SHOW_AXIS);
 			}
 		}
