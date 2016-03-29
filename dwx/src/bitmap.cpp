@@ -147,6 +147,7 @@ const FloatColor * FloatBitmap::operator[](int row) const noexcept {
 
 template class Pixelmap<Color>;
 template class Pixelmap<uint32>;
+template class Pixelmap<uint64>;
 
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap() noexcept

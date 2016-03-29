@@ -187,10 +187,10 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 		unsigned col = 0;
 		ss >> col;
 		gkernel->setColor(Color(col));
-		unsigned flags = GeometricPrimitive::DF_OVER;
-		flags |= (additiveCb->GetValue() ? GeometricPrimitive::DF_ACCUMULATE : 0);
-		flags |= (clearCb->GetValue() ? GeometricPrimitive::DF_CLEAR : 0);
-		flags |= (showCoords->GetValue() ? GeometricPrimitive::DF_SHOW_AXIS : 0);
+		unsigned flags = DrawFlags::DF_OVER;
+		flags |= (additiveCb->GetValue() ? DrawFlags::DF_ACCUMULATE : 0);
+		flags |= (clearCb->GetValue() ? DrawFlags::DF_CLEAR : 0);
+		flags |= (showCoords->GetValue() ? DrawFlags::DF_SHOW_AXIS : 0);
 		gkernel->setSize(width, height);
 		gkernel->runKernel(flags);
 		break;

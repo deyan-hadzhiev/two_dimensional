@@ -190,7 +190,7 @@ KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
 }
 
 SinosoidKernel::SinosoidKernel()
-	: GeometricKernel(new Sinosoid)
+	: GeometricKernel(new Sinosoid<Color>)
 {}
 
 KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
@@ -198,11 +198,17 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 	const int bh = bmp.getHeight();
 	const int hs = 2;
 	const int hh = int(sqrt(bw * bw + bh * bh)) / hs;
-	const int hw = hh * 2; // we will sample the input image for 720 angles
-	const float q = 360.0f / hw;
-	Sinosoid aps; // projected space
+	const int hw = hh; // we will sample the input image for 720 angles
+	const float q = 180.0f / hw;
+	Function<uint64> aps; // projected space
 	aps.resize(hw, hh);
-	const Color pc(1, 1, 1); // we'll use it for addition - so it has to be one
+	float ro = 0.0f; // roVec length - directly used in lambda
+	float thetaRad = 0.0f; // the theta angle in radians
+	aps.setFunction(
+		[](int x) -> float { return toRadians(x); },
+		[q,&ro,&thetaRad](float x) -> float { return ro * cos(q * (thetaRad - x)); }
+		);
+	const uint64 pc = 1; // we'll use it for addition - so it has to be one
 	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
 	const Color * bmpData = bmp.getDataPtr();
 	for (int y = 0; y < bh; ++y) {
@@ -211,16 +217,31 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 			if (bmpData[y * bw + x].intensity() < 15) {
 				Vector2 p(x + .5f, y + .5f);
 				Vector2 roVec = p - center;
-				const float ro = roVec.length() / hs; // this is the length to the segment - ro
-				const float thetaRad = atan2(roVec.y, roVec.x) + PI;
-				aps.setParams(ro, q, thetaRad);
-				aps.draw(pc, GeometricPrimitive::DF_ACCUMULATE | GeometricPrimitive::DF_SHOW_AXIS);
+				ro = roVec.length() / hs; // this is the length to the segment - ro
+				thetaRad = fabs(atan2(roVec.y, roVec.x)); // [0, PI]
+				//thetaRad = (thetaRad > PI / 2 ? thetaRad - PI / 2 : thetaRad); // [0, PI)
+				//aps.setParams(ro, q, -thetaRad);
+				aps.draw(pc, DrawFlags::DF_ACCUMULATE);
 			}
 		}
 	}
 	// directly set the output because it will be destroyed after this function exits
 	if (oman) {
-		oman->setOutput(aps.getBitmap(), 0); // the zero is important
+		const Pixelmap<uint64>& pmp = aps.getBitmap();
+		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
+		const int dim = pmp.getWidth() * pmp.getHeight();
+		const uint64 * pmpData = pmp.getDataPtr();
+		uint64 maxValue = 0;
+		for (int i = 0; i < dim; ++i) {
+			maxValue = std::max(maxValue, pmpData[i]);
+		}
+		Color * bmpOutData = bmpOut.getDataPtr();
+		for (int i = 0; i < dim; ++i) {
+			const uint8 c = static_cast<uint8>((pmpData[i] * 255) / maxValue);
+			bmpOutData[i] = Color(c, c, c);
+		}
+		// so the maximum value has to be mapped to 255 -> multiply by 255 and divide by the max value
+		oman->setOutput(bmpOut, 0); // the zero is important
 	}
 	return KernelBase::KPR_OK;
 }

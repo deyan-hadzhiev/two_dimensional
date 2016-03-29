@@ -95,13 +95,13 @@ public:
 
 class GeometricKernel : public SimpleKernel {
 protected:
-	GeometricPrimitive * primitive;
+	GeometricPrimitive<Color> * primitive;
 	int width;
 	int height;
 	bool dirtySize;
 	Color col;
 public:
-	GeometricKernel(GeometricPrimitive * p)
+	GeometricKernel(GeometricPrimitive<Color> * p)
 		: primitive(p)
 		, width(0)
 		, height(0)
