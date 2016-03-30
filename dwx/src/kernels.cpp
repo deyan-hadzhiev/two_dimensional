@@ -3,6 +3,7 @@
 #include <utility>
 #include <algorithm>
 #include "kernels.h"
+#include "vector2.h"
 
 KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
@@ -22,8 +23,8 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 }
 
 KernelBase::ProcessResult NegativeKernel::kernelImplementation(unsigned flags) {
-	auto negativePix = [](unsigned char a) -> unsigned char {
-		return 255 - a;
+	auto negativePix = [](Color a) -> Color {
+		return Color(255, 255, 255) - a;
 	};
 	bmp.remap(negativePix);
 	return KernelBase::KPR_OK;
@@ -59,8 +60,8 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 		threshold = atoi(tVal->second.c_str());
 	}
 	// first negate the image so black would add less to the accumulators
-	auto negativePix = [](unsigned char a) -> unsigned char {
-		return 255 - a;
+	auto negativePix = [](Color a) -> Color {
+		return Color(255, 255, 255) - a;
 	};
 	// NOTE this should be condition on the mean value
 	Bitmap negative = bmp;
@@ -153,3 +154,94 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 	}
 	return KernelBase::KPR_OK;
 }
+
+void GeometricKernel::setSize(int _width, int _height) {
+	if (width != _width || height != _height) {
+		width = _width;
+		height = _height;
+		dirtySize = true;
+	}
+}
+
+void GeometricKernel::setColor(Color rgb) {
+	col = rgb;
+}
+
+KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
+	if (dirtySize) {
+		primitive->resize(width, height);
+		dirtySize = false;
+	}
+	getParameters();
+	for (auto it = paramValues.cbegin(); it != paramValues.cend(); ++it) {
+		if (!it->second.empty()) {
+			primitive->setParam(it->first, it->second);
+		}
+	}
+	primitive->draw(col, flags);
+	bmp = primitive->getBitmap();
+	setOutput();
+	if (iman)
+		iman->kernelDone(KPR_OK);
+	return KPR_OK;
+}
+
+SinosoidKernel::SinosoidKernel()
+	: GeometricKernel(new Sinosoid<Color>)
+{}
+
+KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const int hs = 2; // decrease size a bit
+	const int hh = int(sqrt(bw * bw + bh * bh)) / hs;
+	const int hw = hh;
+	Function<uint64> aps; // projected space
+	aps.resize(hw, hh);
+	float ro = 0.0f; // roVec length - directly used in lambda
+	float thetaRad = 0.0f; // the theta angle in radians
+	const int cx = hw / 2;
+	aps.setFunction(
+		[cx, hw](int x) -> float { return toRadians((x + cx) * 180.0f / float(hw)); }, // has to map from [-cx, cx) -> [0, 2*PI)
+		[&ro, &thetaRad](float x) -> float { return ro * cos(thetaRad - x); } // directly from the Hough Rho-Theta definition
+		);
+	const uint64 pc = 1; // we'll use it for addition - so it has to be one
+	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
+	const Color * bmpData = bmp.getDataPtr();
+	for (int y = 0; y < bh; ++y) {
+		for (int x = 0; x < bw; ++x) {
+			// check if the pixel has intensity below threshhold
+			if (bmpData[y * bw + x].intensity() < 15) {
+				Vector2 p(x + .5f, y + .5f);
+				Vector2 roVec = p - center;
+				ro = roVec.length() / hs; // this is the length to the segment - ro
+				thetaRad = atan2(roVec.y, roVec.x);
+				aps.draw(pc, DrawFlags::DF_ACCUMULATE);
+			}
+		}
+	}
+	// directly set the output because it will be destroyed after this function exits
+	if (oman) {
+		const Pixelmap<uint64>& pmp = aps.getBitmap();
+		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
+		const int dim = pmp.getWidth() * pmp.getHeight();
+		const uint64 * pmpData = pmp.getDataPtr();
+		uint64 maxValue = 0;
+		for (int i = 0; i < dim; ++i) {
+			maxValue = std::max(maxValue, pmpData[i]);
+		}
+		Color * bmpOutData = bmpOut.getDataPtr();
+		for (int i = 0; i < dim; ++i) {
+			const uint8 c = static_cast<uint8>((pmpData[i] * 255) / maxValue);
+			bmpOutData[i] = Color(c, c, c);
+		}
+		// so the maximum value has to be mapped to 255 -> multiply by 255 and divide by the max value
+		oman->setOutput(bmpOut, 0); // the zero is important
+	}
+	return KernelBase::KPR_OK;
+}
+// just overriden so we don't output our input bmp
+void HoughKernel::setOutput() const {}

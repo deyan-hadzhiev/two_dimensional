@@ -7,10 +7,13 @@
 #include <wx/stdpaths.h>
 #include <wx/valnum.h>
 
+#include <sstream>
+
 #include "guimain.h"
 #include "wx_modes.h"
 #include "wx_bitmap_canvas.h"
 #include "kernels.h"
+#include "geom_primitive.h"
 
 ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 	: wxPanel(viewFrame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxNO_BORDER | wxSIZE_AUTO | wxSIZE_FORCE)
@@ -25,11 +28,12 @@ ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 
 ModePanel::~ModePanel() {}
 
+const int ModePanel::panelBorder = 4;
+
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
-const int InputOutputMode::panelBorder = 4;
 
 InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
-	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED)
+	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
 	, inputCanvas(nullptr)
 	, outputCanvas(nullptr)
 	, compareCanvas(nullptr)
@@ -111,6 +115,109 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
+GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
+	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
+	, gkernel(gk)
+	, outputCanvas(nullptr)
+	, customInputSizer(nullptr)
+	, widthCtrl(nullptr)
+	, heightCtrl(nullptr)
+	, additiveCb(nullptr)
+	, clearCb(nullptr)
+	, showCoords(nullptr)
+	, colorCtrl(nullptr)
+{
+	wxBoxSizer * inputSizer = new wxBoxSizer(wxVERTICAL);
+	wxBoxSizer * defInputSizer = new wxBoxSizer(wxHORIZONTAL);
+	// TODO add checkbox for clear output
+	wxBoxSizer * wSizer = new wxBoxSizer(wxVERTICAL);
+	wSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Width: ")), 1, wxEXPAND | wxALL);
+	defInputSizer->Add(wSizer, 1, wxEXPAND | wxALL, panelBorder);
+	widthCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << GetSize().GetWidth());
+	defInputSizer->Add(widthCtrl, 1, wxEXPAND | wxALL, panelBorder);
+	wxBoxSizer * hSizer = new wxBoxSizer(wxVERTICAL);
+	hSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Height: ")), 1, wxEXPAND | wxALL);
+	defInputSizer->Add(hSizer, 1, wxEXPAND | wxALL, panelBorder);
+	heightCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << GetSize().GetHeight());
+	defInputSizer->Add(heightCtrl, 1, wxEXPAND | wxALL, panelBorder);
+
+	additiveCb = new wxCheckBox(this, wxID_ANY, wxT("Additive"));
+	defInputSizer->Add(additiveCb, 1, wxEXPAND | wxALL, panelBorder);
+	clearCb = new wxCheckBox(this, wxID_ANY, wxT("Clear"));
+	defInputSizer->Add(clearCb, 1, wxEXPAND | wxALL, panelBorder);
+	showCoords = new wxCheckBox(this, wxID_ANY, wxT("Axis"));
+	defInputSizer->Add(showCoords, 1, wxEXPAND | wxALL, panelBorder);
+
+	wxBoxSizer * chSizer = new wxBoxSizer(wxVERTICAL);
+	chSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Color:")));
+	defInputSizer->Add(chSizer, 1, wxEXPAND | wxALL, panelBorder);
+	colorCtrl = new wxTextCtrl(this, wxID_ANY, "ffffff");
+	defInputSizer->Add(colorCtrl, 1, wxEXPAND | wxALL);
+
+	customInputSizer = new wxBoxSizer(wxHORIZONTAL);
+	inputSizer->Add(defInputSizer, 1, wxALL, panelBorder);
+	inputSizer->Add(customInputSizer, 1, wxALL, panelBorder);
+
+	mPanelSizer->Add(inputSizer, 0, wxALL, panelBorder);
+
+	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
+	outputCanvas = new BitmapCanvas(this, vf);
+	canvasSizer->Add(outputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
+
+	gkernel->addOutputManager(outputCanvas);
+	gkernel->addParamManager(this);
+
+	SendSizeEvent();
+}
+
+GeometricOutput::~GeometricOutput() {
+	delete gkernel;
+}
+
+void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
+	switch (ev.GetId())
+	{
+	case(ViewFrame::MID_VF_CNT_RUN) : {
+		const int width = wxAtoi(widthCtrl->GetValue());
+		const int height = wxAtoi(heightCtrl->GetValue());
+		const std::string colStr = colorCtrl->GetValue();
+		std::stringstream ss;
+		ss << std::hex << colStr;
+		unsigned col = 0;
+		ss >> col;
+		gkernel->setColor(Color(col));
+		unsigned flags = DrawFlags::DF_OVER;
+		flags |= (additiveCb->GetValue() ? DrawFlags::DF_ACCUMULATE : 0);
+		flags |= (clearCb->GetValue() ? DrawFlags::DF_CLEAR : 0);
+		flags |= (showCoords->GetValue() ? DrawFlags::DF_SHOW_AXIS : 0);
+		gkernel->setSize(width, height);
+		gkernel->runKernel(flags);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+void GeometricOutput::addParam(const std::string & label, wxTextCtrl * wnd) {
+	wxBoxSizer * pSizer = new wxBoxSizer(wxVERTICAL);
+	pSizer->Add(new wxStaticText(this, wxID_ANY, wxString(label)), 1, wxEXPAND | wxALL);
+	customInputSizer->Add(pSizer, 1, wxEXPAND | wxALL, panelBorder);
+	customParams[label] = wnd;
+	customInputSizer->Add(wnd, 1, wxEXPAND | wxALL, panelBorder);
+	SendSizeEvent();
+}
+
+std::string GeometricOutput::getParam(const std::string & paramName) const {
+	std::string retval;
+	const auto& pv = customParams.find(paramName);
+	if (pv != customParams.end()) {
+		retval = std::string(pv->second->GetValue());
+	}
+	return retval;
+}
+
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
 	: InputOutputMode(viewFrame, new NegativeKernel)
 {}
@@ -139,3 +246,18 @@ std::string TextSegmentationPanel::getParam(const std::string & paramName) const
 	}
 	return std::string();
 }
+
+SinosoidPanel::SinosoidPanel(ViewFrame * vf)
+	: GeometricOutput(vf, new SinosoidKernel)
+{
+	gkernel->addParamManager(this);
+	// TODO make the list of paramters callable from the kernel, so the gui may initialize what it need for the user input
+	addParam("k", new wxTextCtrl(this, wxID_ANY, wxT("50")));
+	addParam("q", new wxTextCtrl(this, wxID_ANY, wxT("1")));
+	addParam("offset", new wxTextCtrl(this, wxID_ANY, wxT("0.0")));
+	addParam("function", new wxTextCtrl(this, wxID_ANY, wxT("cos")));
+}
+
+HoughRoTheta::HoughRoTheta(ViewFrame * vf)
+	: InputOutputMode(vf, new HoughKernel)
+{}

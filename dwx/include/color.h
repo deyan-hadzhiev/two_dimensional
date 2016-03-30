@@ -2,6 +2,7 @@
 #define __COLOR_H__
 
 #include <math.h>
+#include <algorithm>
 #include "util.h"
 
 inline unsigned convertTo8bit(float x) noexcept {
@@ -173,9 +174,6 @@ public:
 		, b(0)
 	{}
 
-	explicit Color(unsigned char v)	noexcept {
-		setColor(v, v, v);
-	}
 	//!< Construct a color from R8G8B8 value like "0xffce08"
 	explicit Color(unsigned rgbcolor) noexcept {
 		b = (rgbcolor & 0xff);
@@ -215,6 +213,34 @@ public:
 	inline unsigned char& operator[] (int index) noexcept {
 		return components[index];
 	}
+
+	void operator += (const Color& rhs) noexcept {
+		r = static_cast<uint8>(std::min(static_cast<uint16>(r) + static_cast<uint16>(rhs.r), 0xff));
+		g = static_cast<uint8>(std::min(static_cast<uint16>(g) + static_cast<uint16>(rhs.g), 0xff));
+		b = static_cast<uint8>(std::min(static_cast<uint16>(b) + static_cast<uint16>(rhs.b), 0xff));
+	}
+
+	void operator -= (const Color& rhs) noexcept {
+		r = static_cast<uint8>(std::max(static_cast<int16>(r) - static_cast<int16>(rhs.r), 0));
+		g = static_cast<uint8>(std::max(static_cast<int16>(g) - static_cast<int16>(rhs.g), 0));
+		b = static_cast<uint8>(std::max(static_cast<int16>(b) - static_cast<int16>(rhs.b), 0));
+	}
 };
+
+inline Color operator+(const Color& lhs, const Color& rhs) noexcept {
+	return Color(
+		static_cast<uint8>(std::min(static_cast<uint16>(lhs.r) + static_cast<uint16>(rhs.r), 0xff)),
+		static_cast<uint8>(std::min(static_cast<uint16>(lhs.g) + static_cast<uint16>(rhs.g), 0xff)),
+		static_cast<uint8>(std::min(static_cast<uint16>(lhs.b) + static_cast<uint16>(rhs.b), 0xff))
+		);
+}
+
+inline Color operator-(const Color& lhs, const Color& rhs) noexcept {
+	return Color(
+		static_cast<uint8>(std::max(static_cast<int16>(lhs.r) - static_cast<int16>(rhs.r), 0)),
+		static_cast<uint8>(std::max(static_cast<int16>(lhs.g) - static_cast<int16>(rhs.g), 0)),
+		static_cast<uint8>(std::max(static_cast<int16>(lhs.b) - static_cast<int16>(rhs.b), 0))
+		);
+}
 
 #endif // __COLOR_H__

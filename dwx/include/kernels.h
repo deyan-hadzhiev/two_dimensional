@@ -6,6 +6,11 @@
 #include <unordered_map>
 #include "bitmap.h"
 #include "kernel_base.h"
+#include "geom_primitive.h"
+
+using ParamList = std::unordered_map<std::string, std::string>;
+
+// TODO add a kernel as an input/output manager of another kernel to chain kernels
 
 // A simple kernel with a single image, input and output
 class SimpleKernel : public KernelBase {
@@ -41,7 +46,7 @@ protected:
 	ParamManager * pman;
 	// setup expected paramters in the constructor and they will be iterated in runKernel(..) function before calling the impelementation
 	std::vector<std::string> inputParams;
-	std::unordered_map<std::string, std::string> paramValues;
+	ParamList paramValues;
 public:
 	SimpleKernel()
 		: bmpId(0)
@@ -86,6 +91,51 @@ public:
 	}
 
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+};
+
+class GeometricKernel : public SimpleKernel {
+protected:
+	GeometricPrimitive<Color> * primitive;
+	int width;
+	int height;
+	bool dirtySize;
+	Color col;
+public:
+	GeometricKernel(GeometricPrimitive<Color> * p)
+		: primitive(p)
+		, width(0)
+		, height(0)
+		, dirtySize(true)
+		, col(255, 255, 255)
+	{
+		const std::vector<std::string>& paramList = p->getParamList();
+		for (const auto& param : paramList) {
+			inputParams.push_back(param);
+		}
+	}
+
+	virtual ~GeometricKernel() {
+		delete primitive;
+	}
+
+	virtual void setSize(int width, int height);
+
+	virtual void setColor(Color rgb);
+
+	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
+};
+
+class SinosoidKernel : public GeometricKernel {
+public:
+	SinosoidKernel();
+};
+
+class HoughKernel : public SimpleKernel {
+	Bitmap houghOut;
+public:
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+
+	virtual void setOutput() const override final;
 };
 
 #endif
