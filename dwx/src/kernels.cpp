@@ -196,17 +196,17 @@ SinosoidKernel::SinosoidKernel()
 KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
-	const int hs = 2;
+	const int hs = 2; // decrease size a bit
 	const int hh = int(sqrt(bw * bw + bh * bh)) / hs;
-	const int hw = hh; // we will sample the input image for 720 angles
-	const float q = 180.0f / hw;
+	const int hw = hh;
 	Function<uint64> aps; // projected space
 	aps.resize(hw, hh);
 	float ro = 0.0f; // roVec length - directly used in lambda
 	float thetaRad = 0.0f; // the theta angle in radians
+	const int cx = hw / 2;
 	aps.setFunction(
-		[](int x) -> float { return toRadians(x); },
-		[q,&ro,&thetaRad](float x) -> float { return ro * cos(q * (thetaRad - x)); }
+		[cx, hw](int x) -> float { return toRadians((x + cx) * 180.0f / float(hw)); }, // has to map from [-cx, cx) -> [0, 2*PI)
+		[&ro, &thetaRad](float x) -> float { return ro * cos(thetaRad - x); } // directly from the Hough Rho-Theta definition
 		);
 	const uint64 pc = 1; // we'll use it for addition - so it has to be one
 	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
@@ -218,9 +218,7 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 				Vector2 p(x + .5f, y + .5f);
 				Vector2 roVec = p - center;
 				ro = roVec.length() / hs; // this is the length to the segment - ro
-				thetaRad = fabs(atan2(roVec.y, roVec.x)); // [0, PI]
-				//thetaRad = (thetaRad > PI / 2 ? thetaRad - PI / 2 : thetaRad); // [0, PI)
-				//aps.setParams(ro, q, -thetaRad);
+				thetaRad = atan2(roVec.y, roVec.x);
 				aps.draw(pc, DrawFlags::DF_ACCUMULATE);
 			}
 		}
