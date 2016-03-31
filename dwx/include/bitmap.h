@@ -70,6 +70,7 @@ public:
 	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
 	ColorType getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
+	ColorType getFilteredPixel(float x, float y, bool tile = false) const noexcept;
 	void remap(std::function<ColorType(ColorType)>) noexcept; // remap R, G, B channels by a function
 
 	void setPixel(int x, int y, const ColorType& col) noexcept; //!< Sets the pixel at coordinates (x, y)

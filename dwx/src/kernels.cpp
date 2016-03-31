@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "kernels.h"
 #include "vector2.h"
+#include "matrix2.h"
 
 KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
@@ -245,3 +246,55 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 }
 // just overriden so we don't output our input bmp
 void HoughKernel::setOutput() const {}
+
+KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const int cx = bw / 2;
+	const int cy = bh / 2;
+	float angle = 0.0f;
+	if (pman) {
+		const std::string degsStr = pman->getParam("angle");
+		if (!degsStr.empty()) {
+			angle = toRadians(atof(degsStr.c_str()));
+		}
+	}
+	const Matrix2 rot(rotationMatrix(angle));
+	const Matrix2 invRot(transpose(rot)); // since this is rotation, the inverse is the transposed matrix
+	Vector2 edges[4] = {
+		Vector2(-cx + 0.5f, -cy + 0.5f),
+		Vector2(cx + (bw & 1 ? 0.5f : -0.5f), -cy + .5f),
+		Vector2(cx + (bw & 1 ? 0.5f : -0.5f), cy + (bh & 1 ? 0.5f : -0.5f)),
+		Vector2(-cx + 0.5f, cy + (bh & 1 ? 0.5f : -0.5f))
+	};
+	float minX = 0.0f;
+	float maxX = 0.0f;
+	float minY = 0.0f;
+	float maxY = 0.0f;
+	for (int i = 0; i < 4; ++i) {
+		edges[i] = rot * edges[i]; // rotate the edge to get where it will be mapped
+		minX = std::min(edges[i].x, minX);
+		maxX = std::max(edges[i].x, maxX);
+		minY = std::min(edges[i].y, minY);
+		maxY = std::max(edges[i].y, maxY);
+	}
+	const int obw = static_cast<int>(ceilf(maxX) - floorf(minX));
+	const int obh = static_cast<int>(ceilf(maxY) - floorf(minY));
+	Bitmap bmpOut(obw, obh);
+	Color * bmpData = bmpOut.getDataPtr();
+	const int ocx = obw / 2;
+	const int ocy = obh / 2;
+	for (int y = 0; y < obh; ++y) {
+		for (int x = 0; x < obw; ++x) {
+			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy);
+		}
+	}
+	if (oman) {
+		oman->setOutput(bmpOut, 0);
+	}
+	return KernelBase::KPR_OK;
+}
+
+void RotationKernel::setOutput() const
+{}

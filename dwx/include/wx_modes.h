@@ -90,4 +90,14 @@ public:
 	HoughRoTheta(ViewFrame * vf);
 };
 
+class RotationPanel : public InputOutputMode, public ParamManager {
+	wxTextCtrl * angleCtrl;
+public:
+	RotationPanel(ViewFrame * vf);
+
+	virtual std::string getParam(const std::string& paramName) const override final;
+
+	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
+};
+
 #endif // __WX_MODES_H__

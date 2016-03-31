@@ -214,16 +214,33 @@ public:
 		return components[index];
 	}
 
-	void operator += (const Color& rhs) noexcept {
+	Color& operator += (const Color& rhs) noexcept {
 		r = static_cast<uint8>(std::min(static_cast<uint16>(r) + static_cast<uint16>(rhs.r), 0xff));
 		g = static_cast<uint8>(std::min(static_cast<uint16>(g) + static_cast<uint16>(rhs.g), 0xff));
 		b = static_cast<uint8>(std::min(static_cast<uint16>(b) + static_cast<uint16>(rhs.b), 0xff));
+		return *this;
 	}
 
-	void operator -= (const Color& rhs) noexcept {
+	Color& operator -= (const Color& rhs) noexcept {
 		r = static_cast<uint8>(std::max(static_cast<int16>(r) - static_cast<int16>(rhs.r), 0));
 		g = static_cast<uint8>(std::max(static_cast<int16>(g) - static_cast<int16>(rhs.g), 0));
 		b = static_cast<uint8>(std::max(static_cast<int16>(b) - static_cast<int16>(rhs.b), 0));
+		return *this;
+	}
+
+	Color& operator *= (float mult) noexcept {
+		r = static_cast<uint8>(clamp(r * mult, 0.0f, 255.0f));
+		g = static_cast<uint8>(clamp(g * mult, 0.0f, 255.0f));
+		b = static_cast<uint8>(clamp(b * mult, 0.0f, 255.0f));
+		return *this;
+	}
+
+	Color& operator /= (float div) noexcept {
+		const float mult = 1.0f / div;
+		r = static_cast<uint8>(clamp(r * mult, 0.0f, 255.0f));
+		g = static_cast<uint8>(clamp(g * mult, 0.0f, 255.0f));
+		b = static_cast<uint8>(clamp(b * mult, 0.0f, 255.0f));
+		return *this;
 	}
 };
 
@@ -240,6 +257,31 @@ inline Color operator-(const Color& lhs, const Color& rhs) noexcept {
 		static_cast<uint8>(std::max(static_cast<int16>(lhs.r) - static_cast<int16>(rhs.r), 0)),
 		static_cast<uint8>(std::max(static_cast<int16>(lhs.g) - static_cast<int16>(rhs.g), 0)),
 		static_cast<uint8>(std::max(static_cast<int16>(lhs.b) - static_cast<int16>(rhs.b), 0))
+		);
+}
+
+inline Color operator*(const Color& lhs, const float mult) noexcept {
+	return Color(
+		static_cast<uint8>(clamp(lhs.r * mult, 0.0f, 255.0f)),
+		static_cast<uint8>(clamp(lhs.g * mult, 0.0f, 255.0f)),
+		static_cast<uint8>(clamp(lhs.b * mult, 0.0f, 255.0f))
+		);
+}
+
+inline Color operator*(const float mult, const Color& rhs) noexcept {
+	return Color(
+		static_cast<uint8>(clamp(rhs.r * mult, 0.0f, 255.0f)),
+		static_cast<uint8>(clamp(rhs.g * mult, 0.0f, 255.0f)),
+		static_cast<uint8>(clamp(rhs.b * mult, 0.0f, 255.0f))
+		);
+}
+
+inline Color operator/(const Color& lhs, const float div) noexcept {
+	const float mult = 1.0f / div;
+	return Color(
+		static_cast<uint8>(clamp(lhs.r * mult, 0.0f, 255.0f)),
+		static_cast<uint8>(clamp(lhs.g * mult, 0.0f, 255.0f)),
+		static_cast<uint8>(clamp(lhs.b * mult, 0.0f, 255.0f))
 		);
 }
 

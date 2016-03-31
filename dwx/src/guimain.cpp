@@ -27,6 +27,7 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Text Segmentation"),
 	wxT("Sinosoid curve"),
 	wxT("Hough Ro Theta"),
+	wxT("Image rotation"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -150,6 +151,11 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_HOUGH_RO_THETA) :
 		SetStatusText(wxT("Using Ro Theta Hough kernel"));
 		mPanel = new HoughRoTheta(this);
+		break;
+	case(MID_VF_ROTATION) :
+		SetStatusText(wxT("Using Image rotation"));
+		mPanel = new RotationPanel(this);
+		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));
 		break;

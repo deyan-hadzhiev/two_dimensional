@@ -131,8 +131,18 @@ public:
 };
 
 class HoughKernel : public SimpleKernel {
-	Bitmap houghOut;
 public:
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+
+	virtual void setOutput() const override final;
+};
+
+class RotationKernel : public SimpleKernel {
+public:
+	RotationKernel() {
+		inputParams.push_back("angle");
+	}
+
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
 
 	virtual void setOutput() const override final;

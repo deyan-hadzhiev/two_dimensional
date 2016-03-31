@@ -6,8 +6,8 @@ Matrix2 operator * (const Matrix2& a, const Matrix2& b) noexcept {
 	return Matrix2(
 		a.m[0][0] * b.m[0][0] + a.m[0][1] * b.m[1][0],
 		a.m[0][0] * b.m[0][1] + a.m[0][1] * b.m[1][1],
-		a.m[1][0] * b.m[0][0] + a.m[1][0] * b.m[1][0],
-		a.m[1][0] * b.m[0][1] + a.m[1][0] * b.m[1][1]
+		a.m[1][0] * b.m[0][0] + a.m[1][1] * b.m[1][0],
+		a.m[1][0] * b.m[0][1] + a.m[1][1] * b.m[1][1]
 		);
 }
 
@@ -18,6 +18,7 @@ Matrix2 inverseMatrix(const Matrix2& m) noexcept {
 
 	const float rdet = 1.0f / det;
 
+	// this is the *transposed* cofactor matrix
 	Matrix2 res(m.m[1][1], -m.m[0][1], -m.m[1][0], m.m[0][0]);
 	return res * det;
 }
@@ -36,8 +37,10 @@ float determinant(const Matrix2& m) noexcept {
 Matrix2 rotationMatrix(const float angle) noexcept {
 	const float C = cosf(angle);
 	const float S = sinf(angle);
+	// the matrix is transposed because of the negtively oriented
+	// coordinate system used for images - 0, 0 is top-left
 	return Matrix2(
-		C, -S,
-		S, C
+		C, S,
+		-S, C
 		);
 }

@@ -261,3 +261,29 @@ SinosoidPanel::SinosoidPanel(ViewFrame * vf)
 HoughRoTheta::HoughRoTheta(ViewFrame * vf)
 	: InputOutputMode(vf, new HoughKernel)
 {}
+
+RotationPanel::RotationPanel(ViewFrame * vf)
+	: InputOutputMode(vf, new RotationKernel)
+	, angleCtrl(nullptr)
+{
+	wxBoxSizer * inputSizer = new wxBoxSizer(wxHORIZONTAL);
+	wxBoxSizer * statSizer = new wxBoxSizer(wxVERTICAL);
+	statSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Angle: ")), 1, wxEXPAND | wxALL);
+	inputSizer->Add(statSizer, 1, wxEXPAND | wxALL, panelBorder);
+	angleCtrl = new wxTextCtrl(this, wxID_ANY, "45");
+	//wxIntegerValidator<unsigned char> validator(); // disabling for now because we would need proper overloads and a lot of code
+	//threshold->SetValidator(validator);
+	inputSizer->Add(angleCtrl, 1, wxBOTTOM, panelBorder);
+	mPanelSizer->Prepend(inputSizer, 0, wxALL, panelBorder);
+	// add this class as a param handler for the kernel
+	kernel->addParamManager(this);
+
+	SendSizeEvent();
+}
+
+std::string RotationPanel::getParam(const std::string & paramName) const {
+	if (paramName == "angle") {
+		return std::string(angleCtrl->GetValue());
+	}
+	return std::string();
+}
