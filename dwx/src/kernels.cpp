@@ -40,6 +40,13 @@ void AsyncKernel::kernelLoop(AsyncKernel * k) {
 	}
 }
 
+bool AsyncKernel::getAbortState() const {
+	return
+		state == State::AKS_TERMINATED ||
+		state == State::AKS_DIRTY ||
+		(nullptr != cb && cb->getAbortFlag());
+}
+
 AsyncKernel::AsyncKernel()
 	: state(State::AKS_INIT)
 	, loopThread(kernelLoop, this)
@@ -242,6 +249,9 @@ SinosoidKernel::SinosoidKernel()
 {}
 
 KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
+	if (cb) {
+		cb->setKernelName("Hough Rho Theta");
+	}
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	const int hs = 2; // decrease size a bit
@@ -259,8 +269,9 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 	const uint64 pc = 1; // we'll use it for addition - so it has to be one
 	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
 	const Color * bmpData = bmp.getDataPtr();
-	for (int y = 0; y < bh && state != State::AKS_TERMINATED; ++y) {
-		for (int x = 0; x < bw && state != State::AKS_TERMINATED; ++x) {
+	const int maxDim = bh * bw;
+	for (int y = 0; y < bh && !getAbortState(); ++y) {
+		for (int x = 0; x < bw && !getAbortState(); ++x) {
 			// check if the pixel has intensity below threshhold
 			if (bmpData[y * bw + x].intensity() < 15) {
 				Vector2 p(x + .5f, y + .5f);
@@ -269,10 +280,13 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 				thetaRad = atan2(roVec.y, roVec.x);
 				aps.draw(pc, DrawFlags::DF_ACCUMULATE);
 			}
+			if (cb) {
+				cb->setPercentDone(y * bw + x, maxDim);
+			}
 		}
 	}
 	// directly set the output because it will be destroyed after this function exits
-	if (oman && state != State::AKS_TERMINATED) {
+	if (oman && !getAbortState()) {
 		const Pixelmap<uint64>& pmp = aps.getBitmap();
 		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
 		const int dim = pmp.getWidth() * pmp.getHeight();
@@ -330,8 +344,8 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	Color * bmpData = bmpOut.getDataPtr();
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
-	for (int y = 0; y < obh; ++y) {
-		for (int x = 0; x < obw; ++x) {
+	for (int y = 0; y < obh && !getAbortState(); ++y) {
+		for (int x = 0; x < obw && !getAbortState(); ++x) {
 			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
 			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, true);
 		}

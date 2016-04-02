@@ -15,13 +15,18 @@ public:
 
 	void OnCustomMenuSelect(wxCommandEvent&);
 
+	void OnTimer(wxTimerEvent&);
+
+	void OnIdle(wxIdleEvent&);
+
 	enum ViewFrameStyles {
 		VFS_NOTHING_ENABLED = 0,
 		VFS_FILE_OPEN       = 1 << 0, // enables open file in the menu
 		VFS_FILE_SAVE       = 1 << 1, // enables save file in the menu
 		VFS_OPEN_SAVE       = VFS_FILE_OPEN | VFS_FILE_SAVE,
 		VFS_CNT_RUN         = 1 << 2, // enables the run control item
-		VFS_CNT_COMPARE     = 1 << 3, // enables the compare item
+		VFS_CNT_STOP        = 1 << 3, // enables the stop control item (only for asynchronous kernels)
+		VFS_CNT_COMPARE     = 1 << 4, // enables the compare item
 		VFS_CNT_LAST,       //!< boundry for style loop
 		VFS_ALL_ENABLED     = ((VFS_CNT_LAST - 1) << 1) - 1,
 	};
@@ -34,6 +39,7 @@ public:
 
 		MID_VF_CNT_RANGE_START, //!< Add controls in this range
 		MID_VF_CNT_RUN,
+		MID_VF_CNT_STOP,
 		MID_VF_CNT_COMPARE,
 		MID_VF_CNT_RANGE_END,
 
@@ -44,6 +50,8 @@ public:
 		MID_VF_HOUGH_RO_THETA,
 		MID_VF_ROTATION,
 		MID_VF_MODES_RANGE_END,
+
+		MID_VF_TIMER,
 	};
 private:
 
@@ -62,7 +70,7 @@ private:
 	wxMenu * file;
 	wxMenuItem * fileOpen;
 	wxMenuItem * fileSave;
-	wxStatusBar * statusBar;
+	wxTimer refreshTimer;
 };
 
 #endif // __GUIMAIN_H__

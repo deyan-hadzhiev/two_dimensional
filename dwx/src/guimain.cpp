@@ -32,11 +32,13 @@ const wxString ViewFrame::modeNames[] = {
 
 const wxString ViewFrame::controlNames[] = {
 	wxT("&Run\tF5"),
+	wxT("&Stop\tShift+F5"),
 	wxT("&Compare\tCtrl+C"),
 };
 
 const wxItemKind ViewFrame::controlKinds[] = {
 	wxITEM_NORMAL, //!< Run
+	wxITEM_NORMAL, //!< Stop
 	wxITEM_CHECK,  //!< Compare
 };
 
@@ -72,10 +74,14 @@ ViewFrame::ViewFrame(const wxString& title)
 	, file(nullptr)
 	, fileOpen(nullptr)
 	, fileSave(nullptr)
-	, statusBar(nullptr)
+	, refreshTimer(this, MID_VF_TIMER)
 {
 	SetMinClientSize(vfMinSize);
 	SetDoubleBuffered(true);
+
+	Connect(wxEVT_IDLE, wxIdleEventHandler(ViewFrame::OnIdle), NULL, this);
+	Connect(wxEVT_TIMER, MID_VF_TIMER, wxTimerEventHandler(ViewFrame::OnTimer), NULL, this);
+	refreshTimer.Start(200);
 
 	menuBar = new wxMenuBar;
 
@@ -167,5 +173,23 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 void ViewFrame::OnCustomMenuSelect(wxCommandEvent & ev) {
 	if (mPanel) {
 		mPanel->onCommandMenu(ev);
+	}
+}
+
+void ViewFrame::OnTimer(wxTimerEvent &) {
+	if (mPanel) {
+		const wxString& statusText = mPanel->getCbString();
+		if (!statusText.empty()) {
+			SetStatusText(statusText);
+		}
+	}
+}
+
+void ViewFrame::OnIdle(wxIdleEvent &) {
+	if (mPanel) {
+		const wxString& statusText = mPanel->getCbString();
+		if (!statusText.empty()) {
+			SetStatusText(statusText);
+		}
 	}
 }

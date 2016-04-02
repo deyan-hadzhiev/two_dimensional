@@ -17,10 +17,12 @@ public:
 
 	virtual void onCommandMenu(wxCommandEvent& ev) {}
 
+	wxString getCbString() const;
 protected:
 	ViewFrame * viewFrame;
 	wxBoxSizer * mPanelSizer;
 	static const int panelBorder; //!< the default border of panels
+	ProgressCallback cb;
 };
 
 class InputOutputMode : public ModePanel {

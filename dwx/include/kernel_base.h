@@ -2,15 +2,67 @@
 #define __KERNEL_BASE_H__
 
 #include <string>
+#include <atomic>
+#include <mutex>
 #include "bitmap.h"
 
 class InputManager;
 class OutputManager;
 class ParamManager;
 
+class ProgressCallback {
+	std::atomic<bool> abortFlag;
+	std::atomic<int> fractionsDone;
+	std::atomic<int> fractionMax;
+	mutable std::mutex nameMutex;
+	std::string kernelName;
+public:
+	ProgressCallback()
+		: abortFlag(false)
+		, fractionsDone(0)
+		, fractionMax(1)
+		, kernelName("None")
+	{}
+
+	void setAbortFlag() {
+		abortFlag = true;
+	}
+
+	bool getAbortFlag() const {
+		return abortFlag;
+	}
+
+	void setPercentDone(int _fractionsDone, int _fractionMax) {
+		fractionsDone = _fractionsDone;
+		fractionMax = _fractionMax;
+	}
+
+	float getPercentDone() const {
+		return float(fractionsDone * 100) / fractionMax;
+	}
+
+	void setKernelName(const std::string& _kernelName) {
+		std::unique_lock<std::mutex> a(nameMutex);
+		kernelName = _kernelName;
+	}
+
+	std::string getKernelName() const {
+		std::unique_lock<std::mutex> a(nameMutex);
+		return kernelName;
+	}
+
+	void reset() {
+		abortFlag = false;
+		fractionsDone = 0;
+		fractionMax = 1;
+		kernelName = std::string("None");
+	}
+};
+
 class KernelBase {
 protected:
 	unsigned flags;
+	ProgressCallback * cb;
 public:
 	virtual ~KernelBase() {}
 	// adds an input manager (note there may be more than one (probably))
@@ -21,6 +73,10 @@ public:
 
 	// adds a parameter manager for getting user parameters for the kernel
 	virtual void addParamManager(ParamManager * pman) {}
+
+	virtual void setProgressCallback(ProgressCallback * _cb) {
+		cb = _cb;
+	}
 
 	// forces an update of the kernel
 	virtual void update() {

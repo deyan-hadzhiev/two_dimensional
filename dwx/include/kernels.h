@@ -102,6 +102,8 @@ protected:
 	std::thread loopThread;
 
 	static void kernelLoop(AsyncKernel * k);
+
+	bool getAbortState() const;
 };
 
 class NegativeKernel : public SimpleKernel {

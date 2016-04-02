@@ -28,6 +28,16 @@ ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 
 ModePanel::~ModePanel() {}
 
+wxString ModePanel::getCbString() const {
+	wxString statusText;
+	const std::string& kernelName = cb.getKernelName();
+	const float percentDone = cb.getPercentDone();
+	if (!kernelName.empty() && percentDone > 0.05f) {
+		statusText.Printf(wxT("%s : %6.2f %%"), kernelName.c_str(), percentDone);
+	}
+	return statusText;
+}
+
 const int ModePanel::panelBorder = 4;
 
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
@@ -102,7 +112,11 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		// TODO:
 		break;
 	case (ViewFrame::MID_VF_CNT_RUN) :
+		cb.reset();
 		kernel->runKernel(0);
+		break;
+	case (ViewFrame::MID_VF_CNT_STOP) :
+		cb.setAbortFlag();
 		break;
 	case (ViewFrame::MID_VF_CNT_COMPARE) :
 		inputCanvas->Show(!inputCanvas->IsShown());
@@ -221,11 +235,14 @@ bool GeometricOutput::getStringParam(std::string& value, const std::string & par
 
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
 	: InputOutputMode(viewFrame, new NegativeKernel)
-{}
+{
+	kernel->setProgressCallback(&cb);
+}
 
 TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
 	: InputOutputMode(vf, new TextSegmentationKernel)
 {
+	kernel->setProgressCallback(&cb);
 	wxBoxSizer * inputSizer = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer * statSizer = new wxBoxSizer(wxVERTICAL);
 	statSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Threshold: ")), 1, wxEXPAND | wxALL);
@@ -252,6 +269,7 @@ bool TextSegmentationPanel::getStringParam(std::string& value, const std::string
 SinosoidPanel::SinosoidPanel(ViewFrame * vf)
 	: GeometricOutput(vf, new SinosoidKernel)
 {
+	gkernel->setProgressCallback(&cb);
 	gkernel->addParamManager(this);
 	// TODO make the list of paramters callable from the kernel, so the gui may initialize what it need for the user input
 	addParam("k", new wxTextCtrl(this, wxID_ANY, wxT("50")));
@@ -262,12 +280,15 @@ SinosoidPanel::SinosoidPanel(ViewFrame * vf)
 
 HoughRoTheta::HoughRoTheta(ViewFrame * vf)
 	: InputOutputMode(vf, new HoughKernel)
-{}
+{
+	kernel->setProgressCallback(&cb);
+}
 
 RotationPanel::RotationPanel(ViewFrame * vf)
 	: InputOutputMode(vf, new RotationKernel)
 	, angleCtrl(nullptr)
 {
+	kernel->setProgressCallback(&cb);
 	wxBoxSizer * inputSizer = new wxBoxSizer(wxHORIZONTAL);
 	wxBoxSizer * statSizer = new wxBoxSizer(wxVERTICAL);
 	statSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Angle: ")), 1, wxEXPAND | wxALL);
