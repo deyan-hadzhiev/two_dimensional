@@ -26,16 +26,16 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 void AsyncKernel::kernelLoop(AsyncKernel * k) {
 	while(k->state != State::AKS_TERMINATED) {
 		std::unique_lock<std::mutex> lk(k->kernelMutex);
-		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT)
+		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
 			k->ev.wait(lk);
-		if (k->state == State::AKS_TERMINATED) {
-			break;
+			State dirty = State::AKS_DIRTY;
+			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 		}
-		k->state = State::AKS_RUNNING;
-		k->kernelImplementation(0);
-		// be carefull not to change the state!!!
-		if (k->state == State::AKS_RUNNING) {
-			k->state = State::AKS_FINISHED;
+		if (k->state != State::AKS_TERMINATED) {
+			k->kernelImplementation(0);
+			// be carefull not to change the state!!!
+			State fin = State::AKS_RUNNING; // expected state
+			k->state.compare_exchange_weak(fin, State::AKS_FINISHED);
 		}
 	}
 }
@@ -301,7 +301,9 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	const int cy = bh / 2;
 	float angle = 0.0f;
 	if (pman) {
-		pman->getFloatParam(angle, "angle");
+		if (pman->getFloatParam(angle, "angle")) {
+			angle = toRadians(angle);
+		}
 	}
 	const Matrix2 rot(rotationMatrix(angle));
 	const Matrix2 invRot(transpose(rot)); // since this is rotation, the inverse is the transposed matrix
@@ -331,7 +333,7 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	for (int y = 0; y < obh; ++y) {
 		for (int x = 0; x < obw; ++x) {
 			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy);
+			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, true);
 		}
 	}
 	if (oman) {

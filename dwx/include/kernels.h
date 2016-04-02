@@ -165,7 +165,7 @@ public:
 	virtual void setOutput() const override final;
 };
 
-class RotationKernel : public SimpleKernel {
+class RotationKernel : public AsyncKernel {
 public:
 	RotationKernel() {
 		inputParams.push_back("angle");

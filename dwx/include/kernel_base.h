@@ -66,6 +66,24 @@ public:
 	virtual void setOutput(const Bitmap& outputBmp, int id) = 0;
 };
 
+class ParamDescriptor {
+public:
+	enum class ParamType {
+		PT_NONE = 0,
+		PT_BOOL,
+		PT_INT,
+		PT_FLOAT,
+		PT_STRING,
+	} type;
+	KernelBase * kernel;
+	std::string name;
+	ParamDescriptor(ParamType _type = ParamType::PT_NONE, KernelBase * _kernel = nullptr, const std::string& _name = std::string())
+		: type(_type)
+		, kernel(_kernel)
+		, name(_name)
+	{}
+};
+
 class ParamManager {
 public:
 	virtual ~ParamManager() {}
@@ -81,6 +99,9 @@ public:
 	virtual bool getFloatParam(float& value, const std::string& paramName) const {
 		return false;
 	}
+
+	// adds a parameter to internal storage for type info and optionally updates to the kernel
+	virtual void addParam(const ParamDescriptor& pd) {} // = 0;
 
 	// sets an output paramter()
 	virtual void setParam(const std::string& paramName, const std::string& paramValue) = 0;
