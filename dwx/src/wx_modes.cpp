@@ -209,11 +209,12 @@ void GeometricOutput::addParam(const std::string & label, wxTextCtrl * wnd) {
 	SendSizeEvent();
 }
 
-std::string GeometricOutput::getParam(const std::string & paramName) const {
-	std::string retval;
+bool GeometricOutput::getStringParam(std::string& value, const std::string & paramName) const {
+	bool retval = false;
 	const auto& pv = customParams.find(paramName);
 	if (pv != customParams.end()) {
-		retval = std::string(pv->second->GetValue());
+		value = std::string(pv->second->GetValue());
+		retval = true;
 	}
 	return retval;
 }
@@ -240,11 +241,12 @@ TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
 	SendSizeEvent();
 }
 
-std::string TextSegmentationPanel::getParam(const std::string & paramName) const {
+bool TextSegmentationPanel::getStringParam(std::string& value, const std::string & paramName) const {
 	if (paramName == "threshold") {
-		return std::string(threshold->GetValue());
+		value = std::string(threshold->GetValue());
+		return true;
 	}
-	return std::string();
+	return false;
 }
 
 SinosoidPanel::SinosoidPanel(ViewFrame * vf)
@@ -281,9 +283,10 @@ RotationPanel::RotationPanel(ViewFrame * vf)
 	SendSizeEvent();
 }
 
-std::string RotationPanel::getParam(const std::string & paramName) const {
+bool RotationPanel::getFloatParam(float& value, const std::string & paramName) const {
 	if (paramName == "angle") {
-		return std::string(angleCtrl->GetValue());
+		value = atof(angleCtrl->GetValue().c_str());
+		return true;
 	}
-	return std::string();
+	return false;
 }

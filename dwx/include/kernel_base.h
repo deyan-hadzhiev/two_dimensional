@@ -9,6 +9,8 @@ class OutputManager;
 class ParamManager;
 
 class KernelBase {
+protected:
+	unsigned flags;
 public:
 	virtual ~KernelBase() {}
 	// adds an input manager (note there may be more than one (probably))
@@ -20,10 +22,21 @@ public:
 	// adds a parameter manager for getting user parameters for the kernel
 	virtual void addParamManager(ParamManager * pman) {}
 
+	// forces an update of the kernel
+	virtual void update() {
+		runKernel(flags);
+	}
+
+	// sets kernel flags
+	virtual void setFlags(unsigned _flags) {
+		flags = _flags;
+	}
+
 	enum ProcessResult {
 		KPR_OK = 0,
+		KPR_RUNNING,
 		KPR_INVALID_INPUT,
-		KRP_NO_IMPLEMENTATION,
+		KPR_NO_IMPLEMENTATION,
 		KPR_FATAL_ERROR,
 	};
 
@@ -56,8 +69,18 @@ public:
 class ParamManager {
 public:
 	virtual ~ParamManager() {}
-	// gets a paramter value - may return emtpy string if there is no such parameter
-	virtual std::string getParam(const std::string& paramName) const = 0;
+	// param getters - return true if the param is found
+	virtual bool getStringParam(std::string& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getIntParam(int& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getFloatParam(float& value, const std::string& paramName) const {
+		return false;
+	}
 
 	// sets an output paramter()
 	virtual void setParam(const std::string& paramName, const std::string& paramValue) = 0;

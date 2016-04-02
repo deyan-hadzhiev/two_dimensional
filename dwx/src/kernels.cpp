@@ -23,6 +23,53 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	return retval;
 }
 
+void AsyncKernel::kernelLoop(AsyncKernel * k) {
+	while(k->state != State::AKS_TERMINATED) {
+		std::unique_lock<std::mutex> lk(k->kernelMutex);
+		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT)
+			k->ev.wait(lk);
+		if (k->state == State::AKS_TERMINATED) {
+			break;
+		}
+		k->state = State::AKS_RUNNING;
+		k->kernelImplementation(0);
+		// be carefull not to change the state!!!
+		if (k->state == State::AKS_RUNNING) {
+			k->state = State::AKS_FINISHED;
+		}
+	}
+}
+
+AsyncKernel::AsyncKernel()
+	: state(State::AKS_INIT)
+	, loopThread(kernelLoop, this)
+{
+}
+
+AsyncKernel::~AsyncKernel() {
+	state = State::AKS_TERMINATED;
+	ev.notify_one();
+	loopThread.join();
+}
+
+AsyncKernel::State AsyncKernel::getState() const {
+	return state;
+}
+
+KernelBase::ProcessResult AsyncKernel::runKernel(unsigned flags) {
+	bool updated = false;
+	std::lock_guard<std::mutex> lk(kernelMutex);
+	const bool hasInput = getInput();
+	if (hasInput && bmp.isOK()) {
+		getParameters();
+		state = State::AKS_DIRTY;
+		updated = true;
+	}
+	if (updated)
+		ev.notify_one();
+	return (updated ? KPR_RUNNING : KPR_INVALID_INPUT);
+}
+
 KernelBase::ProcessResult NegativeKernel::kernelImplementation(unsigned flags) {
 	auto negativePix = [](Color a) -> Color {
 		return Color(255, 255, 255) - a;
@@ -212,8 +259,8 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 	const uint64 pc = 1; // we'll use it for addition - so it has to be one
 	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
 	const Color * bmpData = bmp.getDataPtr();
-	for (int y = 0; y < bh; ++y) {
-		for (int x = 0; x < bw; ++x) {
+	for (int y = 0; y < bh && state != State::AKS_TERMINATED; ++y) {
+		for (int x = 0; x < bw && state != State::AKS_TERMINATED; ++x) {
 			// check if the pixel has intensity below threshhold
 			if (bmpData[y * bw + x].intensity() < 15) {
 				Vector2 p(x + .5f, y + .5f);
@@ -225,7 +272,7 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 		}
 	}
 	// directly set the output because it will be destroyed after this function exits
-	if (oman) {
+	if (oman && state != State::AKS_TERMINATED) {
 		const Pixelmap<uint64>& pmp = aps.getBitmap();
 		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
 		const int dim = pmp.getWidth() * pmp.getHeight();
@@ -254,10 +301,7 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	const int cy = bh / 2;
 	float angle = 0.0f;
 	if (pman) {
-		const std::string degsStr = pman->getParam("angle");
-		if (!degsStr.empty()) {
-			angle = toRadians(atof(degsStr.c_str()));
-		}
+		pman->getFloatParam(angle, "angle");
 	}
 	const Matrix2 rot(rotationMatrix(angle));
 	const Matrix2 invRot(transpose(rot)); // since this is rotation, the inverse is the transposed matrix

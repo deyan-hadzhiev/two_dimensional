@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <thread>
+#include <condition_variable>
+#include <atomic>
+#include <mutex>
 #include "bitmap.h"
 #include "kernel_base.h"
 #include "geom_primitive.h"
@@ -31,8 +35,8 @@ protected:
 	virtual void getParameters() {
 		if (pman) {
 			for (const auto& p : inputParams) {
-				const std::string res = pman->getParam(p);
-				if (!res.empty()) {
+				std::string res;
+				if (pman->getStringParam(res, p)) {
 					paramValues[p] = res;
 				}
 			}
@@ -72,8 +76,32 @@ public:
 
 	// this function will be called from the runKernel(..) function and if not overriden will not do anything to the output image
 	virtual KernelBase::ProcessResult kernelImplementation(unsigned flags) {
-		return KernelBase::KRP_NO_IMPLEMENTATION;
+		return KernelBase::KPR_NO_IMPLEMENTATION;
 	}
+};
+
+class AsyncKernel : public SimpleKernel {
+public:
+	enum class State {
+		AKS_RUNNING = 0,
+		AKS_INIT,
+		AKS_FINISHED,
+		AKS_DIRTY,
+		AKS_TERMINATED,
+	};
+	AsyncKernel();
+	virtual ~AsyncKernel();
+
+	State getState() const;
+
+	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
+protected:
+	std::atomic<State> state;
+	std::mutex kernelMutex;
+	std::condition_variable ev;
+	std::thread loopThread;
+
+	static void kernelLoop(AsyncKernel * k);
 };
 
 class NegativeKernel : public SimpleKernel {
@@ -130,7 +158,7 @@ public:
 	SinosoidKernel();
 };
 
-class HoughKernel : public SimpleKernel {
+class HoughKernel : public AsyncKernel {
 public:
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
 

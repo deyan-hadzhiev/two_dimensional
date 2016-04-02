@@ -49,7 +49,7 @@ public:
 
 	void addParam(const std::string& label, wxTextCtrl * wnd);
 
-	std::string getParam(const std::string& paramName) const override final;
+	bool getStringParam(std::string& out, const std::string& paramName) const override final;
 
 	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
 protected:
@@ -75,7 +75,7 @@ class TextSegmentationPanel : public InputOutputMode, public ParamManager {
 public:
 	TextSegmentationPanel(ViewFrame * vf);
 
-	std::string getParam(const std::string& paramName) const override final;
+	bool getStringParam(std::string& value, const std::string& paramName) const override final;
 
 	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
 };
@@ -95,7 +95,7 @@ class RotationPanel : public InputOutputMode, public ParamManager {
 public:
 	RotationPanel(ViewFrame * vf);
 
-	virtual std::string getParam(const std::string& paramName) const override final;
+	virtual bool getFloatParam(float& value, const std::string& paramName) const override final;
 
 	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
 };
