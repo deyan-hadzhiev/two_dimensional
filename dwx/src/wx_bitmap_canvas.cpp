@@ -7,7 +7,7 @@
 const int BitmapCanvas::minZoom = -8;
 const int BitmapCanvas::maxZoom = 16;
 
-BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
+BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 	: wxPanel(parent)
 	, mouseOverCanvas(false)
 	, mouseLeftDrag(false)
@@ -33,48 +33,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap *
 	// connect the sizing event
 	Connect(wxEVT_SIZE, wxSizeEventHandler(BitmapCanvas::OnSizeEvt), NULL, this);
 
-	if (initBmp) {
-		setBitmap(*initBmp);
-	} else {
-		Bitmap empty;
-		const int bmpDim = 129;
-		empty.generateEmptyImage(bmpDim, bmpDim);
-		const Color border(127, 127, 127);
-		Color * bmpData = empty.getDataPtr();
-		for (int i = 0; i < bmpDim; ++i) {
-			bmpData[i] = border;
-			bmpData[i * bmpDim] = border;
-			bmpData[bmpDim * (bmpDim - 1) + i] = border;
-			bmpData[bmpDim * i + bmpDim - 1] = border;
-			// second row
-			bmpData[bmpDim + i] = border;
-			bmpData[i * bmpDim + 1] = border;
-			bmpData[bmpDim * (bmpDim - 2) + i] = border;
-			bmpData[bmpDim * i + bmpDim - 2] = border;
-		}
-		setBitmap(empty);
-	}
 	Update();
-}
-
-void BitmapCanvas::setBitmap(const Bitmap& bmp, int id) {
-	const int w = bmp.getWidth();
-	const int h = bmp.getHeight();
-	wxImage tmpImg = wxImage(wxSize(w, h));
-	unsigned char * imgData = tmpImg.GetData();
-	const Color* colorData = bmp.getDataPtr();
-	memcpy(imgData, colorData, w * h * 3);
-#if 0
-	for (int y = 0; y < h; ++y) {
-		for (int x = 0; x < w; ++x) {
-			const Color& c = colorData[x + y * w];
-			imgData[0 + (x + y * w) * 3] = c.r;
-			imgData[1 + (x + y * w) * 3] = c.g;
-			imgData[2 + (x + y * w) * 3] = c.b;
-		}
-	}
-#endif
-	setImage(tmpImg, id);
 }
 
 void BitmapCanvas::setImage(const wxImage & img, int id) {
@@ -93,10 +52,6 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 	}
 	dirtyCanvas = true;
 	Refresh();
-}
-
-int BitmapCanvas::getBmpId() const {
-	return bmpId;
 }
 
 void BitmapCanvas::updateStatus() const {
@@ -135,36 +90,6 @@ void BitmapCanvas::synchronize() {
 			s->Refresh();
 		}
 	}
-}
-
-bool BitmapCanvas::getInput(Bitmap & ibmp, int & id) const {
-	bool retval = false;
-	if (bmp.Ok()) {
-		const wxImage img(bmp.ConvertToImage());
-		const int w = img.GetWidth();
-		const int h = img.GetHeight();
-		ibmp.generateEmptyImage(w, h);
-		const unsigned char * imgData = img.GetData();
-		for (int dh = 0; dh < h; ++dh) {
-			for (int dw = 0; dw < w; ++dw) {
-				const unsigned char * rgb = imgData + dh * w * 3 + dw * 3;
-				ibmp[dh][dw] = Color(rgb[0], rgb[1], rgb[2]);
-			}
-		}
-		id = bmpId;
-		retval = true;
-	}
-	return retval;
-}
-
-void BitmapCanvas::kernelDone(KernelBase::ProcessResult result) {
-	if (result == KernelBase::KPR_OK) {
-		synchronize();
-	}
-}
-
-void BitmapCanvas::setOutput(const Bitmap & obmp, int id) {
-	setBitmap(obmp, id);
 }
 
 void BitmapCanvas::resetFocus() {
@@ -408,4 +333,95 @@ void BitmapCanvas::OnSizeEvt(wxSizeEvent & evt) {
 	}
 	updateStatus();
 	evt.Skip();
+}
+
+ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
+	: wxPanel(parent)
+	, canvas(new BitmapCanvas(this, topFrame))
+	, panelSizer(new wxBoxSizer(wxVERTICAL))
+{
+	panelSizer->Add(canvas, 1, wxEXPAND | wxSHRINK);
+	SetSizerAndFit(panelSizer);
+	if (nullptr != initBmp) {
+		bmp = *initBmp;
+	} else {
+		const int side = 8;
+		const int bmpSide = side * side * 4;
+		const int bmpFullSize = bmpSide * bmpSide;
+		const Color dark(16, 16, 16);
+		const Color bright(172, 172, 172);
+		bmp.generateEmptyImage(bmpSide, bmpSide);
+		Color * bmpData = bmp.getDataPtr();
+		for (int y = 0; y < bmpSide; ++y) {
+			for (int x = 0; x < bmpSide; ++x) {
+				const int xd = x / side;
+				const int yd = y / side;
+				bmpData[y * bmpSide + x] = ((xd + yd) & 1 ? bright : dark);
+			}
+		}
+	}
+	setOutput(bmp, 0);
+	SendSizeEvent();
+}
+
+int ImagePanel::getBmpId() const {
+	return bmpId;
+}
+
+void ImagePanel::synchronize() {
+	canvas->synchronize();
+}
+
+void ImagePanel::setImage(const wxImage & img, int id) {
+	if (id == 0) {
+		int rndId = rand();
+		while (rndId == 0) {
+			rndId = rand();
+		}
+		bmpId = rndId;
+	} else {
+		bmpId = id;
+	}
+	canvas->setImage(img, bmpId);
+	if (id == 0) {
+		canvas->resetFocus();
+	}
+	const int w = img.GetWidth();
+	const int h = img.GetHeight();
+	bmp.generateEmptyImage(w, h);
+	if (bmp.isOK()) {
+		Color * bmpData = bmp.getDataPtr();
+		memcpy(bmpData, img.GetData(), w * h * sizeof(Color));
+	}
+	Refresh();
+}
+
+bool ImagePanel::getInput(Bitmap & ibmp, int & id) const {
+	bool retval = false;
+	if (bmp.isOK()) {
+		ibmp = bmp;
+		id = bmpId;
+		retval = true;
+	}
+	return retval;
+}
+
+void ImagePanel::kernelDone(KernelBase::ProcessResult result) {
+	if (result == KernelBase::KPR_OK) {
+		canvas->synchronize();
+	}
+}
+
+void ImagePanel::setOutput(const Bitmap & obmp, int id) {
+	//canvas->setBitmap(obmp, id);
+	if (obmp.isOK()) {
+		bmp = obmp;
+		Color * bmpDataPtr = bmp.getDataPtr();
+		wxImage canvasImg(wxSize(obmp.getWidth(), obmp.getHeight()), reinterpret_cast<unsigned char *>(bmpDataPtr), true);
+		canvas->setImage(canvasImg, id);
+	}
+}
+
+BitmapCanvas * ImagePanel::getCanvas() const {
+	return canvas;
 }

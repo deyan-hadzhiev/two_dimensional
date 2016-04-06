@@ -310,7 +310,7 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
 		const int dim = pmp.getWidth() * pmp.getHeight();
 		const uint64 * pmpData = pmp.getDataPtr();
-		uint64 maxValue = 0;
+		uint64 maxValue = 1;
 		for (int i = 0; i < dim; ++i) {
 			maxValue = std::max(maxValue, pmpData[i]);
 		}

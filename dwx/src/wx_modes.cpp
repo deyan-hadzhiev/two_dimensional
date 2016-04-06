@@ -49,18 +49,22 @@ const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;
 
 InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
 	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
-	, inputCanvas(nullptr)
-	, outputCanvas(nullptr)
+	, inputPanel(nullptr)
+	, outputPanel(nullptr)
 	, compareCanvas(nullptr)
 	, kernel(kernel)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
-	inputCanvas = new BitmapCanvas(this, viewFrame);
+	//inputCanvas = new BitmapCanvas(this, viewFrame);
+	inputPanel = new ImagePanel(this, viewFrame);
 	//inputCanvas = new wxPanel(this);
-	canvasSizer->Add(inputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
-	outputCanvas = new BitmapCanvas(this, viewFrame);
+	canvasSizer->Add(inputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	//outputCanvas = new BitmapCanvas(this, viewFrame);
+	outputPanel = new ImagePanel(this, viewFrame);
 	//outputCanvas = new wxPanel(this);
-	canvasSizer->Add(outputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	canvasSizer->Add(outputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	BitmapCanvas * inputCanvas = inputPanel->getCanvas();
+	BitmapCanvas * outputCanvas = outputPanel->getCanvas();
 	// add synchornizers
 	inputCanvas->addSynchronizer(outputCanvas);
 	outputCanvas->addSynchronizer(inputCanvas);
@@ -69,8 +73,8 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
 	inputCanvas->SetBackgroundColour(bc);
 	outputCanvas->SetBackgroundColour(bc);
 
-	kernel->addInputManager(inputCanvas);
-	kernel->addOutputManager(outputCanvas);
+	kernel->addInputManager(inputPanel);
+	kernel->addOutputManager(outputPanel);
 
 	compareCanvas = new wxPanel(this);
 	canvasSizer->Add(compareCanvas, 1, wxEXPAND | wxALL, panelBorder);
@@ -96,14 +100,14 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 			if (inputStream.Ok()) {
 				wxImage inputImage(inputStream);
 				if (inputImage.Ok()) {
-					inputCanvas->setImage(inputImage);
+					inputPanel->setImage(inputImage);
 					viewFrame->SetStatusText(wxString(wxT("Loaded input image: ") + fdlg.GetPath()));
 					// DEBUG
 					//const int id = inputCanvas->getBmpId();
 					//outputCanvas->setImage(inputImage, id);
 					// ENDDEBUG
 					// force synchronziation
-					inputCanvas->synchronize();
+					inputPanel->synchronize();
 				} else {
 					viewFrame->SetStatusText(wxString(wxT("File is NOT a valid image: ")) + fdlg.GetPath());
 				}
@@ -124,9 +128,9 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		cb.setAbortFlag();
 		break;
 	case (ViewFrame::MID_VF_CNT_COMPARE) :
-		inputCanvas->Show(!inputCanvas->IsShown());
-		outputCanvas->Show(!outputCanvas->IsShown());
-		compareCanvas->Show(!compareCanvas->IsShown());
+		inputPanel->Show(!inputPanel->IsShown());
+		outputPanel->Show(!outputPanel->IsShown());
+		compareCanvas->Show(!compareCanvas->IsShown()); // TODO: Fix/change
 		SendSizeEvent();
 		break;
 	default:
@@ -137,14 +141,15 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
 	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
 	, gkernel(gk)
-	, outputCanvas(nullptr)
+	, outputPanel(nullptr)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
-	outputCanvas = new BitmapCanvas(this, vf);
-	canvasSizer->Add(outputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	//outputCanvas = new BitmapCanvas(this, vf);
+	outputPanel = new ImagePanel(this, vf);
+	canvasSizer->Add(outputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
 	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
 
-	gkernel->addOutputManager(outputCanvas);
+	gkernel->addOutputManager(outputPanel);
 	//gkernel->addParamManager(paramPanel);
 
 	SendSizeEvent();

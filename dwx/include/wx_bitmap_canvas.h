@@ -10,9 +10,10 @@
 #include "kernel_base.h"
 
 // TODO make it a base class and split the input and output - if it makes sense
-class BitmapCanvas : public wxPanel, public InputManager, public OutputManager {
+class BitmapCanvas : public wxPanel {
+	friend class ImagePanel;
 public:
-	BitmapCanvas(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp = nullptr);
+	BitmapCanvas(wxWindow * parent, wxFrame * topFrame);
 
 	void OnPaint(wxPaintEvent& evt);
 
@@ -22,25 +23,13 @@ public:
 
 	void OnSizeEvt(wxSizeEvent& evt);
 
-	void setBitmap(const Bitmap& bmp, int id = 0);
-
 	void setImage(const wxImage& img, int id = 0);
-
-	int getBmpId() const;
 
 	void updateStatus() const;
 
 	void addSynchronizer(BitmapCanvas * s); //!< adds another canvas that will synchronize zooming/panning
 
 	void synchronize(); //!< synchronizes with other canvases to show the same rect
-
-	// from InputManager
-	virtual bool getInput(Bitmap& inputBmp, int& id) const override;
-
-	virtual void kernelDone(KernelBase::ProcessResult result) override;
-
-	// from OutputManager
-	virtual void setOutput(const Bitmap& outputBmp, int id) override;
 
 protected:
 
@@ -101,6 +90,33 @@ private:
 
 	// topframe for status bar updates
 	wxFrame * topFrame;
+};
+
+class ImagePanel : public wxPanel, public InputManager, public OutputManager {
+public:
+	ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp = nullptr);
+
+	int getBmpId() const;
+
+	void synchronize(); //!< synchronizes with other canvases to show the same rect
+
+	void setImage(const wxImage& img, int id = 0);
+
+	// from InputManager
+	virtual bool getInput(Bitmap& inputBmp, int& id) const override;
+
+	virtual void kernelDone(KernelBase::ProcessResult result) override;
+
+	// from OutputManager
+	virtual void setOutput(const Bitmap& outputBmp, int id) override;
+
+	BitmapCanvas * getCanvas() const;
+
+private:
+	int bmpId;
+	Bitmap bmp;
+	BitmapCanvas * canvas;
+	wxSizer * panelSizer;
 };
 
 #endif // __WX_BITMAP_CANVAS_H__

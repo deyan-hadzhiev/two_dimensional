@@ -27,6 +27,7 @@ public:
 		VFS_CNT_RUN         = 1 << 2, // enables the run control item
 		VFS_CNT_STOP        = 1 << 3, // enables the stop control item (only for asynchronous kernels)
 		VFS_CNT_COMPARE     = 1 << 4, // enables the compare item
+		VFS_CNT_HISTOGRAM   = 1 << 5, // enables the histogram item
 		VFS_CNT_LAST,       //!< boundry for style loop
 		VFS_ALL_ENABLED     = ((VFS_CNT_LAST - 1) << 1) - 1,
 	};
@@ -41,6 +42,7 @@ public:
 		MID_VF_CNT_RUN,
 		MID_VF_CNT_STOP,
 		MID_VF_CNT_COMPARE,
+		MID_VF_CNT_HISTOGRAM,
 		MID_VF_CNT_RANGE_END,
 
 		MID_VF_MODES_RANGE_START,
