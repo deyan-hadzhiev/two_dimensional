@@ -363,10 +363,14 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	Color * bmpData = bmpOut.getDataPtr();
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
+	bool tile = false;
+	if (pman) {
+		pman->getBoolParam(tile, "tile");
+	}
 	for (int y = 0; y < obh && !getAbortState(); ++y) {
 		for (int x = 0; x < obw && !getAbortState(); ++x) {
 			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, true);
+			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, tile);
 		}
 	}
 	if (oman) {

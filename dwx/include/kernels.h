@@ -176,6 +176,7 @@ class RotationKernel : public AsyncKernel {
 public:
 	RotationKernel() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "angle"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "tile"));
 	}
 
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
