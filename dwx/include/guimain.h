@@ -52,6 +52,8 @@ public:
 		MID_VF_MODES_RANGE_END,
 
 		MID_VF_TIMER,
+
+		MID_VF_LAST_ID, //!< The last id used for starting id for custom event handlers (like the ParamPanel)
 	};
 private:
 

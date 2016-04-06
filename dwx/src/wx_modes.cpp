@@ -19,11 +19,16 @@ ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 	: wxPanel(viewFrame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxNO_BORDER | wxSIZE_AUTO | wxSIZE_FORCE)
 	, viewFrame(viewFrame)
 	, mPanelSizer(nullptr)
+	, paramPanel(nullptr)
 {
 	viewFrame->setCustomStyle(styles);
 	mPanelSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizerAndFit(mPanelSizer);
 	SetSize(viewFrame->GetClientSize());
+
+	paramPanel = new ParamPanel(this);
+	mPanelSizer->Add(paramPanel, 0, wxEXPAND | wxALL, panelBorder);
+	SendSizeEvent();
 }
 
 ModePanel::~ModePanel() {}
@@ -133,54 +138,14 @@ GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
 	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
 	, gkernel(gk)
 	, outputCanvas(nullptr)
-	, customInputSizer(nullptr)
-	, widthCtrl(nullptr)
-	, heightCtrl(nullptr)
-	, additiveCb(nullptr)
-	, clearCb(nullptr)
-	, showCoords(nullptr)
-	, colorCtrl(nullptr)
 {
-	wxBoxSizer * inputSizer = new wxBoxSizer(wxVERTICAL);
-	wxBoxSizer * defInputSizer = new wxBoxSizer(wxHORIZONTAL);
-	// TODO add checkbox for clear output
-	wxBoxSizer * wSizer = new wxBoxSizer(wxVERTICAL);
-	wSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Width: ")), 1, wxEXPAND | wxALL);
-	defInputSizer->Add(wSizer, 1, wxEXPAND | wxALL, panelBorder);
-	widthCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << GetSize().GetWidth());
-	defInputSizer->Add(widthCtrl, 1, wxEXPAND | wxALL, panelBorder);
-	wxBoxSizer * hSizer = new wxBoxSizer(wxVERTICAL);
-	hSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Height: ")), 1, wxEXPAND | wxALL);
-	defInputSizer->Add(hSizer, 1, wxEXPAND | wxALL, panelBorder);
-	heightCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << GetSize().GetHeight());
-	defInputSizer->Add(heightCtrl, 1, wxEXPAND | wxALL, panelBorder);
-
-	additiveCb = new wxCheckBox(this, wxID_ANY, wxT("Additive"));
-	defInputSizer->Add(additiveCb, 1, wxEXPAND | wxALL, panelBorder);
-	clearCb = new wxCheckBox(this, wxID_ANY, wxT("Clear"));
-	defInputSizer->Add(clearCb, 1, wxEXPAND | wxALL, panelBorder);
-	showCoords = new wxCheckBox(this, wxID_ANY, wxT("Axis"));
-	defInputSizer->Add(showCoords, 1, wxEXPAND | wxALL, panelBorder);
-
-	wxBoxSizer * chSizer = new wxBoxSizer(wxVERTICAL);
-	chSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Color:")));
-	defInputSizer->Add(chSizer, 1, wxEXPAND | wxALL, panelBorder);
-	colorCtrl = new wxTextCtrl(this, wxID_ANY, "ffffff");
-	defInputSizer->Add(colorCtrl, 1, wxEXPAND | wxALL);
-
-	customInputSizer = new wxBoxSizer(wxHORIZONTAL);
-	inputSizer->Add(defInputSizer, 1, wxALL, panelBorder);
-	inputSizer->Add(customInputSizer, 1, wxALL, panelBorder);
-
-	mPanelSizer->Add(inputSizer, 0, wxALL, panelBorder);
-
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
 	outputCanvas = new BitmapCanvas(this, vf);
 	canvasSizer->Add(outputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
 	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
 
 	gkernel->addOutputManager(outputCanvas);
-	gkernel->addParamManager(this);
+	//gkernel->addParamManager(paramPanel);
 
 	SendSizeEvent();
 }
@@ -193,44 +158,12 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	switch (ev.GetId())
 	{
 	case(ViewFrame::MID_VF_CNT_RUN) : {
-		const int width = wxAtoi(widthCtrl->GetValue());
-		const int height = wxAtoi(heightCtrl->GetValue());
-		const std::string colStr = colorCtrl->GetValue();
-		std::stringstream ss;
-		ss << std::hex << colStr;
-		unsigned col = 0;
-		ss >> col;
-		gkernel->setColor(Color(col));
-		unsigned flags = DrawFlags::DF_OVER;
-		flags |= (additiveCb->GetValue() ? DrawFlags::DF_ACCUMULATE : 0);
-		flags |= (clearCb->GetValue() ? DrawFlags::DF_CLEAR : 0);
-		flags |= (showCoords->GetValue() ? DrawFlags::DF_SHOW_AXIS : 0);
-		gkernel->setSize(width, height);
-		gkernel->runKernel(flags);
+		gkernel->runKernel(0);
 		break;
 	}
 	default:
 		break;
 	}
-}
-
-void GeometricOutput::addParam(const std::string & label, wxTextCtrl * wnd) {
-	wxBoxSizer * pSizer = new wxBoxSizer(wxVERTICAL);
-	pSizer->Add(new wxStaticText(this, wxID_ANY, wxString(label)), 1, wxEXPAND | wxALL);
-	customInputSizer->Add(pSizer, 1, wxEXPAND | wxALL, panelBorder);
-	customParams[label] = wnd;
-	customInputSizer->Add(wnd, 1, wxEXPAND | wxALL, panelBorder);
-	SendSizeEvent();
-}
-
-bool GeometricOutput::getStringParam(std::string& value, const std::string & paramName) const {
-	bool retval = false;
-	const auto& pv = customParams.find(paramName);
-	if (pv != customParams.end()) {
-		value = std::string(pv->second->GetValue());
-		retval = true;
-	}
-	return retval;
 }
 
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
@@ -243,39 +176,16 @@ TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
 	: InputOutputMode(vf, new TextSegmentationKernel)
 {
 	kernel->setProgressCallback(&cb);
-	wxBoxSizer * inputSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxBoxSizer * statSizer = new wxBoxSizer(wxVERTICAL);
-	statSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Threshold: ")), 1, wxEXPAND | wxALL);
-	inputSizer->Add(statSizer, 1, wxEXPAND | wxALL, panelBorder);
-	threshold = new wxTextCtrl(this, wxID_ANY, "25");
-	//wxIntegerValidator<unsigned char> validator(); // disabling for now because we would need proper overloads and a lot of code
-	//threshold->SetValidator(validator);
-	inputSizer->Add(threshold, 1, wxBOTTOM, panelBorder);
-	mPanelSizer->Prepend(inputSizer, 0, wxALL, panelBorder);
-	// add this class as a param handler for the kernel
-	kernel->addParamManager(this);
+	kernel->addParamManager(paramPanel);
 
 	SendSizeEvent();
-}
-
-bool TextSegmentationPanel::getStringParam(std::string& value, const std::string & paramName) const {
-	if (paramName == "threshold") {
-		value = std::string(threshold->GetValue());
-		return true;
-	}
-	return false;
 }
 
 SinosoidPanel::SinosoidPanel(ViewFrame * vf)
 	: GeometricOutput(vf, new SinosoidKernel)
 {
 	gkernel->setProgressCallback(&cb);
-	gkernel->addParamManager(this);
-	// TODO make the list of paramters callable from the kernel, so the gui may initialize what it need for the user input
-	addParam("k", new wxTextCtrl(this, wxID_ANY, wxT("50")));
-	addParam("q", new wxTextCtrl(this, wxID_ANY, wxT("1")));
-	addParam("offset", new wxTextCtrl(this, wxID_ANY, wxT("0.0")));
-	addParam("function", new wxTextCtrl(this, wxID_ANY, wxT("cos")));
+	gkernel->addParamManager(paramPanel);
 }
 
 HoughRoTheta::HoughRoTheta(ViewFrame * vf)
@@ -289,25 +199,7 @@ RotationPanel::RotationPanel(ViewFrame * vf)
 	, angleCtrl(nullptr)
 {
 	kernel->setProgressCallback(&cb);
-	wxBoxSizer * inputSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxBoxSizer * statSizer = new wxBoxSizer(wxVERTICAL);
-	statSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Angle: ")), 1, wxEXPAND | wxALL);
-	inputSizer->Add(statSizer, 1, wxEXPAND | wxALL, panelBorder);
-	angleCtrl = new wxTextCtrl(this, wxID_ANY, "45");
-	//wxIntegerValidator<unsigned char> validator(); // disabling for now because we would need proper overloads and a lot of code
-	//threshold->SetValidator(validator);
-	inputSizer->Add(angleCtrl, 1, wxBOTTOM, panelBorder);
-	mPanelSizer->Prepend(inputSizer, 0, wxALL, panelBorder);
-	// add this class as a param handler for the kernel
-	kernel->addParamManager(this);
+	kernel->addParamManager(paramPanel);
 
 	SendSizeEvent();
-}
-
-bool RotationPanel::getFloatParam(float& value, const std::string & paramName) const {
-	if (paramName == "angle") {
-		value = atof(angleCtrl->GetValue().c_str());
-		return true;
-	}
-	return false;
 }

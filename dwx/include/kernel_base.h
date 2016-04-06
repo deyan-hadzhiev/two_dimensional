@@ -78,6 +78,10 @@ public:
 		cb = _cb;
 	}
 
+	virtual std::string getName() const {
+		return std::string("None");
+	}
+
 	// forces an update of the kernel
 	virtual void update() {
 		runKernel(flags);
@@ -133,10 +137,15 @@ public:
 	} type;
 	KernelBase * kernel;
 	std::string name;
-	ParamDescriptor(ParamType _type = ParamType::PT_NONE, KernelBase * _kernel = nullptr, const std::string& _name = std::string())
-		: type(_type)
-		, kernel(_kernel)
+	std::string defaultValue;
+	ParamDescriptor(KernelBase * _kernel = nullptr,
+	                ParamType _type = ParamType::PT_NONE,
+	                const std::string& _name = std::string(),
+	                const std::string& _defaultValue = std::string("0"))
+		: kernel(_kernel)
+		, type(_type)
 		, name(_name)
+		, defaultValue(_defaultValue)
 	{}
 };
 
@@ -156,11 +165,12 @@ public:
 		return false;
 	}
 
-	// adds a parameter to internal storage for type info and optionally updates to the kernel
-	virtual void addParam(const ParamDescriptor& pd) {} // = 0;
+	virtual bool getBoolParam(bool& value, const std::string& paramName) const {
+		return false;
+	}
 
-	// sets an output paramter()
-	virtual void setParam(const std::string& paramName, const std::string& paramValue) = 0;
+	// adds a parameter to internal storage for type info and optionally updates to the kernel
+	virtual void addParam(const ParamDescriptor& pd) = 0;
 };
 
 #endif

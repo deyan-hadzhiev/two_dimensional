@@ -28,6 +28,7 @@ set (HEADERS
 	include/guimain.h
 	include/wx_modes.h
 	include/wx_bitmap_canvas.h
+	include/wx_param_panel.h
 	include/kernel_base.h
 	include/kernels.h
 	include/geom_primitive.h
@@ -35,8 +36,9 @@ set (HEADERS
 
 set (SOURCES
 	src/guimain.cpp
-	src/wx_bitmap_canvas.cpp
 	src/wx_modes.cpp
+	src/wx_bitmap_canvas.cpp
+	src/wx_param_panel.cpp
 	src/bitmap.cpp
 	src/color.cpp
 	src/matrix2.cpp

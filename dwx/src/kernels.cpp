@@ -10,7 +10,6 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
 	KernelBase::ProcessResult retval;
 	if (hasInput && bmp.isOK()) {
-		getParameters();
 		retval = kernelImplementation(flags);
 		if (KernelBase::KPR_OK == retval) {
 			setOutput();
@@ -63,12 +62,20 @@ AsyncKernel::State AsyncKernel::getState() const {
 	return state;
 }
 
+void AsyncKernel::update() {
+	if (State::AKS_INIT == getState()) {
+		runKernel(flags);
+	} else {
+		state = State::AKS_DIRTY;
+		ev.notify_one();
+	}
+}
+
 KernelBase::ProcessResult AsyncKernel::runKernel(unsigned flags) {
 	bool updated = false;
 	std::lock_guard<std::mutex> lk(kernelMutex);
 	const bool hasInput = getInput();
 	if (hasInput && bmp.isOK()) {
-		getParameters();
 		state = State::AKS_DIRTY;
 		updated = true;
 	}
@@ -110,9 +117,8 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	int threshold = 25;
-	const auto& tVal = paramValues.find("threshold");
-	if (tVal != paramValues.end()) {
-		threshold = atoi(tVal->second.c_str());
+	if (pman) {
+		pman->getIntParam(threshold, "threshold");
 	}
 	// first negate the image so black would add less to the accumulators
 	auto negativePix = [](Color a) -> Color {
@@ -226,17 +232,30 @@ KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
-	if (dirtySize) {
+	const int pWidth = width;
+	const int pHeight = height;
+	pman->getIntParam(width, "width");
+	pman->getIntParam(height, "height");
+	dirtySize = (width != pWidth || height != pHeight);
+	if (dirtySize || !bmp.isOK()) {
 		primitive->resize(width, height);
 		dirtySize = false;
 	}
-	getParameters();
-	for (auto it = paramValues.cbegin(); it != paramValues.cend(); ++it) {
-		if (!it->second.empty()) {
-			primitive->setParam(it->first, it->second);
-		}
+	pman->getBoolParam(additive, "additive");
+	pman->getBoolParam(clear, "clear");
+	pman->getBoolParam(axis, "axis");
+	unsigned dflags =
+		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
+		(clear ? DrawFlags::DF_CLEAR : 0) |
+		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
+
+	for (auto it = paramList.cbegin(); it != paramList.cend(); ++it) {
+		const ParamDescriptor& pd = *it;
+		std::string value = pd.defaultValue;
+		pman->getStringParam(value, pd.name);
+		primitive->setParam(pd.name, value);
 	}
-	primitive->draw(col, flags);
+	primitive->draw(col, dflags);
 	bmp = primitive->getBitmap();
 	setOutput();
 	if (iman)
