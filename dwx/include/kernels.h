@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <thread>
+#include <condition_variable>
+#include <atomic>
+#include <mutex>
 #include "bitmap.h"
 #include "kernel_base.h"
 #include "geom_primitive.h"
@@ -28,25 +32,13 @@ protected:
 		}
 	}
 
-	virtual void getParameters() {
-		if (pman) {
-			for (const auto& p : inputParams) {
-				const std::string res = pman->getParam(p);
-				if (!res.empty()) {
-					paramValues[p] = res;
-				}
-			}
-		}
-	}
-
 	int bmpId;
 	Bitmap bmp;
 	InputManager * iman;
 	OutputManager * oman;
 	ParamManager * pman;
 	// setup expected paramters in the constructor and they will be iterated in runKernel(..) function before calling the impelementation
-	std::vector<std::string> inputParams;
-	ParamList paramValues;
+	std::vector<ParamDescriptor> paramList;
 public:
 	SimpleKernel()
 		: bmpId(0)
@@ -65,6 +57,9 @@ public:
 
 	void addParamManager(ParamManager * _pman) override final {
 		pman = _pman;
+		for (auto pdesc : paramList) {
+			pman->addParam(pdesc);
+		}
 	}
 
 	// a simple implementation that can be overriden and handles basic input output and calls the kernelImplementation function
@@ -72,8 +67,36 @@ public:
 
 	// this function will be called from the runKernel(..) function and if not overriden will not do anything to the output image
 	virtual KernelBase::ProcessResult kernelImplementation(unsigned flags) {
-		return KernelBase::KRP_NO_IMPLEMENTATION;
+		return KernelBase::KPR_NO_IMPLEMENTATION;
 	}
+};
+
+class AsyncKernel : public SimpleKernel {
+public:
+	enum class State {
+		AKS_RUNNING = 0,
+		AKS_INIT,
+		AKS_FINISHED,
+		AKS_DIRTY,
+		AKS_TERMINATED,
+	};
+	AsyncKernel();
+	virtual ~AsyncKernel();
+
+	State getState() const;
+
+	virtual void update() override;
+
+	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
+protected:
+	std::atomic<State> state;
+	std::mutex kernelMutex;
+	std::condition_variable ev;
+	std::thread loopThread;
+
+	static void kernelLoop(AsyncKernel * k);
+
+	bool getAbortState() const;
 };
 
 class NegativeKernel : public SimpleKernel {
@@ -87,7 +110,7 @@ class TextSegmentationKernel : public SimpleKernel {
 	static IntervalList extractIntervals(const int * accumValues, const int count, int threshold);
 public:
 	TextSegmentationKernel() {
-		inputParams.push_back("threshold");
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "threshold"));
 	}
 
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
@@ -100,17 +123,29 @@ protected:
 	int height;
 	bool dirtySize;
 	Color col;
+	bool additive;
+	bool clear;
+	bool axis;
 public:
-	GeometricKernel(GeometricPrimitive<Color> * p)
+	GeometricKernel(GeometricPrimitive<Color> * p, int _width = 256, int _height = 256)
 		: primitive(p)
-		, width(0)
-		, height(0)
+		, width(_width)
+		, height(_height)
 		, dirtySize(true)
 		, col(255, 255, 255)
+		, additive(false)
+		, clear(false)
+		, axis(false)
 	{
-		const std::vector<std::string>& paramList = p->getParamList();
-		for (const auto& param : paramList) {
-			inputParams.push_back(param);
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", std::to_string(height)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "color", std::string("ffffff")));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "additive", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "clear", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "axis", "false"));
+		const std::vector<std::string>& primitiveParamList = p->getParamList();
+		for (const auto& param : primitiveParamList) {
+			this->paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, param));
 		}
 	}
 
@@ -130,17 +165,17 @@ public:
 	SinosoidKernel();
 };
 
-class HoughKernel : public SimpleKernel {
+class HoughKernel : public AsyncKernel {
 public:
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
 
 	virtual void setOutput() const override final;
 };
 
-class RotationKernel : public SimpleKernel {
+class RotationKernel : public AsyncKernel {
 public:
 	RotationKernel() {
-		inputParams.push_back("angle");
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "angle"));
 	}
 
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;

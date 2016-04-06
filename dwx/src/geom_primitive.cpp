@@ -33,7 +33,7 @@ void Sinosoid<CType>::setParam(const std::string & p, const std::string & value)
 	} else if (p == "offset") {
 		offset = atof(value.c_str());
 	} else if (p == "function") {
-		sine = (value == "sine");
+		sine = (value == "sine" || value == "sin");
 	}
 }
 

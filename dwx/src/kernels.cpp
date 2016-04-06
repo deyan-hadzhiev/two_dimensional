@@ -10,7 +10,6 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
 	KernelBase::ProcessResult retval;
 	if (hasInput && bmp.isOK()) {
-		getParameters();
 		retval = kernelImplementation(flags);
 		if (KernelBase::KPR_OK == retval) {
 			setOutput();
@@ -21,6 +20,68 @@ KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 		retval = KernelBase::KPR_INVALID_INPUT;
 	}
 	return retval;
+}
+
+void AsyncKernel::kernelLoop(AsyncKernel * k) {
+	while(k->state != State::AKS_TERMINATED) {
+		std::unique_lock<std::mutex> lk(k->kernelMutex);
+		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
+			k->ev.wait(lk);
+			State dirty = State::AKS_DIRTY;
+			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
+		}
+		if (k->state != State::AKS_TERMINATED) {
+			k->kernelImplementation(0);
+			// be carefull not to change the state!!!
+			State fin = State::AKS_RUNNING; // expected state
+			k->state.compare_exchange_weak(fin, State::AKS_FINISHED);
+		}
+	}
+}
+
+bool AsyncKernel::getAbortState() const {
+	return
+		state == State::AKS_TERMINATED ||
+		state == State::AKS_DIRTY ||
+		(nullptr != cb && cb->getAbortFlag());
+}
+
+AsyncKernel::AsyncKernel()
+	: state(State::AKS_INIT)
+	, loopThread(kernelLoop, this)
+{
+}
+
+AsyncKernel::~AsyncKernel() {
+	state = State::AKS_TERMINATED;
+	ev.notify_one();
+	loopThread.join();
+}
+
+AsyncKernel::State AsyncKernel::getState() const {
+	return state;
+}
+
+void AsyncKernel::update() {
+	if (State::AKS_INIT == getState()) {
+		runKernel(flags);
+	} else {
+		state = State::AKS_DIRTY;
+		ev.notify_one();
+	}
+}
+
+KernelBase::ProcessResult AsyncKernel::runKernel(unsigned flags) {
+	bool updated = false;
+	std::lock_guard<std::mutex> lk(kernelMutex);
+	const bool hasInput = getInput();
+	if (hasInput && bmp.isOK()) {
+		state = State::AKS_DIRTY;
+		updated = true;
+	}
+	if (updated)
+		ev.notify_one();
+	return (updated ? KPR_RUNNING : KPR_INVALID_INPUT);
 }
 
 KernelBase::ProcessResult NegativeKernel::kernelImplementation(unsigned flags) {
@@ -56,9 +117,8 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	int threshold = 25;
-	const auto& tVal = paramValues.find("threshold");
-	if (tVal != paramValues.end()) {
-		threshold = atoi(tVal->second.c_str());
+	if (pman) {
+		pman->getIntParam(threshold, "threshold");
 	}
 	// first negate the image so black would add less to the accumulators
 	auto negativePix = [](Color a) -> Color {
@@ -172,17 +232,30 @@ KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
-	if (dirtySize) {
+	const int pWidth = width;
+	const int pHeight = height;
+	pman->getIntParam(width, "width");
+	pman->getIntParam(height, "height");
+	dirtySize = (width != pWidth || height != pHeight);
+	if (dirtySize || !bmp.isOK()) {
 		primitive->resize(width, height);
 		dirtySize = false;
 	}
-	getParameters();
-	for (auto it = paramValues.cbegin(); it != paramValues.cend(); ++it) {
-		if (!it->second.empty()) {
-			primitive->setParam(it->first, it->second);
-		}
+	pman->getBoolParam(additive, "additive");
+	pman->getBoolParam(clear, "clear");
+	pman->getBoolParam(axis, "axis");
+	unsigned dflags =
+		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
+		(clear ? DrawFlags::DF_CLEAR : 0) |
+		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
+
+	for (auto it = paramList.cbegin(); it != paramList.cend(); ++it) {
+		const ParamDescriptor& pd = *it;
+		std::string value = pd.defaultValue;
+		pman->getStringParam(value, pd.name);
+		primitive->setParam(pd.name, value);
 	}
-	primitive->draw(col, flags);
+	primitive->draw(col, dflags);
 	bmp = primitive->getBitmap();
 	setOutput();
 	if (iman)
@@ -195,6 +268,9 @@ SinosoidKernel::SinosoidKernel()
 {}
 
 KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
+	if (cb) {
+		cb->setKernelName("Hough Rho Theta");
+	}
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	const int hs = 2; // decrease size a bit
@@ -212,8 +288,9 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 	const uint64 pc = 1; // we'll use it for addition - so it has to be one
 	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
 	const Color * bmpData = bmp.getDataPtr();
-	for (int y = 0; y < bh; ++y) {
-		for (int x = 0; x < bw; ++x) {
+	const int maxDim = bh * bw;
+	for (int y = 0; y < bh && !getAbortState(); ++y) {
+		for (int x = 0; x < bw && !getAbortState(); ++x) {
 			// check if the pixel has intensity below threshhold
 			if (bmpData[y * bw + x].intensity() < 15) {
 				Vector2 p(x + .5f, y + .5f);
@@ -222,10 +299,13 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 				thetaRad = atan2(roVec.y, roVec.x);
 				aps.draw(pc, DrawFlags::DF_ACCUMULATE);
 			}
+			if (cb) {
+				cb->setPercentDone(y * bw + x, maxDim);
+			}
 		}
 	}
 	// directly set the output because it will be destroyed after this function exits
-	if (oman) {
+	if (oman && !getAbortState()) {
 		const Pixelmap<uint64>& pmp = aps.getBitmap();
 		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
 		const int dim = pmp.getWidth() * pmp.getHeight();
@@ -254,9 +334,8 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	const int cy = bh / 2;
 	float angle = 0.0f;
 	if (pman) {
-		const std::string degsStr = pman->getParam("angle");
-		if (!degsStr.empty()) {
-			angle = toRadians(atof(degsStr.c_str()));
+		if (pman->getFloatParam(angle, "angle")) {
+			angle = toRadians(angle);
 		}
 	}
 	const Matrix2 rot(rotationMatrix(angle));
@@ -284,10 +363,10 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	Color * bmpData = bmpOut.getDataPtr();
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
-	for (int y = 0; y < obh; ++y) {
-		for (int x = 0; x < obw; ++x) {
+	for (int y = 0; y < obh && !getAbortState(); ++y) {
+		for (int x = 0; x < obw && !getAbortState(); ++x) {
 			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy);
+			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, true);
 		}
 	}
 	if (oman) {

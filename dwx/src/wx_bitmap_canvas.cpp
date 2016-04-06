@@ -101,11 +101,11 @@ int BitmapCanvas::getBmpId() const {
 
 void BitmapCanvas::updateStatus() const {
 	if (true || mouseOverCanvas) {
-		wxString focusStr;
-		const wxPoint mouseBmp = convertScreenToBmp(mousePos);
-		const wxPoint screenPos = convertBmpToScreen(mouseBmp);
-		focusStr.Printf(wxT("bmp: ( %4d, %4d) screen: ( %4d, %4d)"), mouseBmp.x, mouseBmp.y, screenPos.x, screenPos.y);
-		topFrame->SetStatusText(focusStr);
+		//wxString focusStr;
+		//const wxPoint mouseBmp = convertScreenToBmp(mousePos);
+		//const wxPoint screenPos = convertBmpToScreen(mouseBmp);
+		//focusStr.Printf(wxT("bmp: ( %4d, %4d) screen: ( %4d, %4d)"), mouseBmp.x, mouseBmp.y, screenPos.x, screenPos.y);
+		//topFrame->SetStatusText(focusStr);
 		wxString posStr;
 		posStr.Printf(wxT("x: %4d y: %4d bmp(%d, %d, %d, %d)"), mousePos.x, mousePos.y, bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height);
 		topFrame->SetStatusText(posStr, 1);

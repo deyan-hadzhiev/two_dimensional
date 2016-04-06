@@ -2,8 +2,10 @@
 #define __WX_MODES_H__
 
 #include <wx/wx.h>
+
 #include "guimain.h"
 #include "wx_bitmap_canvas.h"
+#include "wx_param_panel.h"
 #include "kernel_base.h"
 #include "kernels.h"
 #include "geom_primitive.h"
@@ -12,15 +14,20 @@ class ViewFrame;
 
 class ModePanel : public wxPanel {
 public:
+	friend class ParamPanel;
+
 	ModePanel(ViewFrame * viewFrame, unsigned styles = ViewFrame::VFS_NOTHING_ENABLED);
 	virtual ~ModePanel();
 
 	virtual void onCommandMenu(wxCommandEvent& ev) {}
 
+	wxString getCbString() const;
 protected:
 	ViewFrame * viewFrame;
 	wxBoxSizer * mPanelSizer;
 	static const int panelBorder; //!< the default border of panels
+	ProgressCallback cb;
+	ParamPanel * paramPanel;
 };
 
 class InputOutputMode : public ModePanel {
@@ -40,29 +47,16 @@ protected:
 	static const wxString ioFileSelector; //!< file selection string - change if a new file type is added
 };
 
-class GeometricOutput : public ModePanel, public ParamManager {
+class GeometricOutput : public ModePanel {
 public:
 	GeometricOutput(ViewFrame * vf, GeometricKernel * gkernel);
 	virtual ~GeometricOutput();
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 
-	void addParam(const std::string& label, wxTextCtrl * wnd);
-
-	std::string getParam(const std::string& paramName) const override final;
-
-	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
 protected:
 	GeometricKernel * gkernel;
-	std::unordered_map<std::string, wxTextCtrl*> customParams;
-	wxSizer * customInputSizer;
 	BitmapCanvas * outputCanvas;
-	wxTextCtrl * widthCtrl;
-	wxTextCtrl * heightCtrl;
-	wxCheckBox * additiveCb;
-	wxCheckBox * clearCb;
-	wxCheckBox * showCoords;
-	wxTextCtrl * colorCtrl;
 };
 
 class NegativePanel : public InputOutputMode {
@@ -70,14 +64,9 @@ public:
 	NegativePanel(ViewFrame * viewFrame);
 };
 
-class TextSegmentationPanel : public InputOutputMode, public ParamManager {
-	wxTextCtrl * threshold;
+class TextSegmentationPanel : public InputOutputMode {
 public:
 	TextSegmentationPanel(ViewFrame * vf);
-
-	std::string getParam(const std::string& paramName) const override final;
-
-	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
 };
 
 class SinosoidPanel : public GeometricOutput {
@@ -90,14 +79,10 @@ public:
 	HoughRoTheta(ViewFrame * vf);
 };
 
-class RotationPanel : public InputOutputMode, public ParamManager {
+class RotationPanel : public InputOutputMode {
 	wxTextCtrl * angleCtrl;
 public:
 	RotationPanel(ViewFrame * vf);
-
-	virtual std::string getParam(const std::string& paramName) const override final;
-
-	virtual void setParam(const std::string& paramName, const std::string& paramValue) override final {};
 };
 
 #endif // __WX_MODES_H__

@@ -263,8 +263,20 @@ ColorType Pixelmap<ColorType>::getPixel(int x, int y) const  noexcept {
 
 template<class ColorType>
 ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, bool tile) const noexcept {
-	if (!data || !width || !height || x < 0 || x >= width || y < 0 || y >= height)
+	if (!data || !width || !height)
 		return ColorType();
+	if (x < 0 || x >= width || y < 0 || y >= height) {
+		if (tile) {
+			x = x - float((int(x) / width - (x < 0 ? 1 : 0)) * width);
+			if (x >= width)
+				y = width - 0.05f;
+			y = y - float((int(y) / height - (y < 0 ? 1 : 0)) * height);
+			if (y >= height)
+				y = height - 0.05f;
+		} else {
+			return ColorType();
+		}
+	}
 	const int tx = (int)floor(x);
 	const int ty = (int)floor(y);
 	const int tx_next = (tile ? (tx + 1) % width : std::min(tx + 1, width - 1)); // this is usually done for tiling textures, but well...
