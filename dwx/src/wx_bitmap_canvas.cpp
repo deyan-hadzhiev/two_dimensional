@@ -335,12 +335,81 @@ void BitmapCanvas::OnSizeEvt(wxSizeEvent & evt) {
 	evt.Skip();
 }
 
+/************************************
+*           Histogram               *
+*************************************/
+
+Histogram::Histogram(wxWindow * parent)
+	: wxPanel(parent)
+	, red{ 0 }
+	, green{ 0 }
+	, blue{ 0 }
+	, intensity{ 0 }
+	, maxColor(0)
+	, maxIntensity(0)
+{
+	// connect paint events
+	Connect(wxEVT_PAINT, wxPaintEventHandler(Histogram::OnPaint), NULL, this);
+	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(Histogram::OnEraseBkg), NULL, this);
+}
+
+void Histogram::setImage(const Bitmap & bmp) {
+	memset(red, 0, _countof(red) * sizeof(red[0]));
+	memset(green, 0, _countof(green) * sizeof(green[0]));
+	memset(blue, 0, _countof(blue) * sizeof(blue[0]));
+	memset(intensity, 0, _countof(intensity) * sizeof(intensity[0]));
+	maxColor = 0;
+	maxIntensity = 0;
+	const Color * bmpData = bmp.getDataPtr();
+	const int bmpSize = bmp.getWidth() * bmp.getHeight();
+	for (int i = 0; i < bmpSize; ++i) {
+		maxColor = std::max(  red[bmpData[i].r]++, maxColor);
+		maxColor = std::max(green[bmpData[i].g]++, maxColor);
+		maxColor = std::max( blue[bmpData[i].b]++, maxColor);
+		const uint8 ci = bmpData[i].intensity();
+		maxIntensity = std::max(intensity[ci]++, maxIntensity);
+	}
+}
+
+void Histogram::OnPaint(wxPaintEvent & evt) {
+	wxBufferedPaintDC pdc(this);
+	const wxSize histSize = GetSize();
+	const wxSize cHistSize = wxSize(histSize.GetWidth(), histSize.GetHeight() / 2);
+
+	wxImage chist(cHistSize);
+	unsigned char * chData = chist.GetData();
+	const int chPixelSize = cHistSize.GetWidth() * cHistSize.GetHeight();
+	for (int i = 0; i < chPixelSize; ++i) {
+		chData[i * 3 + 0] = 0xcc;
+		chData[i * 3 + 1] = 0x44;
+		chData[i * 3 + 2] = 0xab;
+	}
+	pdc.DrawBitmap(wxBitmap(chist), wxPoint(0, 0));
+
+	const wxSize iHistSize = wxSize(histSize.GetWidth(), histSize.GetHeight() / 2 + (histSize.GetHeight() & 1));
+	wxImage ihist(iHistSize);
+	unsigned char * ihData = ihist.GetData();
+	const int ihPixelSize = iHistSize.GetWidth() * iHistSize.GetHeight();
+	for (int i = 0; i < ihPixelSize; ++i) {
+		ihData[i * 3 + 0] = 0x22;
+		ihData[i * 3 + 1] = 0xdd;
+		ihData[i * 3 + 2] = 0x99;
+	}
+	pdc.DrawBitmap(wxBitmap(ihist), wxPoint(0, cHistSize.GetHeight()));
+}
+
+void Histogram::OnEraseBkg(wxEraseEvent & evt) {}
+
 ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
 	, canvas(new BitmapCanvas(this, topFrame))
+	, hist(new Histogram(this))
 	, panelSizer(new wxBoxSizer(wxVERTICAL))
 {
 	panelSizer->Add(canvas, 1, wxEXPAND | wxSHRINK);
+	hist->SetBestFittingSize(wxSize(-1, 256));
+	panelSizer->Add(hist, 0, wxEXPAND | wxSHRINK);
+	hist->Hide();
 	SetSizerAndFit(panelSizer);
 	if (nullptr != initBmp) {
 		bmp = *initBmp;
@@ -394,6 +463,10 @@ void ImagePanel::setImage(const wxImage & img, int id) {
 		memcpy(bmpData, img.GetData(), w * h * sizeof(Color));
 	}
 	Refresh();
+}
+
+void ImagePanel::toggleHist() {
+	hist->Show(!hist->IsShown());
 }
 
 bool ImagePanel::getInput(Bitmap & ibmp, int & id) const {

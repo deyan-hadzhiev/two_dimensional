@@ -133,6 +133,11 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		compareCanvas->Show(!compareCanvas->IsShown()); // TODO: Fix/change
 		SendSizeEvent();
 		break;
+	case (ViewFrame::MID_VF_CNT_HISTOGRAM) :
+		inputPanel->toggleHist();
+		outputPanel->toggleHist();
+		SendSizeEvent();
+		break;
 	default:
 		break;
 	}

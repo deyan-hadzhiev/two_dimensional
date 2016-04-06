@@ -92,6 +92,27 @@ private:
 	wxFrame * topFrame;
 };
 
+class Histogram : public wxPanel {
+public:
+	Histogram(wxWindow * parent);
+
+	void setImage(const Bitmap& bmp);
+
+	void OnPaint(wxPaintEvent& evt);
+
+	void OnEraseBkg(wxEraseEvent& evt);
+
+private:
+	static const int channelSize = 0xff;
+	uint32 red[channelSize];
+	uint32 green[channelSize];
+	uint32 blue[channelSize];
+	uint32 intensity[channelSize];
+
+	uint32 maxColor;
+	uint32 maxIntensity;
+};
+
 class ImagePanel : public wxPanel, public InputManager, public OutputManager {
 public:
 	ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp = nullptr);
@@ -101,6 +122,8 @@ public:
 	void synchronize(); //!< synchronizes with other canvases to show the same rect
 
 	void setImage(const wxImage& img, int id = 0);
+
+	void toggleHist();
 
 	// from InputManager
 	virtual bool getInput(Bitmap& inputBmp, int& id) const override;
@@ -116,6 +139,7 @@ private:
 	int bmpId;
 	Bitmap bmp;
 	BitmapCanvas * canvas;
+	Histogram * hist;
 	wxSizer * panelSizer;
 };
 
