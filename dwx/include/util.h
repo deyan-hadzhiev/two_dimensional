@@ -2,6 +2,8 @@
 #define __UTIL_H__
 
 #include <stdint.h>
+#include <string>
+#include <vector>
 #include "constants.h"
 
 using uint64 = uint64_t;
@@ -30,5 +32,10 @@ T clamp(T x, T xMin, T xMax) noexcept {
 	else
 		return x;
 }
+
+std::vector<std::string> splitString(const char *str, char c = ' ');
+
+template<class T>
+std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec);
 
 #endif // __UTIL_H__

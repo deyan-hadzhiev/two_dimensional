@@ -80,6 +80,9 @@ public:
 
 	ColorType * operator[](int row) noexcept;
 	const ColorType * operator[](int row) const noexcept;
+
+	//!< draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
+	bool drawBitmap(const Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;
 };
 
 using Bitmap = Pixelmap<>;

@@ -80,9 +80,13 @@ public:
 };
 
 class RotationPanel : public InputOutputMode {
-	wxTextCtrl * angleCtrl;
 public:
 	RotationPanel(ViewFrame * vf);
+};
+
+class HistogramModePanel : public InputOutputMode {
+public:
+	HistogramModePanel(ViewFrame * vf);
 };
 
 #endif // __WX_MODES_H__

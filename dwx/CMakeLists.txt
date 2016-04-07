@@ -35,6 +35,7 @@ set (HEADERS
 )
 
 set (SOURCES
+	src/util.cpp
 	src/guimain.cpp
 	src/wx_modes.cpp
 	src/wx_bitmap_canvas.cpp

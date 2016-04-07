@@ -97,6 +97,9 @@ protected:
 	static void kernelLoop(AsyncKernel * k);
 
 	bool getAbortState() const;
+
+	//!< override for all AsyncKernels by default
+	virtual void setOutput() const override {}
 };
 
 class NegativeKernel : public SimpleKernel {
@@ -168,8 +171,6 @@ public:
 class HoughKernel : public AsyncKernel {
 public:
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
-
-	virtual void setOutput() const override final;
 };
 
 class RotationKernel : public AsyncKernel {
@@ -180,8 +181,21 @@ public:
 	}
 
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+};
 
-	virtual void setOutput() const override final;
+class HistogramKernel : public AsyncKernel {
+public:
+	HistogramKernel() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", "512"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", "255"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "smooths", "1"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "vector", "0.075;0.25;0.35;0.25;0.075"));
+	}
+
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+private:
+
+	void drawIntensityHisto(Bitmap& histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const;
 };
 
 #endif

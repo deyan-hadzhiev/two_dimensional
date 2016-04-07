@@ -28,6 +28,7 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Sinosoid curve"),
 	wxT("Hough Ro Theta"),
 	wxT("Image rotation"),
+	wxT("Histograms"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -163,6 +164,10 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_ROTATION) :
 		SetStatusText(wxT("Using Image rotation"));
 		mPanel = new RotationPanel(this);
+		break;
+	case(MID_VF_HISTOGRAMS) :
+		SetStatusText(wxT("Using Histograms"));
+		mPanel = new HistogramModePanel(this);
 		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));

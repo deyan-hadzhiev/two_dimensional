@@ -206,10 +206,17 @@ HoughRoTheta::HoughRoTheta(ViewFrame * vf)
 
 RotationPanel::RotationPanel(ViewFrame * vf)
 	: InputOutputMode(vf, new RotationKernel)
-	, angleCtrl(nullptr)
 {
 	kernel->setProgressCallback(&cb);
 	kernel->addParamManager(paramPanel);
 
+	SendSizeEvent();
+}
+
+HistogramModePanel::HistogramModePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new HistogramKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
 	SendSizeEvent();
 }

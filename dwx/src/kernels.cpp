@@ -5,6 +5,7 @@
 #include "kernels.h"
 #include "vector2.h"
 #include "matrix2.h"
+#include "util.h"
 
 KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
@@ -311,12 +312,10 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 			bmpOutData[i] = Color(c, c, c);
 		}
 		// so the maximum value has to be mapped to 255 -> multiply by 255 and divide by the max value
-		oman->setOutput(bmpOut, 0); // the zero is important
+		oman->setOutput(bmpOut, 1); // the zero is important
 	}
 	return KernelBase::KPR_OK;
 }
-// just overriden so we don't output our input bmp
-void HoughKernel::setOutput() const {}
 
 KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	const bool inputOk = getInput();
@@ -369,10 +368,72 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 		}
 	}
 	if (oman) {
-		oman->setOutput(bmpOut, 0);
+		oman->setOutput(bmpOut, 1);
 	}
 	return KernelBase::KPR_OK;
 }
 
-void RotationKernel::setOutput() const
-{}
+KernelBase::ProcessResult HistogramKernel::kernelImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setKernelName("Histogram");
+	}
+	int outWidth = 512;
+	int outHeight = 255;
+	int smooths = 1;
+	std::string vecStr;
+	if (pman) {
+		pman->getIntParam(outWidth, "width");
+		pman->getIntParam(outHeight, "height");
+		pman->getIntParam(smooths, "smooths");
+		pman->getStringParam(vecStr, "vector");
+	}
+	const int histCount = smooths + 1;
+	if (histCount <= 0) {
+		return KPR_INVALID_INPUT;
+	}
+	Bitmap bmpOut(outWidth, outHeight);
+	if (!bmpOut.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	std::vector<std::string> convVecStr = splitString(vecStr.c_str(), ';');
+	std::vector<float> convVec(convVecStr.size());
+	for (int i = 0; i < convVecStr.size(); ++i) {
+		convVec[i] = atof(convVecStr[i].c_str());
+	}
+	const int subHeight = outHeight / histCount - 1;
+	Histogram<HDL_CHANNEL> hist(bmp);
+	std::vector<uint32> intensityChannel = hist.getChannel(HistogramChannel::HC_INTENSITY);
+	Bitmap subHisto(outWidth, subHeight);
+	const int maxIntensity = hist.getMaxIntensity();
+	std::vector<uint32> prevConvolution = intensityChannel;
+	for (int i = 0; i < histCount; ++i) {
+		std::vector<uint32> convoluted = convolute(prevConvolution, convVec);
+		drawIntensityHisto(subHisto, convoluted, maxIntensity);
+		bmpOut.drawBitmap(subHisto, 0, i * (subHeight + 1));
+		prevConvolution = convoluted;
+	}
+	if (oman) {
+		oman->setOutput(bmpOut, 1);
+	}
+	return KPR_OK;
+}
+
+void HistogramKernel::drawIntensityHisto(Bitmap & histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const {
+	const Color fillColor = Color(0x70, 0x70, 0x70);
+	const Color bkgColor = Color(0x0f, 0x0f, 0x0f);
+	const int ihh = histBmp.getHeight();
+	const int ihw = histBmp.getWidth();
+	Color * ihData = histBmp.getDataPtr();
+	const float widthRatioRecip = data.size() / float(ihw);
+	for (int y = 0; y < ihh; ++y) {
+		for (int x = 0; x < ihw; ++x) {
+			const int xh = int(x * widthRatioRecip);
+			const bool t = (ihh - y <= data[xh] * ihh / maxIntensity);
+			ihData[y * ihw + x] = (t ? fillColor : bkgColor);
+		}
+	}
+}

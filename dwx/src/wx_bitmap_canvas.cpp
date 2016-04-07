@@ -369,7 +369,6 @@ void HistogramPanel::OnPaint(wxPaintEvent & evt) {
 	const int chh = cHistSize.GetHeight();
 	const int chw = cHistSize.GetWidth();
 	const float widthRatioRecip = hist.channelSize / float(chw);
-	const int chp = chh * chw;
 	const int maxColor = hist.getMaxColor();
 	for (int y = 0; y < chh; ++y) {
 		for (int x = 0; x < chw; ++x) {
@@ -388,8 +387,6 @@ void HistogramPanel::OnPaint(wxPaintEvent & evt) {
 	const int ihh = iHistSize.GetHeight();
 	const int ihw = iHistSize.GetWidth();
 	const float widthRatioRecipInt = hist.channelSize / float(ihw);
-	const int ihp = ihh * ihw;
-	const int ihPixelSize = iHistSize.GetWidth() * iHistSize.GetHeight();
 	const int maxIntensity = hist.getMaxIntensity();
 	for (int y = 0; y < ihh; ++y) {
 		for (int x = 0; x < ihw; ++x) {

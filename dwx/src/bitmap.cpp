@@ -320,6 +320,23 @@ const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 	return data + row * width;
 }
 
+template<class ColorType>
+bool Pixelmap<ColorType>::drawBitmap(const Pixelmap<ColorType> & subBmp, const int x, const int y) noexcept {
+	if (!subBmp.isOK() || !this->isOK())
+		return false;
+	const int sw = subBmp.getWidth();
+	const int sh = subBmp.getHeight();
+	if (x < 0 || y < 0 || x + sw > width || y + sh > height)
+		return false;
+	const ColorType * subData = subBmp.getDataPtr();
+	for (int sy = 0; sy < sh; ++sy) {
+		ColorType * dest = data + (y + sy) * width + x;
+		// copy the whole row with the destinations width as size
+		memcpy(dest, subData + sy * sw, sw * sizeof(ColorType));
+	}
+	return true;
+}
+
 template class Histogram<HDL_CHANNEL>;
 template class Histogram<HDL_VALUE>;
 
