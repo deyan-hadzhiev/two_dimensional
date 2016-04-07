@@ -2,6 +2,7 @@
 #define __BITMAP_H__
 
 #include <functional>
+#include <vector>
 #include "color.h"
 
 class FloatBitmap {
@@ -82,5 +83,60 @@ public:
 };
 
 using Bitmap = Pixelmap<>;
+
+enum HistogramDataLayout {
+	HDL_CHANNEL = 0, //!< each channel is layed out in continuous memory
+	HDL_VALUE,       //!< channels are interleaved and each tuple of numChannels is close (may improve memory cache misses)
+};
+
+enum HistogramChannel {
+	HC_RED = 0,   //!< The red channel
+	HC_GREEN,     //!< The green channel
+	HC_BLUE,      //!< The blue channel
+	HC_INTENSITY, //!< The intensity channel
+	HC_COUNT,
+};
+
+union HistogramChunk {
+	struct {
+		uint32 r;
+		uint32 g;
+		uint32 b;
+		uint32 i;
+	};
+	uint32 d[HistogramChannel::HC_COUNT];
+};
+
+template<HistogramDataLayout hdl = HDL_CHANNEL>
+class Histogram {
+public:
+	Histogram();
+	Histogram(const Bitmap& bmp);
+	Histogram(const Histogram&) = default;
+	Histogram& operator=(const Histogram&) = default;
+
+	HistogramChunk operator[](int i) const;
+
+	void fromBmp(const Bitmap& bmp) noexcept;
+
+	const uint32* getDataPtr() const noexcept;
+	uint32 * getDataPtr() noexcept;
+
+	std::vector<uint32> getChannel(HistogramChannel ch) const;
+	void setChannel(const std::vector<uint32>& chData, HistogramChannel ch);
+
+	HistogramDataLayout getDataLayout() const noexcept;
+
+	uint32 getMaxColor() const noexcept;
+	uint32 getMaxIntensity() const noexcept;
+
+	static const int channelSize = 0xff + 1;
+	static const int numChannels = HC_COUNT;
+
+private:
+	uint32 data[channelSize * numChannels];
+	uint32 maxColor;
+	uint32 maxIntensity;
+};
 
 #endif // __BITMAP_H__

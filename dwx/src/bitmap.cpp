@@ -1,5 +1,6 @@
 #include <memory>
 #include <stdio.h>
+#include <algorithm>
 #include "bitmap.h"
 #include "color.h"
 #include "constants.h"
@@ -317,4 +318,128 @@ ColorType * Pixelmap<ColorType>::operator[](int row) noexcept {
 template<class ColorType>
 const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 	return data + row * width;
+}
+
+template class Histogram<HDL_CHANNEL>;
+template class Histogram<HDL_VALUE>;
+
+template<HistogramDataLayout hdl>
+Histogram<hdl>::Histogram()
+	: data{ 0U }
+	, maxColor(1)
+	, maxIntensity(1)
+{}
+
+template<HistogramDataLayout hdl>
+Histogram<hdl>::Histogram(const Bitmap & bmp)
+	: data{ 0U }
+	, maxColor(1)
+	, maxIntensity(1)
+{
+	fromBmp(bmp);
+}
+
+template<>
+void Histogram<HDL_CHANNEL>::fromBmp(const Bitmap & bmp) noexcept {
+	memset(data, 0, sizeof(data));
+	maxColor = 1;
+	maxIntensity = 1;
+	const Color * bmpData = bmp.getDataPtr();
+	const int bmpSize = bmp.getWidth() * bmp.getHeight();
+	for (int i = 0; i < bmpSize; ++i) {
+		const Color& ci = bmpData[i];
+		maxColor = std::max(data[channelSize * int(HistogramChannel::HC_RED)   + ci.r]++, maxColor);
+		maxColor = std::max(data[channelSize * int(HistogramChannel::HC_GREEN) + ci.g]++, maxColor);
+		maxColor = std::max(data[channelSize * int(HistogramChannel::HC_BLUE)  + ci.b]++, maxColor);
+		const uint8 cii = ci.intensity();
+		maxIntensity = std::max(data[channelSize * int(HistogramChannel::HC_INTENSITY) + cii]++, maxIntensity);
+	}
+}
+
+template<>
+HistogramChunk Histogram<HDL_CHANNEL>::operator[](int i) const {
+	HistogramChunk retval;
+	retval.r = data[channelSize * int(HistogramChannel::HC_RED)       + i];
+	retval.g = data[channelSize * int(HistogramChannel::HC_GREEN)     + i];
+	retval.b = data[channelSize * int(HistogramChannel::HC_BLUE)      + i];
+	retval.i = data[channelSize * int(HistogramChannel::HC_INTENSITY) + i];
+	return retval;
+}
+
+template<>
+HistogramChunk Histogram<HDL_VALUE>::operator[](int i) const {
+	HistogramChunk retval;
+	memcpy(&retval, data + i * numChannels, sizeof(retval));
+	return retval;
+}
+
+template<>
+void Histogram<HDL_VALUE>::fromBmp(const Bitmap & bmp) noexcept {
+	memset(data, 0, sizeof(data));
+	maxColor = 1;
+	maxIntensity = 1;
+	const Color * bmpData = bmp.getDataPtr();
+	const int bmpSize = bmp.getWidth() * bmp.getHeight();
+	for (int i = 0; i < bmpSize; ++i) {
+		const Color& ci = bmpData[i];
+		maxColor = std::max(data[ci.r * numChannels + int(HistogramChannel::HC_RED)  ]++, maxColor);
+		maxColor = std::max(data[ci.g * numChannels + int(HistogramChannel::HC_GREEN)]++, maxColor);
+		maxColor = std::max(data[ci.b * numChannels + int(HistogramChannel::HC_BLUE) ]++, maxColor);
+		const uint8 cii = ci.intensity();
+		maxIntensity = std::max(data[cii * numChannels + int(HistogramChannel::HC_INTENSITY)]++, maxIntensity);
+	}
+}
+
+template<HistogramDataLayout hdl>
+const uint32 * Histogram<hdl>::getDataPtr() const noexcept {
+	return data;
+}
+
+template<HistogramDataLayout hdl>
+uint32 * Histogram<hdl>::getDataPtr() noexcept {
+	return data;
+}
+
+template<>
+std::vector<uint32> Histogram<HDL_CHANNEL>::getChannel(HistogramChannel ch) const {
+	std::vector<uint32> retval(channelSize);
+	retval.assign(data + int(ch) * channelSize, data + (int(ch) + 1) * channelSize);
+	return retval;
+}
+
+template<>
+std::vector<uint32> Histogram<HDL_VALUE>::getChannel(HistogramChannel ch) const {
+	std::vector<uint32> retval(channelSize);
+	for (int i = 0; i < channelSize; ++i) {
+		retval[i] = data[i * numChannels + int(ch)];
+	}
+	return retval;
+}
+
+template<>
+void Histogram<HDL_CHANNEL>::setChannel(const std::vector<uint32>& chData, HistogramChannel ch) {
+	memcpy(data + int(ch) * channelSize, chData.data(), std::min(channelSize, int(chData.size())) * sizeof(uint32));
+}
+
+template<>
+void Histogram<HDL_VALUE>::setChannel(const std::vector<uint32>& chData, HistogramChannel ch) {
+	const int count = std::min(channelSize, int(chData.size()));
+	for (int i = 0; i < count; ++i) {
+		data[i * numChannels + int(ch)] = chData[i];
+	}
+}
+
+template<HistogramDataLayout hdl>
+HistogramDataLayout Histogram<hdl>::getDataLayout() const noexcept {
+	return hdl;
+}
+
+template<HistogramDataLayout hdl>
+uint32 Histogram<hdl>::getMaxColor() const noexcept {
+	return maxColor;
+}
+
+template<HistogramDataLayout hdl>
+uint32 Histogram<hdl>::getMaxIntensity() const noexcept {
+	return maxIntensity;
 }

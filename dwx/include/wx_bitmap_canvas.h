@@ -103,18 +103,11 @@ public:
 	void OnEraseBkg(wxEraseEvent& evt);
 
 private:
-	static const int channelSize = 0xff + 1;
 	static const Color histFgColor;
 	static const Color histBkgColor;
 	static const Color histFgIntensity;
 	static const Color histBkgIntensity;
-	uint32 red[channelSize];
-	uint32 green[channelSize];
-	uint32 blue[channelSize];
-	uint32 intensity[channelSize];
-
-	uint32 maxColor;
-	uint32 maxIntensity;
+	Histogram<HDL_VALUE> hist;
 };
 
 class ImagePanel : public wxPanel, public InputManager, public OutputManager {
@@ -143,7 +136,7 @@ private:
 	int bmpId;
 	Bitmap bmp;
 	BitmapCanvas * canvas;
-	HistogramPanel * hist;
+	HistogramPanel * histPanel;
 	wxSizer * panelSizer;
 };
 
