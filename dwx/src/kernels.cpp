@@ -49,8 +49,7 @@ bool AsyncKernel::getAbortState() const {
 AsyncKernel::AsyncKernel()
 	: state(State::AKS_INIT)
 	, loopThread(kernelLoop, this)
-{
-}
+{}
 
 AsyncKernel::~AsyncKernel() {
 	state = State::AKS_TERMINATED;
@@ -63,25 +62,13 @@ AsyncKernel::State AsyncKernel::getState() const {
 }
 
 void AsyncKernel::update() {
-	if (State::AKS_INIT == getState()) {
-		runKernel(flags);
-	} else {
-		state = State::AKS_DIRTY;
-		ev.notify_one();
-	}
+	state = State::AKS_DIRTY;
+	ev.notify_one();
 }
 
 KernelBase::ProcessResult AsyncKernel::runKernel(unsigned flags) {
-	bool updated = false;
-	std::lock_guard<std::mutex> lk(kernelMutex);
-	const bool hasInput = getInput();
-	if (hasInput && bmp.isOK()) {
-		state = State::AKS_DIRTY;
-		updated = true;
-	}
-	if (updated)
-		ev.notify_one();
-	return (updated ? KPR_RUNNING : KPR_INVALID_INPUT);
+	update();
+	return KPR_RUNNING;
 }
 
 KernelBase::ProcessResult NegativeKernel::kernelImplementation(unsigned flags) {
@@ -268,6 +255,10 @@ SinosoidKernel::SinosoidKernel()
 {}
 
 KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
 	if (cb) {
 		cb->setKernelName("Hough Rho Theta");
 	}
@@ -310,7 +301,7 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 		Bitmap bmpOut(pmp.getWidth(), pmp.getHeight());
 		const int dim = pmp.getWidth() * pmp.getHeight();
 		const uint64 * pmpData = pmp.getDataPtr();
-		uint64 maxValue = 0;
+		uint64 maxValue = 1;
 		for (int i = 0; i < dim; ++i) {
 			maxValue = std::max(maxValue, pmpData[i]);
 		}
@@ -328,6 +319,10 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 void HoughKernel::setOutput() const {}
 
 KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	const int cx = bw / 2;

@@ -37,8 +37,8 @@ public:
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 protected:
-	BitmapCanvas * inputCanvas;
-	BitmapCanvas * outputCanvas;
+	ImagePanel * inputPanel;
+	ImagePanel * outputPanel;
 	wxPanel * compareCanvas;
 	SimpleKernel * kernel;
 
@@ -56,7 +56,7 @@ public:
 
 protected:
 	GeometricKernel * gkernel;
-	BitmapCanvas * outputCanvas;
+	ImagePanel * outputPanel;
 };
 
 class NegativePanel : public InputOutputMode {

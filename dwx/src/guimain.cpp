@@ -34,12 +34,14 @@ const wxString ViewFrame::controlNames[] = {
 	wxT("&Run\tF5"),
 	wxT("&Stop\tShift+F5"),
 	wxT("&Compare\tCtrl+C"),
+	wxT("&Histogram\tF6"),
 };
 
 const wxItemKind ViewFrame::controlKinds[] = {
 	wxITEM_NORMAL, //!< Run
 	wxITEM_NORMAL, //!< Stop
 	wxITEM_CHECK,  //!< Compare
+	wxITEM_CHECK,  //!< Histogram
 };
 
 const wxSize ViewFrame::vfMinSize = wxSize(320, 320);
