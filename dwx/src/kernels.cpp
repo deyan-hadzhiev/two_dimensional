@@ -49,8 +49,7 @@ bool AsyncKernel::getAbortState() const {
 AsyncKernel::AsyncKernel()
 	: state(State::AKS_INIT)
 	, loopThread(kernelLoop, this)
-{
-}
+{}
 
 AsyncKernel::~AsyncKernel() {
 	state = State::AKS_TERMINATED;

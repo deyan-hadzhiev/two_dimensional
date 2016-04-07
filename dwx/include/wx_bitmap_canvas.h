@@ -92,9 +92,9 @@ private:
 	wxFrame * topFrame;
 };
 
-class Histogram : public wxPanel {
+class HistogramPanel : public wxPanel {
 public:
-	Histogram(wxWindow * parent);
+	HistogramPanel(wxWindow * parent);
 
 	void setImage(const Bitmap& bmp);
 
@@ -103,7 +103,11 @@ public:
 	void OnEraseBkg(wxEraseEvent& evt);
 
 private:
-	static const int channelSize = 0xff;
+	static const int channelSize = 0xff + 1;
+	static const Color histFgColor;
+	static const Color histBkgColor;
+	static const Color histFgIntensity;
+	static const Color histBkgIntensity;
 	uint32 red[channelSize];
 	uint32 green[channelSize];
 	uint32 blue[channelSize];
@@ -139,7 +143,7 @@ private:
 	int bmpId;
 	Bitmap bmp;
 	BitmapCanvas * canvas;
-	Histogram * hist;
+	HistogramPanel * hist;
 	wxSizer * panelSizer;
 };
 
