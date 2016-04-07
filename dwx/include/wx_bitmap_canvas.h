@@ -6,6 +6,8 @@
 #include <wx/dcbuffer.h>
 #include <wx/vector.h>
 
+#include <mutex>
+
 #include "bitmap.h"
 #include "kernel_base.h"
 
@@ -134,6 +136,7 @@ public:
 
 private:
 	int bmpId;
+	mutable std::mutex bmpMutex;
 	Bitmap bmp;
 	BitmapCanvas * canvas;
 	HistogramPanel * histPanel;

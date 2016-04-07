@@ -417,6 +417,7 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 	histPanel->Hide();
 	SetSizerAndFit(panelSizer);
 	if (nullptr != initBmp) {
+		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp = *initBmp;
 	} else {
 		const int side = 8;
@@ -424,6 +425,7 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 		const int bmpFullSize = bmpSide * bmpSide;
 		const Color dark(16, 16, 16);
 		const Color bright(172, 172, 172);
+		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp.generateEmptyImage(bmpSide, bmpSide);
 		Color * bmpData = bmp.getDataPtr();
 		for (int y = 0; y < bmpSide; ++y) {
@@ -460,13 +462,16 @@ void ImagePanel::setImage(const wxImage & img, int id) {
 	if (id == 0) {
 		canvas->resetFocus();
 	}
-	const int w = img.GetWidth();
-	const int h = img.GetHeight();
-	bmp.generateEmptyImage(w, h);
-	if (bmp.isOK()) {
-		Color * bmpData = bmp.getDataPtr();
-		memcpy(bmpData, img.GetData(), w * h * sizeof(Color));
-		histPanel->setImage(bmp);
+	{
+		std::lock_guard<std::mutex> lk(bmpMutex);
+		const int w = img.GetWidth();
+		const int h = img.GetHeight();
+		bmp.generateEmptyImage(w, h);
+		if (bmp.isOK()) {
+			Color * bmpData = bmp.getDataPtr();
+			memcpy(bmpData, img.GetData(), w * h * sizeof(Color));
+			histPanel->setImage(bmp);
+		}
 	}
 	Refresh();
 }
@@ -477,10 +482,13 @@ void ImagePanel::toggleHist() {
 
 bool ImagePanel::getInput(Bitmap & ibmp, int & id) const {
 	bool retval = false;
-	if (bmp.isOK()) {
-		ibmp = bmp;
-		id = bmpId;
-		retval = true;
+	{
+		std::lock_guard<std::mutex> lk(bmpMutex);
+		if (bmp.isOK()) {
+			ibmp = bmp;
+			id = bmpId;
+			retval = true;
+		}
 	}
 	return retval;
 }
@@ -494,6 +502,7 @@ void ImagePanel::kernelDone(KernelBase::ProcessResult result) {
 void ImagePanel::setOutput(const Bitmap & obmp, int id) {
 	//canvas->setBitmap(obmp, id);
 	if (obmp.isOK()) {
+		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp = obmp;
 		histPanel->setImage(bmp);
 		Color * bmpDataPtr = bmp.getDataPtr();
