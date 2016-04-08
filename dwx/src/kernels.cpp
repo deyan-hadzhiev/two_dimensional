@@ -410,7 +410,9 @@ KernelBase::ProcessResult HistogramKernel::kernelImplementation(unsigned flags) 
 	Bitmap subHisto(outWidth, subHeight);
 	const int maxIntensity = hist.getMaxIntensity();
 	std::vector<uint32> prevConvolution = intensityChannel;
-	for (int i = 0; i < histCount; ++i) {
+	drawIntensityHisto(subHisto, prevConvolution, maxIntensity);
+	bmpOut.drawBitmap(subHisto, 0, 0);
+	for (int i = 1; i < histCount; ++i) {
 		std::vector<uint32> convoluted = convolute(prevConvolution, convVec);
 		drawIntensityHisto(subHisto, convoluted, maxIntensity);
 		bmpOut.drawBitmap(subHisto, 0, i * (subHeight + 1));
@@ -425,6 +427,22 @@ KernelBase::ProcessResult HistogramKernel::kernelImplementation(unsigned flags) 
 void HistogramKernel::drawIntensityHisto(Bitmap & histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const {
 	const Color fillColor = Color(0x70, 0x70, 0x70);
 	const Color bkgColor = Color(0x0f, 0x0f, 0x0f);
+	const Color maxColor = Color(0xa0, 0x0f, 0x0f);
+	const Color minColor = Color(0x0f, 0x0f, 0xa0);
+	const std::vector<Extremum> extremums = findExtremums(data);
+	auto getColor = [=](int x, const std::vector<Extremum>& ext) -> Color {
+		const int extSize = ext.size();
+		Color retval = fillColor;
+		for (int i = 0; i < extSize; ++i) {
+			if (ext[i].start > x) {
+				break;
+			} else if (ext[i].start <= x && x < ext[i].end) {
+				retval = (ext[i].d < 0 ? minColor : maxColor); // assign the proper color based on the extremum type
+				break;
+			}
+		}
+		return retval;
+	};
 	const int ihh = histBmp.getHeight();
 	const int ihw = histBmp.getWidth();
 	Color * ihData = histBmp.getDataPtr();
@@ -433,7 +451,7 @@ void HistogramKernel::drawIntensityHisto(Bitmap & histBmp, const std::vector<uin
 		for (int x = 0; x < ihw; ++x) {
 			const int xh = int(x * widthRatioRecip);
 			const bool t = (ihh - y <= data[xh] * ihh / maxIntensity);
-			ihData[y * ihw + x] = (t ? fillColor : bkgColor);
+			ihData[y * ihw + x] = (t ? getColor(xh, extremums) : bkgColor);
 		}
 	}
 }

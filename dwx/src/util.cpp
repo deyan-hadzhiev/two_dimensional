@@ -45,18 +45,44 @@ std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 			for (int v = 0; v < k; ++v) {
 				conv += input[i - hk + v] * vec[v];
 			}
-		} else if (i - hk < 0) {
-			for (int v = 0; v < k; ++v) {
-				const int si = i - hk + v;
-				conv += (si < 0 ? under : input[si]) * vec[v];
-			}
 		} else {
 			for (int v = 0; v < k; ++v) {
-				const int ei = i - hk + v;
-				conv += (ei >= inCount ? over : input[ei]) * vec[v];
+				const int si = i - hk + v;
+				conv += (si < 0 || si >= inCount ? 0 : input[si] * vec[v]);
 			}
 		}
 		result[i] = static_cast<T>(conv);
 	}
+	return result;
+}
+
+template std::vector<Extremum> findExtremums<uint32>(const std::vector<uint32>& input);
+template std::vector<Extremum> findExtremums<float>(const std::vector<float>& input);
+
+template<class T>
+std::vector<Extremum> findExtremums(const std::vector<T>& input) {
+	//typedef std::conditional<std::is_floating_point<T>::value, T, std::make_signed<T>::type >::type ST;
+	typedef int ST;
+	std::vector<Extremum> result;
+	const int inCount = input.size();
+	int lastExtStart = 0;
+	ST lastDx = 0;
+	for (int x = 0; x < inCount - 1; ++x) {
+		const ST dx = static_cast<ST>(input[x + 1]) - static_cast<ST>(input[x]);
+		const ST mx = lastDx * dx;
+		if (mx < 0) {
+			// changed derivatives
+			result.push_back({ lastExtStart + 1, x + 1, dx > 0 ? -1 : 1 });
+			lastDx = dx;
+			lastExtStart = x;
+		} else if (mx > 0) {
+			lastDx = dx;
+			lastExtStart = x;
+		} else if (lastDx == 0) {
+			// zero do nothing on updates
+			lastDx = dx;
+		}
+	}
+	result.push_back({ lastExtStart, inCount - 1, lastDx > 0 ? 1 : -1 });
 	return result;
 }
