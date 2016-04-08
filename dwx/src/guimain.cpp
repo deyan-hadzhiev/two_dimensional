@@ -29,6 +29,7 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Hough Ro Theta"),
 	wxT("Image rotation"),
 	wxT("Histograms"),
+	wxT("Threshold"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -168,6 +169,10 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_HISTOGRAMS) :
 		SetStatusText(wxT("Using Histograms"));
 		mPanel = new HistogramModePanel(this);
+		break;
+	case(MID_VF_THRESHOLD) :
+		SetStatusText(wxT("Using Threshold"));
+		mPanel = new ThresholdModePanel(this);
 		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));

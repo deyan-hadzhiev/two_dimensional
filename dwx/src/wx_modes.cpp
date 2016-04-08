@@ -220,3 +220,11 @@ HistogramModePanel::HistogramModePanel(ViewFrame * vf)
 	kernel->addParamManager(paramPanel);
 	SendSizeEvent();
 }
+
+ThresholdModePanel::ThresholdModePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new ThresholdKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+	SendSizeEvent();
+}

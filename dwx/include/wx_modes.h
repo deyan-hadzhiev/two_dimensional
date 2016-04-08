@@ -89,4 +89,9 @@ public:
 	HistogramModePanel(ViewFrame * vf);
 };
 
+class ThresholdModePanel : public InputOutputMode {
+public:
+	ThresholdModePanel(ViewFrame * vf);
+};
+
 #endif // __WX_MODES_H__

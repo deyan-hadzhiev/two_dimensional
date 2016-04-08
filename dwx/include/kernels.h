@@ -198,4 +198,14 @@ private:
 	void drawIntensityHisto(Bitmap& histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const;
 };
 
+class ThresholdKernel : public AsyncKernel {
+public:
+	ThresholdKernel() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "lower", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upper", "255"));
+	}
+
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+};
+
 #endif

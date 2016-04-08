@@ -455,3 +455,33 @@ void HistogramKernel::drawIntensityHisto(Bitmap & histBmp, const std::vector<uin
 		}
 	}
 }
+
+KernelBase::ProcessResult ThresholdKernel::kernelImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setKernelName("Threshold");
+	}
+	const int w = bmp.getWidth();
+	const int h = bmp.getHeight();
+	int lower = 0;
+	int upper = 0;
+	if (pman) {
+		pman->getIntParam(lower, "lower");
+		pman->getIntParam(upper, "upper");
+	}
+	Bitmap bmpOut(w, h);
+	const Color* inData = bmp.getDataPtr();
+	Color* outData = bmpOut.getDataPtr();
+	const int n = w * h;
+	for (int i = 0; i < n; ++i) {
+		const int intensity = inData[i].intensity();
+		outData[i] = (lower <= intensity && intensity <= upper ? inData[i] : Color());
+	}
+	if (oman) {
+		oman->setOutput(bmpOut, bmpId);
+	}
+	return KPR_OK;
+}
