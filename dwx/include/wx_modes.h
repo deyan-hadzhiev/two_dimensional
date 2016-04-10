@@ -94,4 +94,9 @@ public:
 	ThresholdModePanel(ViewFrame * vf);
 };
 
+class FilterModePanel : public InputOutputMode {
+public:
+	FilterModePanel(ViewFrame * vf);
+};
+
 #endif // __WX_MODES_H__

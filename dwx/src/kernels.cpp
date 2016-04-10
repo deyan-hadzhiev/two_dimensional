@@ -2,10 +2,12 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+
 #include "kernels.h"
 #include "vector2.h"
 #include "matrix2.h"
 #include "util.h"
+#include "convolution.h"
 
 KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
 	const bool hasInput = getInput();
@@ -482,6 +484,24 @@ KernelBase::ProcessResult ThresholdKernel::kernelImplementation(unsigned flags) 
 	}
 	if (oman) {
 		oman->setOutput(bmpOut, bmpId);
+	}
+	return KPR_OK;
+}
+
+KernelBase::ProcessResult FilterKernel::kernelImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setKernelName("Filter");
+	}
+	// TODO get input from a matrix paramter
+	const float blurKernel[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+	ConvolutionKernel k(blurKernel, 3);
+	Bitmap out = convolute(bmp, k);
+	if (oman) {
+		oman->setOutput(out, bmpId);
 	}
 	return KPR_OK;
 }

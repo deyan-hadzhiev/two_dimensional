@@ -208,4 +208,13 @@ public:
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
 };
 
+class FilterKernel : public AsyncKernel {
+public:
+	FilterKernel() {
+
+	}
+
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+};
+
 #endif

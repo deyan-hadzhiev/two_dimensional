@@ -62,7 +62,8 @@ void BitmapCanvas::updateStatus() const {
 		//focusStr.Printf(wxT("bmp: ( %4d, %4d) screen: ( %4d, %4d)"), mouseBmp.x, mouseBmp.y, screenPos.x, screenPos.y);
 		//topFrame->SetStatusText(focusStr);
 		wxString posStr;
-		posStr.Printf(wxT("x: %4d y: %4d bmp(%d, %d, %d, %d)"), mousePos.x, mousePos.y, bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height);
+		const wxPoint mouseBmp = convertScreenToBmp(mousePos);
+		posStr.Printf(wxT("Screen x: %4d y: %4d Bmp x: %4d y: %4d"), mousePos.x, mousePos.y, mouseBmp.x, mouseBmp.y);
 		topFrame->SetStatusText(posStr, 1);
 		wxString rectStr;
 		rectStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d)"), zoomLvl, canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height);
