@@ -15,6 +15,7 @@ class ViewFrame;
 class ModePanel : public wxPanel {
 public:
 	friend class ParamPanel;
+	friend class CKernelPanel;
 
 	ModePanel(ViewFrame * viewFrame, unsigned styles = ViewFrame::VFS_NOTHING_ENABLED);
 	virtual ~ModePanel();

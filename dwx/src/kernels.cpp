@@ -496,9 +496,11 @@ KernelBase::ProcessResult FilterKernel::kernelImplementation(unsigned flags) {
 	if (cb) {
 		cb->setKernelName("Filter");
 	}
-	// TODO get input from a matrix paramter
 	const float blurKernel[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	ConvolutionKernel k(blurKernel, 3);
+	if (pman) {
+		pman->getCKernelParam(k, "kernel");
+	}
 	Bitmap out = convolute(bmp, k);
 	if (oman) {
 		oman->setOutput(out, bmpId);
