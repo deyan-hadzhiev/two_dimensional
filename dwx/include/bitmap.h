@@ -64,6 +64,9 @@ public:
 	Pixelmap(const Pixelmap& rhs) noexcept;
 	Pixelmap& operator = (const Pixelmap& rhs) noexcept;
 
+	template<class OtherColorType>
+	Pixelmap(const Pixelmap<OtherColorType>& rhs);
+
 	void freeMem(void) noexcept; //!< Deletes the memory, associated with the bitmap
 	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)

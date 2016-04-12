@@ -35,16 +35,4 @@ T clamp(T x, T xMin, T xMax) noexcept {
 
 std::vector<std::string> splitString(const char *str, char c = ' ');
 
-template<class T>
-std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec);
-
-struct Extremum {
-	int start;
-	int end;
-	int d; //!< will be positive if the extremum is maximum and negative if it is minimum
-};
-
-template<class T>
-std::vector<Extremum> findExtremums(const std::vector<T>& input);
-
 #endif // __UTIL_H__

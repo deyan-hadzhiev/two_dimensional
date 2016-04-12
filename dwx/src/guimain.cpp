@@ -30,6 +30,7 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Image rotation"),
 	wxT("Histograms"),
 	wxT("Threshold"),
+	wxT("Filter"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -173,6 +174,10 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_THRESHOLD) :
 		SetStatusText(wxT("Using Threshold"));
 		mPanel = new ThresholdModePanel(this);
+		break;
+	case(MID_VF_FILTER) :
+		SetStatusText(wxT("Using Filter"));
+		mPanel = new FilterModePanel(this);
 		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));

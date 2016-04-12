@@ -21,6 +21,7 @@ set (HEADERS
 	include/bitmap.h
 	include/color.h
 	include/constants.h
+	include/convolution.h
 	include/matrix2.h
 	include/transform.h
 	include/vector2.h
@@ -36,6 +37,7 @@ set (HEADERS
 
 set (SOURCES
 	src/util.cpp
+	src/convolution.cpp
 	src/guimain.cpp
 	src/wx_modes.cpp
 	src/wx_bitmap_canvas.cpp

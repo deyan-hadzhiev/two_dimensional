@@ -146,9 +146,13 @@ const FloatColor * FloatBitmap::operator[](int row) const noexcept {
 	return data + row * width;
 }
 
+template class TColor<int32>;
 template class Pixelmap<Color>;
+template class Pixelmap<TColor<int32> >;
 template class Pixelmap<uint32>;
 template class Pixelmap<uint64>;
+template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
+template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
 
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap() noexcept
@@ -205,6 +209,21 @@ Pixelmap<ColorType>& Pixelmap<ColorType>::operator = (const Pixelmap<ColorType>&
 		copy(rhs);
 	}
 	return *this;
+}
+
+template<class ColorType>
+template<class OtherColorType>
+Pixelmap<ColorType>::Pixelmap(const Pixelmap<OtherColorType>& rhs)
+	: width(rhs.getWidth())
+	, height(rhs.getHeight())
+	, data(nullptr)
+{
+	generateEmptyImage(width, height);
+	const int n = width * height;
+	const OtherColorType * rhsData = rhs.getDataPtr();
+	for (int i = 0; i < n; ++i) {
+		data[i] = static_cast<ColorType>(rhsData[i]);
+	}
 }
 
 template<class ColorType>

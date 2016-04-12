@@ -158,14 +158,141 @@ inline FloatColor operator / (const FloatColor& a, float divider) noexcept {
 	return FloatColor(a.r * mult, a.g * mult, a.b * mult);
 }
 
-__declspec(align(1))
+#pragma pack(push, 1)
+template<class T>
+class TColor {
+public:
+	// a union, that allows us to refer to the channels by name (::r, ::g, ::b),
+	// or by index (::components[0] ...). See operator [].
+	union {
+		struct { T r, g, b; };
+		T components[3];
+	};
+	//
+	TColor() noexcept
+		: r(0)
+		, g(0)
+		, b(0)
+	{}
+
+	explicit TColor(T _r, T _g, T _b) noexcept
+		: r(_r)
+		, g(_g)
+		, b(_b)
+	{}
+
+	/// make black
+	void makeZero(void) noexcept {
+		r = g = b = 0;
+	}
+	/// set the color explicitly
+	void setColor(T _r, T _g, T _b) noexcept {
+		r = _r;
+		g = _g;
+		b = _b;
+	}
+	/// get the intensity of the color (direct)
+	T intensity(void) const noexcept {
+		return static_cast<T>((int64(r) + int64(g) + int64(b)) / 3);
+	}
+	/// get the perceptual intensity of the color
+	T intensityPerceptual(void) const noexcept {
+		return static_cast<T>(int64(r) * 0.299f + int64(g) * 0.587f + int64(b) * 0.114f);
+	}
+
+	inline const T& operator[] (int index) const noexcept {
+		return components[index];
+	}
+
+	inline T& operator[] (int index) noexcept {
+		return components[index];
+	}
+
+	TColor& operator += (const TColor& rhs) noexcept {
+		r = r + rhs.r;
+		g = g + rhs.g;
+		b = b + rhs.b;
+		return *this;
+	}
+
+	TColor& operator -= (const TColor& rhs) noexcept {
+		r = r - rhs.r;
+		g = g - rhs.g;
+		b = b - rhs.b;
+		return *this;
+	}
+
+	TColor& operator *= (float mult) noexcept {
+		r = r * mult;
+		g = g * mult;
+		b = b * mult;
+		return *this;
+	}
+
+	TColor& operator /= (float div) noexcept {
+		const float mult = 1.0f / div;
+		r = r * mult;
+		g = g * mult;
+		b = b * mult;
+		return *this;
+	}
+};
+#pragma pack(pop)
+
+template<class T>
+inline TColor<T> operator+(const TColor<T>& lhs, const TColor<T>& rhs) noexcept {
+	return TColor<T>(
+		lhs.r + rhs.r,
+		lhs.g + rhs.g,
+		lhs.b + rhs.b
+		);
+}
+
+template<class T>
+inline TColor<T> operator-(const TColor<T>& lhs, const TColor<T>& rhs) noexcept {
+	return TColor<T>(
+		lhs.r - rhs.r,
+		lhs.g - rhs.g,
+		lhs.b - rhs.b
+		);
+}
+
+template<class T>
+inline TColor<T> operator*(const TColor<T>& lhs, const float mult) noexcept {
+	return TColor<T>(
+		lhs.r * mult,
+		lhs.g * mult,
+		lhs.b * mult
+		);
+}
+
+template<class T>
+inline TColor<T> operator*(const float mult, const TColor<T>& rhs) noexcept {
+	return TColor<T>(
+		rhs.r * mult,
+		rhs.g * mult,
+		rhs.b * mult
+		);
+}
+
+template<class T>
+inline TColor<T> operator/(const TColor<T>& lhs, const float div) noexcept {
+	const float mult = 1.0f / div;
+	return TColor<T>(
+		rhs.r * mult,
+		rhs.g * mult,
+		rhs.b * mult
+		);
+}
+
+#pragma pack(push, 1)
 class Color {
 public:
 	// a union, that allows us to refer to the channels by name (::r, ::g, ::b),
 	// or by index (::components[0] ...). See operator [].
 	union {
-		struct { unsigned char r, g, b; };
-		unsigned char components[3];
+		struct { uint8 r, g, b; };
+		uint8 components[3];
 	};
 	//
 	Color() noexcept
@@ -181,7 +308,14 @@ public:
 		r = ((rgbcolor >> 16) & 0xff);
 	}
 
-	Color(unsigned char _r, unsigned char _g, unsigned char _b) noexcept
+	template<class T>
+	explicit Color(const TColor<T>& _tc)
+		: r(static_cast<uint8>(clamp(_tc.r, 0, 255)))
+		, g(static_cast<uint8>(clamp(_tc.g, 0, 255)))
+		, b(static_cast<uint8>(clamp(_tc.b, 0, 255)))
+	{}
+
+	explicit Color(uint8 _r, uint8 _g, uint8 _b) noexcept
 		: r(_r)
 		, g(_g)
 		, b(_b)
@@ -192,25 +326,25 @@ public:
 		r = g = b = 0;
 	}
 	/// set the color explicitly
-	void setColor(unsigned char _r, unsigned char _g, unsigned char _b) noexcept {
+	void setColor(uint8 _r, uint8 _g, uint8 _b) noexcept {
 		r = _r;
 		g = _g;
 		b = _b;
 	}
 	/// get the intensity of the color (direct)
-	unsigned char intensity(void) const noexcept {
-		return unsigned char((int(r) + int(g) + int(b)) / 3) ;
+	uint8 intensity(void) const noexcept {
+		return static_cast<uint8>((uint16(r) + uint16(g) + uint16(b)) / 3) ;
 	}
 	/// get the perceptual intensity of the color
-	unsigned char intensityPerceptual(void) const noexcept {
-		return static_cast<unsigned char>(int(r) * 0.299f + int(g) * 0.587f * + int(b) * 0.114f);
+	uint8 intensityPerceptual(void) const noexcept {
+		return static_cast<unsigned char>(int(r) * 0.299f + int(g) * 0.587f + int(b) * 0.114f);
 	}
 
-	inline const unsigned char& operator[] (int index) const noexcept {
+	inline const uint8& operator[] (int index) const noexcept {
 		return components[index];
 	}
 
-	inline unsigned char& operator[] (int index) noexcept {
+	inline uint8& operator[] (int index) noexcept {
 		return components[index];
 	}
 
@@ -242,7 +376,17 @@ public:
 		b = static_cast<uint8>(clamp(b * mult, 0.0f, 255.0f));
 		return *this;
 	}
+
+	template<class T>
+	explicit operator TColor<T>() const {
+		return TColor<T>(
+			static_cast<T>(r),
+			static_cast<T>(g),
+			static_cast<T>(b)
+			);
+	}
 };
+#pragma pack(pop)
 
 inline Color operator+(const Color& lhs, const Color& rhs) noexcept {
 	return Color(

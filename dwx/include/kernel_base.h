@@ -4,7 +4,9 @@
 #include <string>
 #include <atomic>
 #include <mutex>
+
 #include "bitmap.h"
+#include "convolution.h"
 
 class InputManager;
 class OutputManager;
@@ -134,6 +136,7 @@ public:
 		PT_INT,
 		PT_FLOAT,
 		PT_STRING,
+		PT_CKERNEL,
 	} type;
 	KernelBase * kernel;
 	std::string name;
@@ -166,6 +169,10 @@ public:
 	}
 
 	virtual bool getBoolParam(bool& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getCKernelParam(ConvolutionKernel& value, const std::string& paramName) const {
 		return false;
 	}
 

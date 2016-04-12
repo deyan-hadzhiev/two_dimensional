@@ -15,6 +15,7 @@ class ViewFrame;
 class ModePanel : public wxPanel {
 public:
 	friend class ParamPanel;
+	friend class CKernelPanel;
 
 	ModePanel(ViewFrame * viewFrame, unsigned styles = ViewFrame::VFS_NOTHING_ENABLED);
 	virtual ~ModePanel();
@@ -92,6 +93,11 @@ public:
 class ThresholdModePanel : public InputOutputMode {
 public:
 	ThresholdModePanel(ViewFrame * vf);
+};
+
+class FilterModePanel : public InputOutputMode {
+public:
+	FilterModePanel(ViewFrame * vf);
 };
 
 #endif // __WX_MODES_H__

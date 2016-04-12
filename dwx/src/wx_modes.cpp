@@ -228,3 +228,11 @@ ThresholdModePanel::ThresholdModePanel(ViewFrame * vf)
 	kernel->addParamManager(paramPanel);
 	SendSizeEvent();
 }
+
+FilterModePanel::FilterModePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new FilterKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+	SendSizeEvent();
+}
