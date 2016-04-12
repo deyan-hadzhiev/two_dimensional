@@ -11,6 +11,20 @@
 #include "wx_modes.h"
 
 class ParamPanel;
+class CKernelPanel;
+
+class CKernelDlg : public wxDialog {
+public:
+	CKernelDlg(CKernelPanel * parent, const wxString& title, int side);
+
+	ConvolutionKernel getKernel() const;
+
+	void setKernelSide(int s);
+private:
+	CKernelPanel * paramPanel;
+	wxVector<wxTextCtrl*> kernelParams;
+	int kernelSide;
+};
 
 class CKernelPanel : public wxPanel {
 public:
@@ -25,24 +39,19 @@ public:
 
 	void OnKernelChange(wxCommandEvent& evt);
 private:
-	void createKernelControls(const wxString& side);
+	ParamPanel * paramPanel;
 
-	ParamPanel * parent;
-
-	wxPanel * detailsPanel;
+	CKernelDlg * kernelDlg;
 	wxBoxSizer * mainSizer;
 	wxTextCtrl * sideCtrl;
 	wxButton * showButton;
 	wxButton * hideButton;
-
-	int currentSide;
-	wxFlexGridSizer * kernelParamsSizer;
-	wxVector<wxTextCtrl*> kernelParams;
 };
 
 // TODO: change logic a bit to avoid name clashes
 
 class ParamPanel : public wxPanel, public ParamManager {
+	friend class CKernelPanel;
 	wxBoxSizer * panelSizer;
 	ModePanel * modePanel;
 

@@ -5,72 +5,16 @@
 #include "guimain.h"
 
 
-CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
-	: wxPanel(_parent, id)
-	, parent(_parent)
-	, detailsPanel(nullptr)
-	, mainSizer(nullptr)
-	, sideCtrl(nullptr)
-	, showButton(nullptr)
-	, hideButton(nullptr)
-	, currentSide(0)
-	, kernelParamsSizer(nullptr)
+CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
+	: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, paramPanel(parent)
+	, kernelSide(0)
 {
-	mainSizer = new wxBoxSizer(wxVERTICAL);
-	wxBoxSizer * topSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(topSizer, 1, wxEXPAND | wxALL);
-	topSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL);
-
-	sideCtrl = new wxTextCtrl(this, wxID_ANY, defSide, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-	sideCtrl->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnSideChnage), NULL, this);
-	topSizer->Add(sideCtrl, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
-
-	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
-	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnShowButton), NULL, this);
-	topSizer->Add(showButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
-
-	hideButton = new wxButton(this, wxID_ANY, wxT("Hide"));
-	hideButton->Hide();
-	hideButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnHideButton), NULL, this);
-	topSizer->Add(hideButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
-	topSizer->AddStretchSpacer(1);
-
-	detailsPanel = new wxPanel(this);
-	detailsPanel->Hide();
-	createKernelControls(defSide);
-	mainSizer->Add(detailsPanel, 1, wxEXPAND | wxALL);
-
-	SetSizerAndFit(mainSizer);
+	setKernelSide(side);
 }
 
-void CKernelPanel::createKernelControls(const wxString & sideStr) {
-	const int side = wxAtoi(sideStr);
-	if (side > 0 && (side != currentSide || 0 == currentSide)) {
-		for (auto rit = kernelParams.rbegin(); rit != kernelParams.rend(); ++rit) {
-			(*rit)->Disconnect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, this);
-			(*rit)->Destroy();
-		}
-		kernelParams.clear();
-		if (kernelParamsSizer) {
-			kernelParamsSizer->Clear();
-		}
-		currentSide = side;
-		// directly make a new params sizer, the old will be deleted by the panel
-		kernelParamsSizer = new wxFlexGridSizer(side, side, 0, 0);
-		const int sideSqr = side * side;
-		for (int i = 0; i < sideSqr; ++i) {
-			wxTextCtrl * kernelPar = new wxTextCtrl(detailsPanel, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-			kernelPar->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, this);
-			kernelParams.push_back(kernelPar);
-			kernelParamsSizer->Add(kernelPar, 1, wxEXPAND | wxSHRINK | wxALL);
-		}
-		detailsPanel->SetSizerAndFit(kernelParamsSizer, true);
-		kernelParamsSizer->Layout();
-	}
-}
-
-ConvolutionKernel CKernelPanel::GetValue() const {
-	ConvolutionKernel retval(currentSide);
+ConvolutionKernel CKernelDlg::getKernel() const {
+	ConvolutionKernel retval(kernelSide);
 	float * ckData = retval.getDataPtr();
 	for (int i = 0; i < kernelParams.size(); ++i) {
 		ckData[i] = wxAtof(kernelParams[i]->GetValue());
@@ -78,38 +22,78 @@ ConvolutionKernel CKernelPanel::GetValue() const {
 	return retval;
 }
 
+void CKernelDlg::setKernelSide(int s) {
+	if (s > 0 && (s != kernelSide || 0 == kernelSide)) {
+		for (auto rit = kernelParams.rbegin(); rit != kernelParams.rend(); ++rit) {
+			(*rit)->Disconnect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, this);
+			(*rit)->Destroy();
+		}
+		kernelParams.clear();
+		kernelSide = s;
+		wxGridSizer * dlgSizer = new wxGridSizer(kernelSide, kernelSide, 2, 2);
+		const int sideSqr = kernelSide * kernelSide;
+		for (int i = 0; i < sideSqr; ++i) {
+			wxTextCtrl * kernelPar = new wxTextCtrl(this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+			kernelPar->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, paramPanel);
+			kernelParams.push_back(kernelPar);
+			dlgSizer->Add(kernelPar, 1, wxEXPAND | wxSHRINK | wxALL, 2);
+		}
+		SetSizerAndFit(dlgSizer);
+		SendSizeEvent();
+	}
+}
+
+CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
+	: wxPanel(_parent, id)
+	, paramPanel(_parent)
+	, kernelDlg(new CKernelDlg(this, label, wxAtoi(defSide)))
+	, mainSizer(nullptr)
+	, sideCtrl(nullptr)
+	, showButton(nullptr)
+	, hideButton(nullptr)
+{
+	mainSizer = new wxBoxSizer(wxHORIZONTAL);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL);
+
+	sideCtrl = new wxTextCtrl(this, wxID_ANY, defSide, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	sideCtrl->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnSideChnage), NULL, this);
+	mainSizer->Add(sideCtrl, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
+	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnShowButton), NULL, this);
+	mainSizer->Add(showButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	hideButton = new wxButton(this, wxID_ANY, wxT("Hide"));
+	hideButton->Hide();
+	hideButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnHideButton), NULL, this);
+	mainSizer->Add(hideButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+	mainSizer->AddStretchSpacer(1);
+
+	SetSizerAndFit(mainSizer);
+}
+
+ConvolutionKernel CKernelPanel::GetValue() const {
+	return kernelDlg->getKernel();
+}
+
 void CKernelPanel::OnSideChnage(wxCommandEvent & evt) {
-	createKernelControls(sideCtrl->GetValue());
+	kernelDlg->setKernelSide(wxAtoi(sideCtrl->GetValue()));
 }
 
 void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
-	detailsPanel->Show();
+	kernelDlg->Show();
 	hideButton->Show();
 	showButton->Hide();
-	kernelParamsSizer->Layout();
-	Refresh();
-	detailsPanel->Fit();
-	detailsPanel->Layout();
+	mainSizer->Layout();
 	Fit();
-	Layout();
-	parent->resizeParent();
-	SendSizeEventToParent();
-	SendSizeEvent();
 }
 
 void CKernelPanel::OnHideButton(wxCommandEvent & evt) {
-	detailsPanel->Hide();
+	kernelDlg->Hide();
 	hideButton->Hide();
 	showButton->Show();
-	kernelParamsSizer->Layout();
-	Refresh();
-	detailsPanel->Fit();
-	detailsPanel->Layout();
+	mainSizer->Layout();
 	Fit();
-	Layout();
-	parent->resizeParent();
-	SendSizeEventToParent();
-	SendSizeEvent();
 }
 
 void CKernelPanel::OnKernelChange(wxCommandEvent & evt) {
@@ -270,6 +254,7 @@ bool ParamPanel::getCKernelParam(ConvolutionKernel & value, const std::string & 
 
 void ParamPanel::resizeParent() {
 	SendSizeEventToParent();
+	SendSizeEvent();
 }
 
 void ParamPanel::OnParamChange(wxCommandEvent & ev) {
