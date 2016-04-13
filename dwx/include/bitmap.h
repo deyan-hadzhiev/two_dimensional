@@ -2,39 +2,32 @@
 #define __BITMAP_H__
 
 #include <functional>
+#include <vector>
 #include "color.h"
 
-class Bitmap {
-	friend class Bitcube;
+class FloatBitmap {
 protected:
 	int width, height;
-	Color* data;
+	// TODO make Bitmap data a shared ptr, so bitmaps can be easily shared
+	FloatColor* data;
 
 	void remapRGB(std::function<float(float)>) noexcept; // remap R, G, B channels by a function
-	void copy(const Bitmap& rhs) noexcept;
+	void copy(const FloatBitmap& rhs) noexcept;
 public:
-	Bitmap() noexcept; //!< Generates an empty bitmap
+	FloatBitmap() noexcept; //!< Generates an empty bitmap
 	// make virtual if necessary
-	~Bitmap() noexcept;
-	Bitmap(const Bitmap& rhs) noexcept;
-	Bitmap& operator = (const Bitmap& rhs) noexcept;
+	~FloatBitmap() noexcept;
+	FloatBitmap(const FloatBitmap& rhs) noexcept;
+	FloatBitmap& operator = (const FloatBitmap& rhs) noexcept;
 	void freeMem(void) noexcept; //!< Deletes the memory, associated with the bitmap
 	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
 	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
 	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
-	Color getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
+	FloatColor getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
 	/// Gets a bilinear-filtered pixel from float coords (x, y). The coordinates wrap when near the edges.
-	Color getFilteredPixel(float x, float y) const noexcept;
-	void setPixel(int x, int y, const Color& col) noexcept; //!< Sets the pixel at coordinates (x, y).
-
-	bool loadBMP(const char* filename) noexcept; //!< Loads an image from a BMP file. Returns false in the case of an error
-	//bool loadEXR(const char* filename); //!< Loads an EXR file
-	//virtual bool loadImage(const char* filename); //!< Loads an image (autodetected)
-
-	/// Saves the image to a BMP file (with clamping, etc). Uses the sRGB colorspace.
-	/// Returns false in the case of an error (e.g. read-only media)
-	bool saveBMP(const char* filename) noexcept;
+	FloatColor getFilteredPixel(float x, float y) const noexcept;
+	void setPixel(int x, int y, const FloatColor& col) noexcept; //!< Sets the pixel at coordinates (x, y).
 
 	/// Saves the image into the EXR format, preserving the dynamic range, using Half for storage. Note that
 	/// in contrast with saveBMP(), it does not use gamma-compression on saving.
@@ -50,7 +43,106 @@ public:
 
 	void differentiate(void) noexcept; //!< differentiate image (red = dx, green = dy, blue = 0)
 
-	Color* getDataPtr() const noexcept; //!< get the current data ptr - fastest data management for reading
+	FloatColor* getDataPtr() const noexcept; //!< get the current data ptr - fastest data management for reading
+
+	FloatColor * operator[](int row) noexcept;
+	const FloatColor * operator[](int row) const noexcept;
+};
+
+template<class ColorType = Color>
+class Pixelmap {
+protected:
+	int width, height;
+	// TODO make Bitmap data a shared ptr, so bitmaps can be easily shared
+	ColorType* data;
+
+	void copy(const Pixelmap& rhs) noexcept;
+public:
+	Pixelmap() noexcept; //!< Generates an empty bitmap
+	Pixelmap(int width, int height) noexcept; //!< Generates empty bitmap with specified dimensions
+	~Pixelmap() noexcept;
+	Pixelmap(const Pixelmap& rhs) noexcept;
+	Pixelmap& operator = (const Pixelmap& rhs) noexcept;
+
+	template<class OtherColorType>
+	Pixelmap(const Pixelmap<OtherColorType>& rhs);
+
+	void freeMem(void) noexcept; //!< Deletes the memory, associated with the bitmap
+	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
+	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
+	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
+	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
+	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
+	ColorType getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
+	ColorType getFilteredPixel(float x, float y, bool tile = false) const noexcept;
+	void remap(std::function<ColorType(ColorType)>) noexcept; // remap R, G, B channels by a function
+
+	void setPixel(int x, int y, const ColorType& col) noexcept; //!< Sets the pixel at coordinates (x, y)
+
+	ColorType* getDataPtr() const noexcept; //!< get the current data ptr - fastest data management for reading
+
+	ColorType * operator[](int row) noexcept;
+	const ColorType * operator[](int row) const noexcept;
+
+	//!< draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
+	bool drawBitmap(const Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;
+};
+
+using Bitmap = Pixelmap<>;
+
+enum HistogramDataLayout {
+	HDL_CHANNEL = 0, //!< each channel is layed out in continuous memory
+	HDL_VALUE,       //!< channels are interleaved and each tuple of numChannels is close (may improve memory cache misses)
+};
+
+enum HistogramChannel {
+	HC_RED = 0,   //!< The red channel
+	HC_GREEN,     //!< The green channel
+	HC_BLUE,      //!< The blue channel
+	HC_INTENSITY, //!< The intensity channel
+	HC_COUNT,
+};
+
+union HistogramChunk {
+	struct {
+		uint32 r;
+		uint32 g;
+		uint32 b;
+		uint32 i;
+	};
+	uint32 d[HistogramChannel::HC_COUNT];
+};
+
+template<HistogramDataLayout hdl = HDL_CHANNEL>
+class Histogram {
+public:
+	Histogram();
+	Histogram(const Bitmap& bmp);
+	Histogram(const Histogram&) = default;
+	Histogram& operator=(const Histogram&) = default;
+
+	HistogramChunk operator[](int i) const;
+
+	void fromBmp(const Bitmap& bmp) noexcept;
+
+	const uint32* getDataPtr() const noexcept;
+	uint32 * getDataPtr() noexcept;
+
+	std::vector<uint32> getChannel(HistogramChannel ch) const;
+	void setChannel(const std::vector<uint32>& chData, HistogramChannel ch);
+
+	HistogramDataLayout getDataLayout() const noexcept;
+
+	uint32 getMaxColor() const noexcept;
+	uint32 getMaxIntensity() const noexcept;
+
+	static const int channelSize = 0xff + 1;
+	static const int numChannels = HC_COUNT;
+
+private:
+	uint32 data[channelSize * numChannels];
+	uint32 maxColor;
+	uint32 maxIntensity;
 };
 
 #endif // __BITMAP_H__

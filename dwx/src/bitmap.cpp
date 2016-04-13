@@ -1,73 +1,78 @@
 #include <memory>
 #include <stdio.h>
+#include <algorithm>
 #include "bitmap.h"
 #include "color.h"
 #include "constants.h"
 
-Bitmap::Bitmap() noexcept
+FloatBitmap::FloatBitmap() noexcept
 	: width(-1)
 	, height(-1)
 	, data(nullptr)
 {}
 
-Bitmap::~Bitmap() noexcept {
+FloatBitmap::~FloatBitmap() noexcept {
 	freeMem();
 }
 
-void Bitmap::freeMem(void) noexcept {
+void FloatBitmap::freeMem(void) noexcept {
 	if (data) delete[] data;
 	data = nullptr;
 	width = height = -1;
 }
 
-void Bitmap::copy(const Bitmap& rhs) noexcept {
+void FloatBitmap::copy(const FloatBitmap& rhs) noexcept {
 	freeMem();
 	width = rhs.width;
 	height = rhs.height;
-	data = new Color[width * height];
-	memcpy(data, rhs.data, width * height * sizeof(Color));
+	data = new FloatColor[width * height];
+	memcpy(data, rhs.data, width * height * sizeof(FloatColor));
 }
 
-Bitmap::Bitmap(const Bitmap& rhs) noexcept {
+FloatBitmap::FloatBitmap(const FloatBitmap& rhs) noexcept
+	: width(-1)
+	, height(-1)
+	, data(nullptr)
+{
 	copy(rhs);
 }
 
-Bitmap& Bitmap::operator = (const Bitmap& rhs) noexcept {
+FloatBitmap& FloatBitmap::operator = (const FloatBitmap& rhs) noexcept {
 	if (this != &rhs) {
 		copy(rhs);
 	}
 	return *this;
 }
 
-int Bitmap::getWidth(void) const  noexcept {
+int FloatBitmap::getWidth(void) const  noexcept {
 	return width;
 }
-int Bitmap::getHeight(void) const noexcept {
+int FloatBitmap::getHeight(void) const noexcept {
 	return height;
 }
-bool Bitmap::isOK(void) const  noexcept {
+bool FloatBitmap::isOK(void) const  noexcept {
 	return (data != nullptr);
 }
 
-void Bitmap::generateEmptyImage(int w, int h) noexcept {
+void FloatBitmap::generateEmptyImage(int w, int h) noexcept {
 	freeMem();
 	if (w <= 0 || h <= 0)
 		return;
 	width = w;
 	height = h;
-	data = new Color[w * h];
+	data = new FloatColor[w * h];
 	memset(data, 0, sizeof(data[0]) * w * h);
 }
 
-Color Bitmap::getPixel(int x, int y) const  noexcept {
+FloatColor FloatBitmap::getPixel(int x, int y) const  noexcept {
 	if (!data || x < 0 || x >= width || y < 0 || y >= height)
-		return Color(0.0f, 0.0f, 0.0f);
+		return FloatColor(0.0f, 0.0f, 0.0f);
 	return data[x + y * width];
 }
 
-Color Bitmap::getFilteredPixel(float x, float y) const  noexcept {
+FloatColor FloatBitmap::getFilteredPixel(float x, float y) const noexcept {
 	if (!data || !width || !height || x < 0 || x >= width || y < 0 || y >= height)
-		return Color(0.0f, 0.0f, 0.0f);
+		return FloatColor(0.0f, 0.0f, 0.0f);
 	int tx = (int)floor(x);
 	int ty = (int)floor(y);
 	int tx_next = (tx + 1) % width;
@@ -81,149 +86,13 @@ Color Bitmap::getFilteredPixel(float x, float y) const  noexcept {
 		+ data[ty_next * width + tx_next] * (p  *         q);
 }
 
-void Bitmap::setPixel(int x, int y, const Color& color) noexcept {
+void FloatBitmap::setPixel(int x, int y, const FloatColor& color) noexcept {
 	if (!data || x < 0 || x >= width || y < 0 || y >= height)
 		return;
 	data[x + y * width] = color;
 }
 
-const int BM_MAGIC = 19778;
-
-struct BmpHeader {
-	int fs;       // filesize
-	int lzero;
-	int bfImgOffset;  // basic header size
-};
-struct BmpInfoHeader {
-	int ihdrsize; 	// info header size
-	int x, y;      	// image dimensions
-	unsigned short channels;// number of planes
-	unsigned short bitsperpixel;
-	int compression; // 0 = no compression
-	int biSizeImage; // used for compression; otherwise 0
-	int pixPerMeterX, pixPerMeterY; // dots per meter
-	int colors;	 // number of used colors. If all specified by the bitsize are used, then it should be 0
-	int colorsImportant; // number of "important" colors (wtf?..)
-};
-
-bool Bitmap::loadBMP(const char* filename) noexcept {
-	freeMem();
-
-	BmpHeader hd;
-	BmpInfoHeader hi;
-	Color palette[256];
-	int toread = 0;
-	unsigned char *xx;
-	int rowsz;
-	unsigned short sign;
-	FILE* fp = fopen(filename, "rb");
-
-	if (fp == NULL) {
-		printf("loadBMP: Can't open file: `%s'\n", filename);
-		return false;
-	}
-
-	if (!fread(&sign, 2, 1, fp)) return false;
-	if (sign != BM_MAGIC) {
-		printf("loadBMP: `%s' is not a BMP file.\n", filename);
-		return false;
-	}
-	if (!fread(&hd, sizeof(hd), 1, fp)) return false;
-	if (!fread(&hi, sizeof(hi), 1, fp)) return false;
-
-	/* header correctness checks */
-	if (!(hi.bitsperpixel == 8 || hi.bitsperpixel == 24 || hi.bitsperpixel == 32)) {
-		printf("loadBMP: Cannot handle file format at %d bpp.\n", hi.bitsperpixel);
-		return false;
-	}
-	if (hi.channels != 1) {
-		printf("loadBMP: cannot load multichannel .bmp!\n");
-		return false;
-	}
-	/* ****** header is OK *******/
-
-	// if image is 8 bits per pixel or less (indexed mode), read some pallete data
-	if (hi.bitsperpixel <= 8) {
-		toread = (1 << hi.bitsperpixel);
-		if (hi.colors) toread = hi.colors;
-		for (int i = 0; i < toread; i++) {
-			unsigned temp;
-			if (!fread(&temp, 1, 4, fp)) return false;
-			palette[i] = Color(temp);
-		}
-	}
-	toread = hd.bfImgOffset - (54 + toread * 4);
-	fseek(fp, toread, SEEK_CUR); // skip the rest of the header
-	int k = hi.bitsperpixel / 8;
-	rowsz = hi.x * k;
-	if (rowsz % 4 != 0)
-		rowsz = (rowsz / 4 + 1) * 4; // round the row size to the next exact multiple of 4
-	xx = new unsigned char[rowsz];
-	generateEmptyImage(hi.x, hi.y);
-	if (!isOK()) {
-		printf("loadBMP: cannot allocate memory for bitmap! Check file integrity!\n");
-		delete[] xx;
-		return false;
-	}
-	for (int j = hi.y - 1; j >= 0; j--) {// bitmaps are saved in inverted y
-		if (!fread(xx, 1, rowsz, fp)) {
-			printf("loadBMP: short read while opening `%s', file is probably incomplete!\n", filename);
-			delete[] xx;
-			return 0;
-		}
-		for (int i = 0; i < hi.x; i++) { // actually read the pixels
-			if (hi.bitsperpixel > 8)
-				setPixel(i, j, Color(xx[i*k + 2] / 255.0f, xx[i*k + 1] / 255.0f, xx[i*k] / 255.0f));
-			else
-				setPixel(i, j, palette[xx[i*k]]);
-		}
-	}
-	delete[] xx;
-
-	return true;
-}
-
-bool Bitmap::saveBMP(const char* filename) noexcept {
-	FILE* fp = fopen(filename, "wb");
-	if (!fp) return false;
-	BmpHeader hd;
-	BmpInfoHeader hi;
-
-	// fill in the header:
-	int rowsz = width * 3;
-	if (rowsz % 4)
-		rowsz += 4 - (rowsz % 4); // each row in of the image should be filled with zeroes to the next multiple-of-four boundary
-	char * xx = new char[rowsz];
-	hd.fs = rowsz * height + 54; //std image size
-	hd.lzero = 0;
-	hd.bfImgOffset = 54;
-	hi.ihdrsize = 40;
-	hi.x = width; hi.y = height;
-	hi.channels = 1;
-	hi.bitsperpixel = 24; //RGB format
-												// set the rest of the header to default values:
-	hi.compression = hi.biSizeImage = 0;
-	hi.pixPerMeterX = hi.pixPerMeterY = 0;
-	hi.colors = hi.colorsImportant = 0;
-
-	fwrite(&BM_MAGIC, 2, 1, fp); // write 'BM'
-	fwrite(&hd, sizeof(hd), 1, fp); // write file header
-	fwrite(&hi, sizeof(hi), 1, fp); // write image header
-	for (int y = height - 1; y >= 0; y--) {
-		for (int x = 0; x < width; x++) {
-			unsigned t = getPixel(x, y).toRGB32();
-			xx[x * 3] = (0xff & t);
-			xx[x * 3 + 1] = (0xff00 & t) >> 8;
-			xx[x * 3 + 2] = (0xff0000 & t) >> 16;
-		}
-		fwrite(xx, rowsz, 1, fp);
-	}
-	fclose(fp);
-	delete[] xx;
-	return true;
-}
-
-void Bitmap::remapRGB(std::function<float(float)> remapFn) noexcept {
+void FloatBitmap::remapRGB(std::function<float(float)> remapFn) noexcept {
 	for (int i = 0; i < width * height; i++) {
 		data[i].r = remapFn(data[i].r);
 		data[i].g = remapFn(data[i].g);
@@ -231,7 +100,7 @@ void Bitmap::remapRGB(std::function<float(float)> remapFn) noexcept {
 	}
 }
 
-void Bitmap::decompressGamma_sRGB(void) noexcept {
+void FloatBitmap::decompressGamma_sRGB(void) noexcept {
 	remapRGB([](float x) {
 		if (x == 0) return 0.0f;
 		if (x == 1) return 1.0f;
@@ -242,7 +111,7 @@ void Bitmap::decompressGamma_sRGB(void) noexcept {
 	});
 }
 
-void Bitmap::decompressGamma(float gamma) noexcept {
+void FloatBitmap::decompressGamma(float gamma) noexcept {
 	remapRGB([gamma](float x) {
 		if (x == 0) return 0.0f;
 		if (x == 1) return 1.0f;
@@ -250,8 +119,8 @@ void Bitmap::decompressGamma(float gamma) noexcept {
 	});
 }
 
-void Bitmap::differentiate(void) noexcept {
-	Bitmap result;
+void FloatBitmap::differentiate(void) noexcept {
+	FloatBitmap result;
 	result.generateEmptyImage(width, height);
 
 	for (int y = 0; y < height; y++)
@@ -260,12 +129,353 @@ void Bitmap::differentiate(void) noexcept {
 			float right = getPixel((x + 1) % width, y).intensity();
 			float bottom = getPixel(x, (y + 1) % height).intensity();
 
-			result.setPixel(x, y, Color(me - right, me - bottom, 0.0f));
+			result.setPixel(x, y, FloatColor(me - right, me - bottom, 0.0f));
 		}
 	(*this) = result;
 }
 
-Color * Bitmap::getDataPtr() const noexcept {
+FloatColor * FloatBitmap::getDataPtr() const noexcept {
 	return data;
 }
 
+FloatColor * FloatBitmap::operator[](int row) noexcept {
+	return data + row * width;
+}
+
+const FloatColor * FloatBitmap::operator[](int row) const noexcept {
+	return data + row * width;
+}
+
+template class TColor<int32>;
+template class Pixelmap<Color>;
+template class Pixelmap<TColor<int32> >;
+template class Pixelmap<uint32>;
+template class Pixelmap<uint64>;
+template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
+template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
+
+template<class ColorType>
+Pixelmap<ColorType>::Pixelmap() noexcept
+	: width(-1)
+	, height(-1)
+	, data(nullptr)
+{}
+
+template<class ColorType>
+Pixelmap<ColorType>::Pixelmap(int width, int height) noexcept
+	: width(width)
+	, height(height)
+	, data(nullptr)
+{
+	generateEmptyImage(width, height);
+}
+
+template<class ColorType>
+Pixelmap<ColorType>::~Pixelmap() noexcept {
+	freeMem();
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::freeMem(void) noexcept {
+	if (data) delete[] data;
+	data = nullptr;
+	width = height = -1;
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::copy(const Pixelmap<ColorType>& rhs) noexcept {
+	// free memory only if necessary
+	if (width * height != rhs.width * rhs.height) {
+		freeMem();
+		data = new ColorType[rhs.width * rhs.height];
+	}
+	width = rhs.width;
+	height = rhs.height;
+	memcpy(data, rhs.data, width * height * sizeof(ColorType));
+}
+
+template<class ColorType>
+Pixelmap<ColorType>::Pixelmap(const Pixelmap& rhs) noexcept
+	: width(-1)
+	, height(-1)
+	, data(nullptr)
+{
+	copy(rhs);
+}
+
+template<class ColorType>
+Pixelmap<ColorType>& Pixelmap<ColorType>::operator = (const Pixelmap<ColorType>& rhs) noexcept {
+	if (this != &rhs) {
+		copy(rhs);
+	}
+	return *this;
+}
+
+template<class ColorType>
+template<class OtherColorType>
+Pixelmap<ColorType>::Pixelmap(const Pixelmap<OtherColorType>& rhs)
+	: width(rhs.getWidth())
+	, height(rhs.getHeight())
+	, data(nullptr)
+{
+	generateEmptyImage(width, height);
+	const int n = width * height;
+	const OtherColorType * rhsData = rhs.getDataPtr();
+	for (int i = 0; i < n; ++i) {
+		data[i] = static_cast<ColorType>(rhsData[i]);
+	}
+}
+
+template<class ColorType>
+int Pixelmap<ColorType>::getWidth(void) const noexcept {
+	return width;
+}
+
+template<class ColorType>
+int Pixelmap<ColorType>::getHeight(void) const noexcept {
+	return height;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::isOK(void) const  noexcept {
+	return (data != nullptr);
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::generateEmptyImage(int w, int h) noexcept {
+	if (w <= 0 || h <= 0)
+		return;
+	// free memory only if necessary
+	if ((width * height != w * h) || nullptr == data) {
+		freeMem();
+		data = new ColorType[w * h];
+	}
+	width = w;
+	height = h;
+	memset(data, 0, sizeof(data[0]) * w * h);
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::fill(ColorType c, int x, int y, int _width, int _height) {
+	if (!data || x < 0 || y < 0 || x >= width || y >= height)
+		return;
+	const int x2 = (_width == -1 || x + _width > width ? width : x + _width);
+	const int y2 = (_height == -1 || y + _height > height ? height : y + _height);
+	ColorType * rowDest = (data + y * width + x);
+	const int dw = x2 - x;
+	// fill the first row
+	for (int dx = 0; dx < dw; ++dx) {
+		rowDest[dx] = c;
+	}
+	// now copy the row to the rest (Notice y + 1)
+	const int rowSize = (x2 - x) * sizeof(ColorType);
+	for (int dy = y + 1; dy < y2; ++dy) {
+		memcpy(data + dy * width + x, rowDest, rowSize);
+	}
+}
+
+template<class ColorType>
+ColorType Pixelmap<ColorType>::getPixel(int x, int y) const  noexcept {
+	if (!data || x < 0 || x >= width || y < 0 || y >= height)
+		return ColorType();
+	return data[x + y * width];
+}
+
+template<class ColorType>
+ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, bool tile) const noexcept {
+	if (!data || !width || !height)
+		return ColorType();
+	if (x < 0 || x >= width || y < 0 || y >= height) {
+		if (tile) {
+			x = x - float((int(x) / width - (x < 0 ? 1 : 0)) * width);
+			if (x >= width)
+				y = width - 0.05f;
+			y = y - float((int(y) / height - (y < 0 ? 1 : 0)) * height);
+			if (y >= height)
+				y = height - 0.05f;
+		} else {
+			return ColorType();
+		}
+	}
+	const int tx = (int)floor(x);
+	const int ty = (int)floor(y);
+	const int tx_next = (tile ? (tx + 1) % width : std::min(tx + 1, width - 1)); // this is usually done for tiling textures, but well...
+	const int ty_next = (tile ? (ty + 1) % height : std::min(ty + 1, height - 1));
+	const float p = x - tx;
+	const float q = y - ty;
+	return
+		  data[ty      * width + tx]      * ((1.0f - p) * (1.0f - q))
+		+ data[ty      * width + tx_next] * (p          * (1.0f - q))
+		+ data[ty_next * width + tx]      * ((1.0f - p) *         q)
+		+ data[ty_next * width + tx_next] * (p          *         q);
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::setPixel(int x, int y, const ColorType& color) noexcept {
+	if (!data || x < 0 || x >= width || y < 0 || y >= height)
+		return;
+	data[x + y * width] = color;
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::remap(std::function<ColorType(ColorType)> remapFn) noexcept {
+	for (int i = 0; i < width * height; i++) {
+		data[i] = remapFn(data[i]);
+	}
+}
+
+template<class ColorType>
+ColorType * Pixelmap<ColorType>::getDataPtr() const noexcept {
+	return data;
+}
+
+template<class ColorType>
+ColorType * Pixelmap<ColorType>::operator[](int row) noexcept {
+	return data + row * width;
+}
+
+template<class ColorType>
+const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
+	return data + row * width;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::drawBitmap(const Pixelmap<ColorType> & subBmp, const int x, const int y) noexcept {
+	if (!subBmp.isOK() || !this->isOK())
+		return false;
+	const int sw = subBmp.getWidth();
+	const int sh = subBmp.getHeight();
+	if (x < 0 || y < 0 || x + sw > width || y + sh > height)
+		return false;
+	const ColorType * subData = subBmp.getDataPtr();
+	for (int sy = 0; sy < sh; ++sy) {
+		ColorType * dest = data + (y + sy) * width + x;
+		// copy the whole row with the destinations width as size
+		memcpy(dest, subData + sy * sw, sw * sizeof(ColorType));
+	}
+	return true;
+}
+
+template class Histogram<HDL_CHANNEL>;
+template class Histogram<HDL_VALUE>;
+
+template<HistogramDataLayout hdl>
+Histogram<hdl>::Histogram()
+	: data{ 0U }
+	, maxColor(1)
+	, maxIntensity(1)
+{}
+
+template<HistogramDataLayout hdl>
+Histogram<hdl>::Histogram(const Bitmap & bmp)
+	: data{ 0U }
+	, maxColor(1)
+	, maxIntensity(1)
+{
+	fromBmp(bmp);
+}
+
+template<>
+void Histogram<HDL_CHANNEL>::fromBmp(const Bitmap & bmp) noexcept {
+	memset(data, 0, sizeof(data));
+	maxColor = 1;
+	maxIntensity = 1;
+	const Color * bmpData = bmp.getDataPtr();
+	const int bmpSize = bmp.getWidth() * bmp.getHeight();
+	for (int i = 0; i < bmpSize; ++i) {
+		const Color& ci = bmpData[i];
+		maxColor = std::max(data[channelSize * int(HistogramChannel::HC_RED)   + ci.r]++, maxColor);
+		maxColor = std::max(data[channelSize * int(HistogramChannel::HC_GREEN) + ci.g]++, maxColor);
+		maxColor = std::max(data[channelSize * int(HistogramChannel::HC_BLUE)  + ci.b]++, maxColor);
+		const uint8 cii = ci.intensity();
+		maxIntensity = std::max(data[channelSize * int(HistogramChannel::HC_INTENSITY) + cii]++, maxIntensity);
+	}
+}
+
+template<>
+HistogramChunk Histogram<HDL_CHANNEL>::operator[](int i) const {
+	HistogramChunk retval;
+	retval.r = data[channelSize * int(HistogramChannel::HC_RED)       + i];
+	retval.g = data[channelSize * int(HistogramChannel::HC_GREEN)     + i];
+	retval.b = data[channelSize * int(HistogramChannel::HC_BLUE)      + i];
+	retval.i = data[channelSize * int(HistogramChannel::HC_INTENSITY) + i];
+	return retval;
+}
+
+template<>
+HistogramChunk Histogram<HDL_VALUE>::operator[](int i) const {
+	HistogramChunk retval;
+	memcpy(&retval, data + i * numChannels, sizeof(retval));
+	return retval;
+}
+
+template<>
+void Histogram<HDL_VALUE>::fromBmp(const Bitmap & bmp) noexcept {
+	memset(data, 0, sizeof(data));
+	maxColor = 1;
+	maxIntensity = 1;
+	const Color * bmpData = bmp.getDataPtr();
+	const int bmpSize = bmp.getWidth() * bmp.getHeight();
+	for (int i = 0; i < bmpSize; ++i) {
+		const Color& ci = bmpData[i];
+		maxColor = std::max(data[ci.r * numChannels + int(HistogramChannel::HC_RED)  ]++, maxColor);
+		maxColor = std::max(data[ci.g * numChannels + int(HistogramChannel::HC_GREEN)]++, maxColor);
+		maxColor = std::max(data[ci.b * numChannels + int(HistogramChannel::HC_BLUE) ]++, maxColor);
+		const uint8 cii = ci.intensity();
+		maxIntensity = std::max(data[cii * numChannels + int(HistogramChannel::HC_INTENSITY)]++, maxIntensity);
+	}
+}
+
+template<HistogramDataLayout hdl>
+const uint32 * Histogram<hdl>::getDataPtr() const noexcept {
+	return data;
+}
+
+template<HistogramDataLayout hdl>
+uint32 * Histogram<hdl>::getDataPtr() noexcept {
+	return data;
+}
+
+template<>
+std::vector<uint32> Histogram<HDL_CHANNEL>::getChannel(HistogramChannel ch) const {
+	std::vector<uint32> retval(channelSize);
+	retval.assign(data + int(ch) * channelSize, data + (int(ch) + 1) * channelSize);
+	return retval;
+}
+
+template<>
+std::vector<uint32> Histogram<HDL_VALUE>::getChannel(HistogramChannel ch) const {
+	std::vector<uint32> retval(channelSize);
+	for (int i = 0; i < channelSize; ++i) {
+		retval[i] = data[i * numChannels + int(ch)];
+	}
+	return retval;
+}
+
+template<>
+void Histogram<HDL_CHANNEL>::setChannel(const std::vector<uint32>& chData, HistogramChannel ch) {
+	memcpy(data + int(ch) * channelSize, chData.data(), std::min(channelSize, int(chData.size())) * sizeof(uint32));
+}
+
+template<>
+void Histogram<HDL_VALUE>::setChannel(const std::vector<uint32>& chData, HistogramChannel ch) {
+	const int count = std::min(channelSize, int(chData.size()));
+	for (int i = 0; i < count; ++i) {
+		data[i * numChannels + int(ch)] = chData[i];
+	}
+}
+
+template<HistogramDataLayout hdl>
+HistogramDataLayout Histogram<hdl>::getDataLayout() const noexcept {
+	return hdl;
+}
+
+template<HistogramDataLayout hdl>
+uint32 Histogram<hdl>::getMaxColor() const noexcept {
+	return maxColor;
+}
+
+template<HistogramDataLayout hdl>
+uint32 Histogram<hdl>::getMaxIntensity() const noexcept {
+	return maxIntensity;
+}

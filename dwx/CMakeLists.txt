@@ -21,6 +21,7 @@ set (HEADERS
 	include/bitmap.h
 	include/color.h
 	include/constants.h
+	include/convolution.h
 	include/matrix2.h
 	include/transform.h
 	include/vector2.h
@@ -28,15 +29,24 @@ set (HEADERS
 	include/guimain.h
 	include/wx_modes.h
 	include/wx_bitmap_canvas.h
+	include/wx_param_panel.h
+	include/kernel_base.h
+	include/kernels.h
+	include/geom_primitive.h
 )
 
 set (SOURCES
+	src/util.cpp
+	src/convolution.cpp
 	src/guimain.cpp
-	src/wx_bitmap_canvas.cpp
 	src/wx_modes.cpp
+	src/wx_bitmap_canvas.cpp
+	src/wx_param_panel.cpp
 	src/bitmap.cpp
 	src/color.cpp
 	src/matrix2.cpp
+	src/kernels.cpp
+	src/geom_primitive.cpp
 )
 
 link_directories (

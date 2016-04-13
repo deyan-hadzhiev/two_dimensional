@@ -5,45 +5,77 @@
 #include <wx/image.h>
 #include <wx/wfstream.h>
 #include <wx/stdpaths.h>
+#include <wx/valnum.h>
+
+#include <sstream>
 
 #include "guimain.h"
 #include "wx_modes.h"
 #include "wx_bitmap_canvas.h"
+#include "kernels.h"
+#include "geom_primitive.h"
 
 ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
 	: wxPanel(viewFrame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxNO_BORDER | wxSIZE_AUTO | wxSIZE_FORCE)
 	, viewFrame(viewFrame)
 	, mPanelSizer(nullptr)
+	, paramPanel(nullptr)
 {
 	viewFrame->setCustomStyle(styles);
 	mPanelSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizerAndFit(mPanelSizer);
 	SetSize(viewFrame->GetClientSize());
+
+	paramPanel = new ParamPanel(this);
+	mPanelSizer->Add(paramPanel, 0, wxEXPAND | wxALL, panelBorder);
+	SendSizeEvent();
 }
 
 ModePanel::~ModePanel() {}
 
-const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg)|*.png;*.jpeg;*.jpg");
-const int InputOutputMode::panelBorder = 4;
+wxString ModePanel::getCbString() const {
+	wxString statusText;
+	const std::string& kernelName = cb.getKernelName();
+	const float percentDone = cb.getPercentDone();
+	if (!kernelName.empty() && percentDone > 0.05f) {
+		statusText.Printf(wxT("%s : %6.2f %%"), kernelName.c_str(), percentDone);
+	}
+	return statusText;
+}
 
-InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
-	: ModePanel(viewFrame, ViewFrame::VFS_OPEN_SAVE | ViewFrame::VFS_CNT_COMPARE)
-	, inputCanvas(nullptr)
-	, outputCanvas(nullptr)
+const int ModePanel::panelBorder = 4;
+
+const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
+
+InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
+	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
+	, inputPanel(nullptr)
+	, outputPanel(nullptr)
 	, compareCanvas(nullptr)
+	, kernel(kernel)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
-	inputCanvas = new BitmapCanvas(this, viewFrame);
+	//inputCanvas = new BitmapCanvas(this, viewFrame);
+	inputPanel = new ImagePanel(this, viewFrame);
 	//inputCanvas = new wxPanel(this);
-	canvasSizer->Add(inputCanvas, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
-	inputCanvas->SetBackgroundColour(*wxRED);
-	inputCanvas->SetForegroundColour(*wxGREEN);
-	//canvasSizer->Add(new wxStaticLine, 0);
+	canvasSizer->Add(inputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
 	//outputCanvas = new BitmapCanvas(this, viewFrame);
-	outputCanvas = new wxPanel(this);
-	canvasSizer->Add(outputCanvas, 1, wxEXPAND | wxALL, panelBorder);
-	outputCanvas->SetBackgroundColour(*wxBLUE);
-	outputCanvas->SetForegroundColour(*wxGREEN);
+	outputPanel = new ImagePanel(this, viewFrame);
+	//outputCanvas = new wxPanel(this);
+	canvasSizer->Add(outputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	BitmapCanvas * inputCanvas = inputPanel->getCanvas();
+	BitmapCanvas * outputCanvas = outputPanel->getCanvas();
+	// add synchornizers
+	//inputCanvas->addSynchronizer(outputCanvas);
+	//outputCanvas->addSynchronizer(inputCanvas);
+	// set the background colours
+	wxColour bc(75, 75, 75);
+	inputCanvas->SetBackgroundColour(bc);
+	outputCanvas->SetBackgroundColour(bc);
+
+	kernel->addInputManager(inputPanel);
+	kernel->addOutputManager(outputPanel);
+
 	compareCanvas = new wxPanel(this);
 	canvasSizer->Add(compareCanvas, 1, wxEXPAND | wxALL, panelBorder);
 	compareCanvas->SetBackgroundColour(*wxGREEN);
@@ -52,8 +84,9 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame)
 	SendSizeEvent();
 }
 
-InputOutputMode::~InputOutputMode()
-{
+InputOutputMode::~InputOutputMode() {
+	if (kernel)
+		delete kernel;
 }
 
 void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
@@ -67,8 +100,14 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 			if (inputStream.Ok()) {
 				wxImage inputImage(inputStream);
 				if (inputImage.Ok()) {
-					inputCanvas->setImage(inputImage);
+					inputPanel->setImage(inputImage);
 					viewFrame->SetStatusText(wxString(wxT("Loaded input image: ") + fdlg.GetPath()));
+					// DEBUG
+					//const int id = inputCanvas->getBmpId();
+					//outputCanvas->setImage(inputImage, id);
+					// ENDDEBUG
+					// force synchronziation
+					inputPanel->synchronize();
 				} else {
 					viewFrame->SetStatusText(wxString(wxT("File is NOT a valid image: ")) + fdlg.GetPath());
 				}
@@ -81,10 +120,22 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	case (ViewFrame::MID_VF_FILE_SAVE) :
 		// TODO:
 		break;
+	case (ViewFrame::MID_VF_CNT_RUN) :
+		cb.reset();
+		kernel->runKernel(0);
+		break;
+	case (ViewFrame::MID_VF_CNT_STOP) :
+		cb.setAbortFlag();
+		break;
 	case (ViewFrame::MID_VF_CNT_COMPARE) :
-		inputCanvas->Show(!inputCanvas->IsShown());
-		outputCanvas->Show(!outputCanvas->IsShown());
-		compareCanvas->Show(!compareCanvas->IsShown());
+		inputPanel->Show(!inputPanel->IsShown());
+		outputPanel->Show(!outputPanel->IsShown());
+		compareCanvas->Show(!compareCanvas->IsShown()); // TODO: Fix/change
+		SendSizeEvent();
+		break;
+	case (ViewFrame::MID_VF_CNT_HISTOGRAM) :
+		inputPanel->toggleHist();
+		outputPanel->toggleHist();
 		SendSizeEvent();
 		break;
 	default:
@@ -92,6 +143,96 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
+GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
+	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
+	, gkernel(gk)
+	, outputPanel(nullptr)
+{
+	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
+	//outputCanvas = new BitmapCanvas(this, vf);
+	outputPanel = new ImagePanel(this, vf);
+	canvasSizer->Add(outputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
+	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
+
+	gkernel->addOutputManager(outputPanel);
+	//gkernel->addParamManager(paramPanel);
+
+	SendSizeEvent();
+}
+
+GeometricOutput::~GeometricOutput() {
+	delete gkernel;
+}
+
+void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
+	switch (ev.GetId())
+	{
+	case(ViewFrame::MID_VF_CNT_RUN) : {
+		gkernel->runKernel(0);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
-	: InputOutputMode(viewFrame)
-{}
+	: InputOutputMode(viewFrame, new NegativeKernel)
+{
+	kernel->setProgressCallback(&cb);
+}
+
+TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
+	: InputOutputMode(vf, new TextSegmentationKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+
+	SendSizeEvent();
+}
+
+SinosoidPanel::SinosoidPanel(ViewFrame * vf)
+	: GeometricOutput(vf, new SinosoidKernel)
+{
+	gkernel->setProgressCallback(&cb);
+	gkernel->addParamManager(paramPanel);
+}
+
+HoughRoTheta::HoughRoTheta(ViewFrame * vf)
+	: InputOutputMode(vf, new HoughKernel)
+{
+	kernel->setProgressCallback(&cb);
+}
+
+RotationPanel::RotationPanel(ViewFrame * vf)
+	: InputOutputMode(vf, new RotationKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+
+	SendSizeEvent();
+}
+
+HistogramModePanel::HistogramModePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new HistogramKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+	SendSizeEvent();
+}
+
+ThresholdModePanel::ThresholdModePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new ThresholdKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+	SendSizeEvent();
+}
+
+FilterModePanel::FilterModePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new FilterKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+	SendSizeEvent();
+}
