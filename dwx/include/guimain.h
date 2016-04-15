@@ -5,6 +5,16 @@
 
 class ModePanel;
 
+class WinIDProvider {
+	wxWindowID id;
+public:
+	WinIDProvider(wxWindowID initial);
+
+	static WinIDProvider& getProvider();
+
+	wxWindowID getId(unsigned count = 1);
+};
+
 class ViewFrame : public wxFrame {
 public:
 	ViewFrame(const wxString& title);

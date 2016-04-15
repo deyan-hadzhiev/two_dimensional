@@ -212,6 +212,7 @@ class FilterKernel : public AsyncKernel {
 public:
 	FilterKernel() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernel", "3"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalize", "true"));
 	}
 
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
