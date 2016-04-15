@@ -135,15 +135,17 @@ std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 	return result;
 }
 
-template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k);
+template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize);
 
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k) {
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize) {
 	// this may be increased to int64 if necessary, but for now even int16 is an option
 	Pixelmap<TColor<int32> > in(_in);
 	Pixelmap<TColor<int32> > out(in.getWidth(), in.getHeight());
 	ConvolutionKernel k(_k);
-	k.normalize();
+	if (normalize) {
+		k.normalize();
+	}
 	const int w = in.getWidth();
 	const int h = in.getHeight();
 	const int ks = k.getSide();

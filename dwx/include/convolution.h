@@ -39,7 +39,7 @@ template<class T>
 std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec);
 
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& in, const ConvolutionKernel& k);
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& in, const ConvolutionKernel& k, const bool normalize = true);
 
 struct Extremum {
 	int start;

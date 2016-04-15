@@ -498,10 +498,12 @@ KernelBase::ProcessResult FilterKernel::kernelImplementation(unsigned flags) {
 	}
 	const float blurKernel[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	ConvolutionKernel k(blurKernel, 3);
+	bool normalize = true;
 	if (pman) {
 		pman->getCKernelParam(k, "kernel");
+		pman->getBoolParam(normalize, "normalize");
 	}
-	Bitmap out = convolute(bmp, k);
+	Bitmap out = convolute(bmp, k, normalize);
 	if (oman) {
 		oman->setOutput(out, bmpId);
 	}
