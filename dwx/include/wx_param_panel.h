@@ -67,8 +67,6 @@ class ParamPanel : public wxPanel, public ParamManager {
 	void createCheckBox(const int id, const ParamDescriptor& pd);
 
 	void createCKernel(const int id, const ParamDescriptor& pd);
-
-	static int idOffset;
 public:
 	ParamPanel(ModePanel * parent);
 

@@ -210,3 +210,19 @@ void ViewFrame::OnIdle(wxIdleEvent &) {
 		}
 	}
 }
+
+WinIDProvider globalIdProvider(ViewFrame::MID_VF_LAST_ID);
+
+WinIDProvider::WinIDProvider(wxWindowID initial)
+	: id(initial)
+{}
+
+WinIDProvider & WinIDProvider::getProvider() {
+	return globalIdProvider;
+}
+
+wxWindowID WinIDProvider::getId(unsigned count) {
+	const wxWindowID retval = id;
+	id += count;
+	return retval;
+}

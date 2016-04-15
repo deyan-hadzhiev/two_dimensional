@@ -30,14 +30,16 @@ void CKernelDlg::setKernelSide(int s) {
 		}
 		kernelParams.clear();
 		kernelSide = s;
-		wxGridSizer * dlgSizer = new wxGridSizer(kernelSide, kernelSide, 2, 2);
+		wxBoxSizer * dlgSizer = new wxBoxSizer(wxVERTICAL);
+		wxGridSizer * gridSizer = new wxGridSizer(kernelSide, kernelSide, 2, 2);
 		const int sideSqr = kernelSide * kernelSide;
 		for (int i = 0; i < sideSqr; ++i) {
 			wxTextCtrl * kernelPar = new wxTextCtrl(this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 			kernelPar->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, paramPanel);
 			kernelParams.push_back(kernelPar);
-			dlgSizer->Add(kernelPar, 1, wxEXPAND | wxSHRINK | wxALL, 2);
+			gridSizer->Add(kernelPar, 1, wxEXPAND | wxSHRINK | wxALL, 2);
 		}
+		dlgSizer->Add(gridSizer, 1, wxEXPAND | wxSHRINK | wxALL, 2);
 		SetSizerAndFit(dlgSizer);
 		SendSizeEvent();
 	}
@@ -100,8 +102,6 @@ void CKernelPanel::OnKernelChange(wxCommandEvent & evt) {
 	wxCommandEvent changeEvt(wxEVT_NULL, this->GetId());
 	wxPostEvent(this->GetParent(), changeEvt);
 }
-
-int ParamPanel::idOffset = ViewFrame::MID_VF_LAST_ID; //!< set the custom id to the last used id of the view frame
 
 void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 	auto kernelSizerIt = kernelSizers.find(pd.kernel);
@@ -168,7 +168,7 @@ ParamPanel::ParamPanel(ModePanel * parent)
 }
 
 void ParamPanel::addParam(const ParamDescriptor & pd) {
-	const int id = ++idOffset;
+	const int id = static_cast<int>(WinIDProvider::getProvider().getId());
 	paramMap[pd.name] = id;
 	paramIdMap[id] = pd;
 	switch (pd.type)
