@@ -13,6 +13,7 @@ const wxString CKernelDlg::symmetryName[CKernelDlg::ST_COUNT] = {
 
 CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, currentSymmetry(ST_NO_SYMMETRY)
 	, paramPanel(parent)
 	, sumText(nullptr)
 	, symmetryRb{ nullptr }

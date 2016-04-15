@@ -27,7 +27,7 @@ public:
 	void OnParamChange(wxCommandEvent& evt);
 
 	void OnSymmetryChange(wxCommandEvent& evt);
-
+private:
 	enum SymmetryType {
 		ST_NO_SYMMETRY = 0,
 		ST_CENTRAL,
@@ -36,7 +36,7 @@ public:
 	} currentSymmetry;
 
 	static const wxString symmetryName[ST_COUNT];
-private:
+
 	void updateCentral(int id);
 
 	void updateRadial(int id);
