@@ -20,9 +20,40 @@ public:
 	ConvolutionKernel getKernel() const;
 
 	void setKernelSide(int s);
+
+	void OnClose(wxCloseEvent& evt);
+	void OnEscape(wxKeyEvent& evt);
+
+	void OnParamChange(wxCommandEvent& evt);
+
+	void OnSymmetryChange(wxCommandEvent& evt);
+
+	enum SymmetryType {
+		ST_NO_SYMMETRY = 0,
+		ST_CENTRAL,
+		ST_RADIAL,
+		ST_COUNT,
+	} currentSymmetry;
+
+	static const wxString symmetryName[ST_COUNT];
 private:
+	void updateCentral(int id);
+
+	void updateRadial(int id);
+
+	void updateSymmetry();
+
+	wxPoint indexToPoint(int id) const;
+	int pointToIndex(const wxPoint& p) const;
+
+	void recalculateSum();
+
 	CKernelPanel * paramPanel;
+	wxStaticText * sumText;
+	wxRadioButton * symmetryRb[ST_COUNT];
+	wxWindowID symmetryRbId;
 	wxVector<wxTextCtrl*> kernelParams;
+	wxWindowID kernelParamsId;
 	int kernelSide;
 };
 
