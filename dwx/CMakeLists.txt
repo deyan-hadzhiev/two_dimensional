@@ -1,6 +1,8 @@
 
-if (NOT EXISTS ${WX_WIDGETS_PATH})
-	message(FATAL_ERROR "Path to wxWidgets external location is required and must exist!")
+if ("${WX_WIDGETS_PATH}" STREQUAL "")
+	message(FATAL_ERROR "WX_WIDGETS_PATH variable is not set!")
+elseif (NOT EXISTS ${WX_WIDGETS_PATH})
+	message(FATAL_ERROR "Path to wxWidgets external location is required and must exist! ${WX_WIDGETS_PATH}")
 endif()
 
 set(PROJECT_NAME dwx)
