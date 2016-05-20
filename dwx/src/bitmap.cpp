@@ -1,3 +1,22 @@
+/***************************************************************************
+*   Copyright (C) 2016 by Deyan Hadzhiev                                  *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+***************************************************************************/
+
 #include <memory>
 #include <stdio.h>
 #include <algorithm>
@@ -282,17 +301,23 @@ ColorType Pixelmap<ColorType>::getPixel(int x, int y) const  noexcept {
 }
 
 template<class ColorType>
-ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, bool tile) const noexcept {
+ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, FilterEdge edge) const noexcept {
 	if (!data || !width || !height)
 		return ColorType();
-	if (x < 0 || x >= width || y < 0 || y >= height) {
-		if (tile) {
+	const bool tile = (FE_TILE == edge);
+	if (x < 0.0f || int(x) >= width || y < 0.0f || int(y) >= height) {
+		if (FE_BLANK == edge) {
+			return ColorType();
+		} else if (FE_TILE == edge) {
 			x = x - float((int(x) / width - (x < 0 ? 1 : 0)) * width);
 			if (x >= width)
 				y = width - 0.05f;
 			y = y - float((int(y) / height - (y < 0 ? 1 : 0)) * height);
 			if (y >= height)
 				y = height - 0.05f;
+		} else if (FE_STRETCH == edge) {
+			x = (x < 0.0f ? 0.0f : (x >= width ? width - 1 : x));
+			y = (y < 0.0f ? 0.0f : (y >= height ? height - 1 : y));
 		} else {
 			return ColorType();
 		}

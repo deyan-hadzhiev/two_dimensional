@@ -3,6 +3,7 @@
 
 #include <wx/panel.h>
 #include <wx/sizer.h>
+#include <wx/choice.h>
 
 #include <unordered_map>
 
@@ -91,13 +92,19 @@ class ParamPanel : public wxPanel, public ParamManager {
 	std::unordered_map<int, wxTextCtrl*> textCtrlMap;
 	std::unordered_map<int, wxCheckBox*> checkBoxMap;
 	std::unordered_map<int, CKernelPanel*> kernelMap;
-	std::unordered_map<KernelBase*, wxBoxSizer*> kernelSizers;
+	std::unordered_map<int, wxChoice*> choiceMap;
+	std::unordered_map<const KernelBase*, wxBoxSizer*> kernelSizers;
 
 	void createTextCtrl(const int id, const ParamDescriptor& pd);
 
 	void createCheckBox(const int id, const ParamDescriptor& pd);
 
 	void createCKernel(const int id, const ParamDescriptor& pd);
+
+	void createChoice(const int id, const ParamDescriptor& pd);
+
+	// will get the sizer associated with the kernel, or it will create a new one
+	wxBoxSizer * getKernelSizer(const KernelBase*);
 public:
 	ParamPanel(ModePanel * parent);
 
@@ -112,6 +119,8 @@ public:
 	virtual bool getBoolParam(bool& value, const std::string& paramName) const override;
 
 	virtual bool getCKernelParam(ConvolutionKernel& value, const std::string& paramName) const override;
+
+	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const override;
 
 	virtual void resizeParent();
 

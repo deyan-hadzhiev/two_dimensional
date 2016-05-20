@@ -136,6 +136,7 @@ public:
 		PT_INT,
 		PT_FLOAT,
 		PT_STRING,
+		PT_ENUM,
 		PT_CKERNEL,
 	} type;
 	KernelBase * kernel;
@@ -173,6 +174,10 @@ public:
 	}
 
 	virtual bool getCKernelParam(ConvolutionKernel& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const {
 		return false;
 	}
 
