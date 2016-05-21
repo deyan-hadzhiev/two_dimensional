@@ -182,7 +182,7 @@ public:
 	{}
 
 	/// make black
-	void makeZero(void) noexcept {
+	void makeZero() noexcept {
 		r = g = b = 0;
 	}
 	/// set the color explicitly
@@ -192,11 +192,11 @@ public:
 		b = _b;
 	}
 	/// get the intensity of the color (direct)
-	T intensity(void) const noexcept {
+	T intensity() const noexcept {
 		return static_cast<T>((int64(r) + int64(g) + int64(b)) / 3);
 	}
 	/// get the perceptual intensity of the color
-	T intensityPerceptual(void) const noexcept {
+	T intensityPerceptual() const noexcept {
 		return static_cast<T>(int64(r) * 0.299f + int64(g) * 0.587f + int64(b) * 0.114f);
 	}
 
@@ -222,18 +222,18 @@ public:
 		return *this;
 	}
 
-	TColor& operator *= (float mult) noexcept {
-		r = r * mult;
-		g = g * mult;
-		b = b * mult;
+	TColor& operator *= (const double mult) noexcept {
+		r = static_cast<T>(static_cast<double>(r) * mult);
+		g = static_cast<T>(static_cast<double>(g) * mult);
+		b = static_cast<T>(static_cast<double>(b) * mult);
 		return *this;
 	}
 
-	TColor& operator /= (float div) noexcept {
+	TColor& operator /= (const double div) noexcept {
 		const float mult = 1.0f / div;
-		r = r * mult;
-		g = g * mult;
-		b = b * mult;
+		r = static_cast<T>(static_cast<double>(r) * mult);
+		g = static_cast<T>(static_cast<double>(g) * mult);
+		b = static_cast<T>(static_cast<double>(b) * mult);
 		return *this;
 	}
 };
@@ -258,30 +258,30 @@ inline TColor<T> operator-(const TColor<T>& lhs, const TColor<T>& rhs) noexcept 
 }
 
 template<class T>
-inline TColor<T> operator*(const TColor<T>& lhs, const float mult) noexcept {
+inline TColor<T> operator*(const TColor<T>& lhs, const double mult) noexcept {
 	return TColor<T>(
-		lhs.r * mult,
-		lhs.g * mult,
-		lhs.b * mult
+		static_cast<T>(lhs.r * mult),
+		static_cast<T>(lhs.g * mult),
+		static_cast<T>(lhs.b * mult)
 		);
 }
 
 template<class T>
-inline TColor<T> operator*(const float mult, const TColor<T>& rhs) noexcept {
+inline TColor<T> operator*(const double mult, const TColor<T>& rhs) noexcept {
 	return TColor<T>(
-		rhs.r * mult,
-		rhs.g * mult,
-		rhs.b * mult
+		static_cast<T>(rhs.r * mult),
+		static_cast<T>(rhs.g * mult),
+		static_cast<T>(rhs.b * mult)
 		);
 }
 
 template<class T>
-inline TColor<T> operator/(const TColor<T>& lhs, const float div) noexcept {
-	const float mult = 1.0f / div;
+inline TColor<T> operator/(const TColor<T>& lhs, const double div) noexcept {
+	const double mult = 1.0f / div;
 	return TColor<T>(
-		rhs.r * mult,
-		rhs.g * mult,
-		rhs.b * mult
+		static_cast<T>(lhs.r * mult),
+		static_cast<T>(lhs.g * mult),
+		static_cast<T>(lhs.b * mult)
 		);
 }
 
@@ -310,9 +310,16 @@ public:
 
 	template<class T>
 	explicit Color(const TColor<T>& _tc)
-		: r(static_cast<uint8>(clamp(_tc.r, 0, 255)))
-		, g(static_cast<uint8>(clamp(_tc.g, 0, 255)))
-		, b(static_cast<uint8>(clamp(_tc.b, 0, 255)))
+		: r(static_cast<uint8>(clamp(_tc.r, static_cast<T>(0), static_cast<T>(255))))
+		, g(static_cast<uint8>(clamp(_tc.g, static_cast<T>(0), static_cast<T>(255))))
+		, b(static_cast<uint8>(clamp(_tc.b, static_cast<T>(0), static_cast<T>(255))))
+	{}
+
+	template<>
+	Color(const TColor<double>& _tc)
+		: r(static_cast<uint8>(clamp(_tc.r * 255.0, 0.0, 255.0)))
+		, g(static_cast<uint8>(clamp(_tc.g * 250.0, 0.0, 255.0)))
+		, b(static_cast<uint8>(clamp(_tc.b * 250.0, 0.0, 255.0)))
 	{}
 
 	explicit Color(uint8 _r, uint8 _g, uint8 _b) noexcept
@@ -362,18 +369,18 @@ public:
 		return *this;
 	}
 
-	Color& operator *= (float mult) noexcept {
-		r = static_cast<uint8>(clamp(r * mult, 0.0f, 255.0f));
-		g = static_cast<uint8>(clamp(g * mult, 0.0f, 255.0f));
-		b = static_cast<uint8>(clamp(b * mult, 0.0f, 255.0f));
+	Color& operator *= (const double mult) noexcept {
+		r = static_cast<uint8>(clamp(r * mult, 0.0, 255.0));
+		g = static_cast<uint8>(clamp(g * mult, 0.0, 255.0));
+		b = static_cast<uint8>(clamp(b * mult, 0.0, 255.0));
 		return *this;
 	}
 
-	Color& operator /= (float div) noexcept {
-		const float mult = 1.0f / div;
-		r = static_cast<uint8>(clamp(r * mult, 0.0f, 255.0f));
-		g = static_cast<uint8>(clamp(g * mult, 0.0f, 255.0f));
-		b = static_cast<uint8>(clamp(b * mult, 0.0f, 255.0f));
+	Color& operator /= (const double div) noexcept {
+		const double mult = 1.0f / div;
+		r = static_cast<uint8>(clamp(r * mult, 0.0, 255.0));
+		g = static_cast<uint8>(clamp(g * mult, 0.0, 255.0));
+		b = static_cast<uint8>(clamp(b * mult, 0.0, 255.0));
 		return *this;
 	}
 
@@ -385,6 +392,15 @@ public:
 			static_cast<T>(b)
 			);
 	}
+
+	explicit operator TColor<double>() const {
+		return TColor<double>(
+			static_cast<double>(r) / 255.0,
+			static_cast<double>(g) / 255.0,
+			static_cast<double>(b) / 255.0
+			);
+	}
+
 };
 #pragma pack(pop)
 
@@ -404,28 +420,28 @@ inline Color operator-(const Color& lhs, const Color& rhs) noexcept {
 		);
 }
 
-inline Color operator*(const Color& lhs, const float mult) noexcept {
+inline Color operator*(const Color& lhs, const double mult) noexcept {
 	return Color(
-		static_cast<uint8>(clamp(lhs.r * mult, 0.0f, 255.0f)),
-		static_cast<uint8>(clamp(lhs.g * mult, 0.0f, 255.0f)),
-		static_cast<uint8>(clamp(lhs.b * mult, 0.0f, 255.0f))
+		static_cast<uint8>(clamp(lhs.r * mult, 0.0, 255.0)),
+		static_cast<uint8>(clamp(lhs.g * mult, 0.0, 255.0)),
+		static_cast<uint8>(clamp(lhs.b * mult, 0.0, 255.0))
 		);
 }
 
-inline Color operator*(const float mult, const Color& rhs) noexcept {
+inline Color operator*(const double mult, const Color& rhs) noexcept {
 	return Color(
-		static_cast<uint8>(clamp(rhs.r * mult, 0.0f, 255.0f)),
-		static_cast<uint8>(clamp(rhs.g * mult, 0.0f, 255.0f)),
-		static_cast<uint8>(clamp(rhs.b * mult, 0.0f, 255.0f))
+		static_cast<uint8>(clamp(rhs.r * mult, 0.0, 255.0)),
+		static_cast<uint8>(clamp(rhs.g * mult, 0.0, 255.0)),
+		static_cast<uint8>(clamp(rhs.b * mult, 0.0, 255.0))
 		);
 }
 
-inline Color operator/(const Color& lhs, const float div) noexcept {
-	const float mult = 1.0f / div;
+inline Color operator/(const Color& lhs, const double div) noexcept {
+	const double mult = 1.0f / div;
 	return Color(
-		static_cast<uint8>(clamp(lhs.r * mult, 0.0f, 255.0f)),
-		static_cast<uint8>(clamp(lhs.g * mult, 0.0f, 255.0f)),
-		static_cast<uint8>(clamp(lhs.b * mult, 0.0f, 255.0f))
+		static_cast<uint8>(clamp(lhs.r * mult, 0.0, 255.0)),
+		static_cast<uint8>(clamp(lhs.g * mult, 0.0, 255.0)),
+		static_cast<uint8>(clamp(lhs.b * mult, 0.0, 255.0))
 		);
 }
 

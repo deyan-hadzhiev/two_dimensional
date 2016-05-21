@@ -359,14 +359,20 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	Color * bmpData = bmpOut.getDataPtr();
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
-	bool tile = false;
+	FilterEdge edge = FilterEdge::FE_BLANK;
 	if (pman) {
-		pman->getBoolParam(tile, "tile");
+		unsigned edgeType = 0;
+		if (pman->getEnumParam(edgeType, "edge")) {
+			edge = static_cast<FilterEdge>(edgeType);
+		}
 	}
 	for (int y = 0; y < obh && !getAbortState(); ++y) {
 		for (int x = 0; x < obw && !getAbortState(); ++x) {
 			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, tile);
+			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, edge);
+		}
+		if (cb) {
+			cb->setPercentDone(y, obh);
 		}
 	}
 	if (oman) {
@@ -508,4 +514,42 @@ KernelBase::ProcessResult FilterKernel::kernelImplementation(unsigned flags) {
 		oman->setOutput(out, bmpId);
 	}
 	return KPR_OK;
+}
+
+KernelBase::ProcessResult DownScaleKernel::kernelImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setKernelName("Downscale");
+	}
+	int width = 0;
+	int height = 0;
+	unsigned meduimType = 0;
+	if (pman) {
+		pman->getIntParam(width, "downscaleWidth");
+		pman->getIntParam(height, "downscaleHeight");
+		pman->getEnumParam(meduimType, "medium");
+	}
+	Bitmap out;
+	bool res = false;
+	if (0 == meduimType) {
+		res = bmp.downscale<TColor<uint16> >(out, width, height);
+	} else if (1 == meduimType) {
+		res = bmp.downscale<Color>(out, width, height);
+	} else if (2 == meduimType) {
+		res = bmp.downscale<TColor<float> >(out, width, height);
+	} else if (3 == meduimType) {
+		res = bmp.downscale<TColor<double> >(out, width, height);
+	}
+	//state = AsyncKernel::State::AKS_FINISHED;
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
 }

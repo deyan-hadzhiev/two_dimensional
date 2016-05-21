@@ -1,5 +1,6 @@
 #include <wx/panel.h>
 
+#include "util.h"
 #include "vector2.h"
 #include "wx_param_panel.h"
 #include "wx_modes.h"
@@ -274,15 +275,7 @@ void CKernelPanel::OnKernelChange(wxCommandEvent & evt) {
 }
 
 void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
-	auto kernelSizerIt = kernelSizers.find(pd.kernel);
-	wxBoxSizer * sizer = nullptr;
-	if (kernelSizerIt == kernelSizers.end()) {
-		sizer = new wxBoxSizer(wxHORIZONTAL);
-		kernelSizers[pd.kernel] = sizer;
-		panelSizer->Add(sizer, 1, wxEXPAND);
-	} else {
-		sizer = kernelSizerIt->second;
-	}
+	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
 	wxBoxSizer * vert = new wxBoxSizer(wxVERTICAL);
 	vert->Add(new wxStaticText(this, wxID_ANY, pd.name), 1, wxEXPAND | wxCENTER);
 	sizer->Add(vert, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
@@ -295,15 +288,7 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 }
 
 void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
-	auto kernelSizerIt = kernelSizers.find(pd.kernel);
-	wxBoxSizer * sizer = nullptr;
-	if (kernelSizerIt == kernelSizers.end()) {
-		sizer = new wxBoxSizer(wxHORIZONTAL);
-		kernelSizers[pd.kernel] = sizer;
-		panelSizer->Add(sizer, 1, wxEXPAND);
-	} else {
-		sizer = kernelSizerIt->second;
-	}
+	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
 	wxCheckBox * cb = new wxCheckBox(this, id, pd.name);
 	cb->SetValue(pd.defaultValue != "false" || pd.defaultValue != "0");
 	sizer->Add(cb, 1, wxEXPAND);
@@ -313,19 +298,42 @@ void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
 }
 
 void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
-	auto kernelSizerIt = kernelSizers.find(pd.kernel);
-	wxBoxSizer * sizer = nullptr;
-	if (kernelSizerIt == kernelSizers.end()) {
-		sizer = new wxBoxSizer(wxHORIZONTAL);
-		kernelSizers[pd.kernel] = sizer;
-		panelSizer->Add(sizer, 1, wxEXPAND);
-	} else {
-		sizer = kernelSizerIt->second;
-	}
+	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
 	CKernelPanel * ckp = new CKernelPanel(this, id, pd.name, pd.defaultValue);
 	sizer->Add(ckp, 1, wxEXPAND);
 	kernelMap[id] = ckp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+}
+
+void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
+	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
+	wxBoxSizer * labelSizer = new wxBoxSizer(wxVERTICAL);
+	labelSizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 1, wxEXPAND | wxCENTER);
+	sizer->Add(labelSizer, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+	wxChoice * ch = new wxChoice(this, id);
+	const std::vector<std::string> choices = splitString(pd.defaultValue.c_str(), ';');
+	for (unsigned i = 0; i < choices.size(); ++i) {
+		ch->Insert(wxString(choices[i]), i);
+	}
+	if (choices.size() > 0) {
+		ch->SetSelection(0);
+	}
+	sizer->Add(ch, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+	choiceMap[id] = ch;
+	Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+}
+
+wxBoxSizer * ParamPanel::getKernelSizer(const KernelBase * kernel) {
+	auto kernelSizerIt = kernelSizers.find(kernel);
+	wxBoxSizer * sizer = nullptr;
+	if (kernelSizerIt == kernelSizers.end()) {
+		sizer = new wxBoxSizer(wxHORIZONTAL);
+		kernelSizers[kernel] = sizer;
+		panelSizer->Add(sizer, 1, wxEXPAND);
+	} else {
+		sizer = kernelSizerIt->second;
+	}
+	return sizer;
 }
 
 ParamPanel::ParamPanel(ModePanel * parent)
@@ -353,6 +361,9 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 		break;
 	case(ParamDescriptor::ParamType::PT_CKERNEL) :
 		createCKernel(id, pd);
+		break;
+	case(ParamDescriptor::ParamType::PT_ENUM) :
+		createChoice(id, pd);
 		break;
 	default:
 		break;
@@ -417,6 +428,23 @@ bool ParamPanel::getCKernelParam(ConvolutionKernel & value, const std::string & 
 		if (ctrlIt != kernelMap.end()) {
 			value = ctrlIt->second->GetValue();
 			return true;
+		}
+	}
+	return false;
+}
+
+bool ParamPanel::getEnumParam(unsigned & value, const std::string & paramName) const {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = choiceMap.find(paramIt->second);
+		if (ctrlIt != choiceMap.end()) {
+			const int selection = ctrlIt->second->GetSelection();
+			if (selection == wxNOT_FOUND) {
+				return false;
+			} else {
+				value = static_cast<int>(selection);
+				return true;
+			}
 		}
 	}
 	return false;

@@ -236,3 +236,11 @@ FilterModePanel::FilterModePanel(ViewFrame * vf)
 	kernel->addParamManager(paramPanel);
 	SendSizeEvent();
 }
+
+DownScalePanel::DownScalePanel(ViewFrame * vf)
+	: InputOutputMode(vf, new DownScaleKernel)
+{
+	kernel->setProgressCallback(&cb);
+	kernel->addParamManager(paramPanel);
+	SendSizeEvent();
+}
