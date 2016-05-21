@@ -86,6 +86,7 @@ private:
 	bool mouseLeftDrag; //!< whether the mouse has initiated a drag inside this wnd
 	// zooming
 	int zoomLvl; //!< the current zoom level
+	int zoomLvlDelta; //!< the delta that has to be applied to the zoom
 	static const int maxZoom; //!< maximum zoom level supported
 	static const int minZoom; //!< minimum zoom level supported
 	wxPoint mousePos; //!< the current pointer position

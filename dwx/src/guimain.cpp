@@ -117,7 +117,7 @@ ViewFrame::ViewFrame(const wxString& title)
 	menuBar->Append(control, wxT("Control"));
 
 	SetMenuBar(menuBar);
-	CreateStatusBar(3);
+	CreateStatusBar(4);
 	SetStatusText(wxT("Select a Mode to begin"));
 
 	setCustomStyle(VFS_NOTHING_ENABLED);

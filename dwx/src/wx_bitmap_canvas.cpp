@@ -46,10 +46,6 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 	} else {
 		bmpId = id;
 	}
-	recalcBmpRectSize();
-	resetBmpRectPos();
-	recalcCanvasRectSize();
-	resetCanvasRectPos();
 	canvasState = CS_DIRTY_FULL;
 	if (id == 0) {
 		// TODO - reset Focus
@@ -59,7 +55,7 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 }
 
 void BitmapCanvas::updateStatus() const {
-	if (true || mouseOverCanvas) {
+	if (mouseOverCanvas) {
 		//wxString focusStr;
 		//const wxPoint mouseBmp = convertScreenToBmp(mousePos);
 		//const wxPoint screenPos = convertBmpToScreen(mouseBmp);
@@ -70,12 +66,21 @@ void BitmapCanvas::updateStatus() const {
 		posStr.Printf(wxT("Screen x: %4d y: %4d Bmp x: %4d y: %4d"), mousePos.x, mousePos.y, mouseBmp.x, mouseBmp.y);
 		topFrame->SetStatusText(posStr, 1);
 		wxString rectStr;
-		rectStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d) %d %d"), zoomLvl, canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height, canvas.GetWidth(), canvas.GetHeight());
+		rectStr.Printf(wxT("bmpRect(%d, %d, %d, %d) w: %d, h: %d"),
+			bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height,
+			bmp.GetWidth(), bmp.GetHeight()
+			);
 		topFrame->SetStatusText(rectStr, 2);
-	} else {
+		wxString canvStr;
+		canvStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d) w: %d, h: %d"),
+			zoomLvl,
+			canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height,
+			canvas.GetWidth(), canvas.GetHeight());
+		topFrame->SetStatusText(canvStr, 3);
+	}/* else {
 		topFrame->SetStatusText(wxT(""), 1);
 		topFrame->SetStatusText(wxT(""), 2);
-	}
+	}*/
 }
 
 void BitmapCanvas::recalcBmpRectSize() {
@@ -89,6 +94,7 @@ void BitmapCanvas::recalcBmpRectSize() {
 		bmpRect.width = std::min(unscale(panelSize.GetWidth()) + 2, bmp.GetWidth());
 		bmpClip.x = true;
 	}
+	DASSERT(bmpRect.width <= bmp.GetSize().GetWidth());
 	if (panelSize.GetHeight() >= scaledBmpSize.GetHeight() || zoomLvl < 0) {
 		bmpRect.height = bmp.GetHeight();
 		bmpClip.y = panelSize.GetHeight() < scaledBmpSize.GetHeight();
@@ -96,16 +102,29 @@ void BitmapCanvas::recalcBmpRectSize() {
 		bmpRect.height = std::min(unscale(panelSize.GetHeight()) + 2, bmp.GetHeight());
 		bmpClip.y = true;
 	}
+	DASSERT(bmpRect.height <= bmp.GetSize().GetHeight());
 }
 
 void BitmapCanvas::resetBmpRectPos() {
 	bmpRect.x = (bmpClip.x ? (bmp.GetWidth() - bmpRect.width) / 2 : 0);
+	DASSERT(bmpRect.x >= 0);
 	bmpRect.y = (bmpClip.y ? (bmp.GetHeight() - bmpRect.height) / 2 : 0);
+	DASSERT(bmpRect.y >= 0);
 }
 
 void BitmapCanvas::recalcBmpRectPos(wxPoint p, const wxRect& prevRect) {
-	bmpRect.x = (bmpClip.x ? p.x - ((p.x - prevRect.x) * (bmpRect.width - 2)) / (prevRect.width - 2) : 0);
-	bmpRect.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * (bmpRect.height - 2)) / (prevRect.height - 2) : 0);
+	bmpRect.x = (bmpClip.x ? p.x - ((p.x - prevRect.x) * bmpRect.width ) / (prevRect.width ) : 0);
+	bmpRect.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * bmpRect.height) / (prevRect.height) : 0);
+	bmpRect.x = clamp(bmpRect.x, 0, bmp.GetWidth()  - bmpRect.width - 1 );
+	bmpRect.y = clamp(bmpRect.y, 0, bmp.GetHeight() - bmpRect.height - 1);
+#if 0 // this was the alternative idea with making calculations based on the screen center - doesn't work...
+	const wxPoint cp((prevRect.x + prevRect.width) / 2, (prevRect.y + prevRect.height) / 2);
+	const wxPoint delta = cp - p;
+	const wxPoint cn(p.x - (delta.x * prevRect.width) / bmpRect.width, p.y - (delta.y * prevRect.height) / bmpRect.height);
+	const wxPoint n(cn.x - bmpRect.width / 2, cn.y - bmpRect.height / 2);
+	bmpRect.x = clamp(n.x, 0, bmp.GetWidth() - bmpRect.width - 1);
+	bmpRect.y = clamp(n.y, 0, bmp.GetHeight() - bmpRect.height - 1);
+#endif
 }
 
 void BitmapCanvas::recalcCanvasRectSize() {
@@ -168,11 +187,20 @@ wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
 }
 
 void BitmapCanvas::remapCanvas() {
-	if (canvasState == CS_CLEAN)
+	if (canvasState == CS_CLEAN || bmp.GetWidth() == 0 || bmp.GetHeight() == 0)
 		return;
-
+	// first obtain all necessary previus state stuff before zoom level changes
+	bmpRect.x = clamp(bmpRect.x, 0, bmp.GetWidth() - bmpRect.width - 1);
+	bmpRect.y = clamp(bmpRect.y, 0, bmp.GetHeight() - bmpRect.height - 1);
 	const wxRect prevBmpRect = bmpRect;
-	if ((canvasState & ~CS_DIRTY_POS) != 0) {
+	const wxPoint bmpMousePos = convertScreenToBmp(mousePos);
+	// now update zoom if necessary
+	if ((canvasState & CS_DIRTY_ZOOM) != 0 && 0 != zoomLvlDelta) {
+		zoomLvl += zoomLvlDelta;
+		// reset the delta
+		zoomLvlDelta = 0;
+	}
+	if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
 		recalcBmpRectSize();
 	}
 	if (canvasState == CS_DIRTY_FULL) {
@@ -181,16 +209,15 @@ void BitmapCanvas::remapCanvas() {
 	} else {
 		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
 			const wxPoint absolutePreserve = ((canvasState & CS_DIRTY_ZOOM) != 0 ?
-				convertScreenToBmp(mousePos) :
+				bmpMousePos :
 				wxPoint(
 					(prevBmpRect.x + prevBmpRect.width) / 2,
 					(prevBmpRect.y + prevBmpRect.height) / 2
 					)
 				);
 			recalcBmpRectPos(absolutePreserve, prevBmpRect);
-			SetBackgroundColour(*wxGREEN);
 		} else {
-			SetBackgroundColour(*wxBLUE);
+			// maybe move ?
 		}
 	}
 	recalcCanvasRectSize();
@@ -349,16 +376,14 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 	} else if (evType == wxEVT_MOUSEWHEEL) {
 		const int delta = evt.GetWheelDelta();
 		const int rot = evt.GetWheelRotation();
-		int newZoomLvl = zoomLvl;
-		if (rot > 0) {
-			newZoomLvl += delta / 120;
+		zoomLvlDelta = (rot > 0 ? delta / 120 : -delta / 120);
+		const int newZoomLvl = clamp(zoomLvl + zoomLvlDelta, minZoom, maxZoom);
+		if (newZoomLvl != zoomLvl) {
+			canvasState |= CS_DIRTY_ZOOM;
+			Refresh();
 		} else {
-			newZoomLvl -= delta / 120;
+			zoomLvlDelta = 0;
 		}
-		zoomLvl = clamp(newZoomLvl, minZoom, maxZoom);
-
-		canvasState |= CS_DIRTY_ZOOM;
-		Refresh();
 	}
 }
 
@@ -457,21 +482,34 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 		const int side = 8;
 		const int bmpSide = side * side * 16;
 		const int bmpFullSize = bmpSide * bmpSide;
-		const Color dark(16, 16, 16);
-		const Color bright(160, 160, 160);
-		const Color offset(56, 56, 56);
+		const Color dark(0, 0, 0);
+		const Color bright(128, 128, 128);
+		const Color offset(32, 32, 32);
+		const int colRange = 255 - 128 - 32;
 		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp.generateEmptyImage(bmpSide, bmpSide);
+		const int centerSide = bmpSide / (side * 2);
 		Color * bmpData = bmp.getDataPtr();
 		for (int y = 0; y < bmpSide; ++y) {
 			for (int x = 0; x < bmpSide; ++x) {
+				Color& c = bmpData[y * bmpSide + x];
 				const int xd = x / side;
 				const int yd = y / side;
-				bmpData[y * bmpSide + x] = ((xd + yd) & 1 ? bright : dark);
-				const int xdd = xd / side;
-				const int ydd = yd / side;
-				if ((xdd + ydd) & 1) {
-					bmpData[y * bmpSide + x] += offset;
+				if (((xd + 1) == centerSide || xd == centerSide) &&
+						((yd + 1) == centerSide || yd == centerSide)) {
+					c.components[(xd + yd + 0) % 3] = 255;
+					c.components[(xd + yd + 1) % 3] = 0;
+					c.components[(xd + yd + 2) % 3] = 0;
+				} else {
+					c = ((xd + yd) & 1 ? bright : dark);
+					const int xdd = xd / side;
+					const int ydd = yd / side;
+					if ((xdd + ydd) & 1) {
+						c += offset;
+					}
+					c.r += (x * colRange) / bmpSide;
+					c.b += (y * colRange) / bmpSide;
+					c.g += colRange / 2;
 				}
 			}
 		}
