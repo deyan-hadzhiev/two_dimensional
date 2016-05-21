@@ -455,10 +455,11 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 		bmp = *initBmp;
 	} else {
 		const int side = 8;
-		const int bmpSide = side * side * 4;
+		const int bmpSide = side * side * 16;
 		const int bmpFullSize = bmpSide * bmpSide;
 		const Color dark(16, 16, 16);
-		const Color bright(172, 172, 172);
+		const Color bright(160, 160, 160);
+		const Color offset(56, 56, 56);
 		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp.generateEmptyImage(bmpSide, bmpSide);
 		Color * bmpData = bmp.getDataPtr();
@@ -467,6 +468,11 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 				const int xd = x / side;
 				const int yd = y / side;
 				bmpData[y * bmpSide + x] = ((xd + yd) & 1 ? bright : dark);
+				const int xdd = xd / side;
+				const int ydd = yd / side;
+				if ((xdd + ydd) & 1) {
+					bmpData[y * bmpSide + x] += offset;
+				}
 			}
 		}
 	}
