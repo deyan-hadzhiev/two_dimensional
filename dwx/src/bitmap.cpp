@@ -165,13 +165,82 @@ const FloatColor * FloatBitmap::operator[](int row) const noexcept {
 	return data + row * width;
 }
 
+// CoeffCache - used for downscaling
+
+struct CoeffCacheElem {
+	int src, dest;
+	float * coefficients;
+	CoeffCacheElem * next;
+};
+
+class CoeffCache {
+	CoeffCacheElem * root;
+public:
+	CoeffCache() {
+		root = nullptr;
+	}
+	~CoeffCache() {
+		CoeffCacheElem * next = nullptr;
+		for (CoeffCacheElem * e = root; e != nullptr; e = next) {
+			next = e->next;
+			delete[] e->coefficients;
+			delete e;
+		}
+	}
+
+	// will return the scaling coefficients with destLen to normalize the resized array properly
+	const float * getCoefficients(const int srcLen, const int destLen) {
+		CoeffCacheElem * e = root;
+		while (e) {
+			if (e->src == srcLen && e->dest == destLen)
+				return e->coefficients;
+			e = e->next;
+		}
+		CoeffCacheElem * newElement = new CoeffCacheElem;
+		newElement->src = srcLen;
+		newElement->dest = destLen;
+		newElement->coefficients = new float[destLen];
+		memset(newElement->coefficients, 0, sizeof(float) * destLen);
+		float ratio = (destLen - 1) / ((float)srcLen - 1);
+		for (int i = 0; i < srcLen; i++) {
+			float x = i * ratio;
+			int xx = int(x);
+			float mul1 = 1.0f - (x - xx);
+			newElement->coefficients[xx] += mul1;
+			if (xx + 1 < destLen)
+				newElement->coefficients[xx + 1] += 1.0f - mul1;
+		}
+		for (int i = 0; i < destLen; i++)
+			newElement->coefficients[i] = 1.0f / newElement->coefficients[i];
+
+		newElement->next = root;
+		root = newElement;
+		return newElement->coefficients;
+	}
+};
+
+static CoeffCache coeffsCache;
+
+// Pixelmap<T>
+
+template class TColor<uint16>;
 template class TColor<int32>;
+
+template Color::Color(const TColor<uint16>&);
+
 template class Pixelmap<Color>;
+template class Pixelmap<TColor<uint16> >;
 template class Pixelmap<TColor<int32> >;
 template class Pixelmap<uint32>;
 template class Pixelmap<uint64>;
+
 template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
 template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
+
+template bool Pixelmap<Color>::downscale<TColor<uint16> >(Pixelmap<Color>&, const int, const int) const;
+template bool Pixelmap<Color>::downscale<Color>(Pixelmap<Color>&, const int, const int) const;
+template bool Pixelmap<Color>::downscale<TColor<float> >(Pixelmap<Color>&, const int, const int) const;
+template bool Pixelmap<Color>::downscale<TColor<double> >(Pixelmap<Color>&, const int, const int) const;
 
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap() noexcept
@@ -365,7 +434,72 @@ const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::drawBitmap(const Pixelmap<ColorType> & subBmp, const int x, const int y) noexcept {
+template<class IntermediateColorType>
+bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const {
+	if (!this->isOK() || downWidth <= 0 || downWidth > width || downHeight <= 0 || downHeight > height) {
+		return false;
+	} else if (downWidth == width && downHeight == height) {
+		downScaled = *this;
+		return true;
+	}
+
+	auto arrayResize = [](const IntermediateColorType * src, const int srcLen, IntermediateColorType * dest, const int destLen, const float * coefficients) {
+		for (int i = 0; i < destLen; ++i)
+			dest[i].makeZero();
+		const float ratio = (destLen - 1) / (float(srcLen - 1));
+		for (int i = 0; i < srcLen; ++i) {
+			const float x = i * ratio;
+			const int xx = int(x);
+			const float mult = 1.0f - (x - xx);
+			dest[xx] += mult * src[i];
+			if (xx + 1 < destLen) {
+				const float multRest = 1.0f - mult;
+				dest[xx + 1] += multRest * src[i];
+			}
+		}
+		for (int i = 0; i < destLen; ++i) {
+			dest[i] *= coefficients[i];
+		}
+	};
+
+	Pixelmap<IntermediateColorType> srcPmp(*this);
+	Pixelmap<IntermediateColorType> destPmp(downWidth, downHeight);
+	IntermediateColorType * srcData = srcPmp.getDataPtr();
+	IntermediateColorType * destData = destPmp.getDataPtr();
+
+	if (width != downWidth) {
+		std::unique_ptr<IntermediateColorType[]> row(new IntermediateColorType[width]);
+		const float * widthCoefficients = coeffsCache.getCoefficients(width, downWidth);
+		for (int y = 0; y < height; ++y) {
+			arrayResize(srcData + (y * width), width, row.get(), downWidth, widthCoefficients);
+			memcpy(srcData + (y * width), row.get(), downWidth * sizeof(IntermediateColorType));
+		}
+	}
+
+	if (height != downHeight) {
+		std::unique_ptr<IntermediateColorType[]> column(new IntermediateColorType[height]);
+		std::unique_ptr<IntermediateColorType[]> newColumn(new IntermediateColorType[downHeight]);
+		const float * heightCoefficients = coeffsCache.getCoefficients(height, downHeight);
+		for (int x = 0; x < downWidth; ++x) {
+			for (int y = 0; y < height; ++y) {
+				column[y] = srcData[x + y * width]; // this has to use the previous width
+			}
+			arrayResize(column.get(), height, newColumn.get(), downHeight, heightCoefficients);
+			for (int y = 0; y < downHeight; ++y) {
+				destData[x + y * downWidth] = newColumn[y];
+			}
+		}
+	} else {
+		for (int y = 0; y < downHeight; ++y) {
+			memcpy(destData + (y * downWidth), srcData + (y * width), downWidth * sizeof(IntermediateColorType));
+		}
+	}
+	downScaled = Pixelmap<ColorType>(destPmp);
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, const int y) noexcept {
 	if (!subBmp.isOK() || !this->isOK())
 		return false;
 	const int sw = subBmp.getWidth();
