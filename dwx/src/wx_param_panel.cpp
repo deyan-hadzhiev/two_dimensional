@@ -315,6 +315,9 @@ void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 	for (unsigned i = 0; i < choices.size(); ++i) {
 		ch->Insert(wxString(choices[i]), i);
 	}
+	if (choices.size() > 0) {
+		ch->SetSelection(0);
+	}
 	sizer->Add(ch, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
 	choiceMap[id] = ch;
 	Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);

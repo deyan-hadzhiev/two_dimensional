@@ -100,4 +100,9 @@ public:
 	FilterModePanel(ViewFrame * vf);
 };
 
+class DownScalePanel : public InputOutputMode {
+public:
+	DownScalePanel(ViewFrame * vf);
+};
+
 #endif // __WX_MODES_H__

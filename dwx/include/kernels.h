@@ -218,4 +218,15 @@ public:
 	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
 };
 
+class DownScaleKernel : public AsyncKernel {
+public:
+	DownScaleKernel() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleWidth", "128"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleHeight", "128"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "medium", "uint16;uint8;float;double"));
+	}
+
+	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+};
+
 #endif

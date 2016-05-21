@@ -31,6 +31,7 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Histograms"),
 	wxT("Threshold"),
 	wxT("Filter"),
+	wxT("Downscale"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -178,6 +179,10 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	case(MID_VF_FILTER) :
 		SetStatusText(wxT("Using Filter"));
 		mPanel = new FilterModePanel(this);
+		break;
+	case(MID_VF_DOWNSCALE) :
+		SetStatusText(wxT("Using Downscale"));
+		mPanel = new DownScalePanel(this);
 		break;
 	default:
 		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));
