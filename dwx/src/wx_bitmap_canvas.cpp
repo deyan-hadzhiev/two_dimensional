@@ -10,9 +10,11 @@ const int BitmapCanvas::maxZoom = 16;
 BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 	: wxPanel(parent)
 	, mouseOverCanvas(false)
-	, mouseLeftDrag(false)
+	, mouseMoveDrag(false)
 	, zoomLvl(0)
+	, zoomLvlDelta(0)
 	, mousePos(0, 0)
+	, updatedMousePos(0, 0)
 	, bmpRect(0, 0, 0, 0)
 	, canvasRect(0, 0, 0, 0)
 	, canvasState(CS_DIRTY_FULL)
@@ -202,10 +204,12 @@ void BitmapCanvas::remapCanvas() {
 	}
 	if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
 		recalcBmpRectSize();
+		recalcCanvasRectSize();
 	}
 	if (canvasState == CS_DIRTY_FULL) {
 		// todo change with preserved point for convenience
 		resetBmpRectPos();
+		resetCanvasRectPos();
 	} else {
 		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
 			const wxPoint absolutePreserve = ((canvasState & CS_DIRTY_ZOOM) != 0 ?
@@ -216,12 +220,14 @@ void BitmapCanvas::remapCanvas() {
 					)
 				);
 			recalcBmpRectPos(absolutePreserve, prevBmpRect);
+			//const wxPoint screenFocusPos = convertBmpToScreen(absolutePreserve);
+			//const wxPoint fixDiff = scale(screenFocusPos - mousePos);
+			//canvasRect.SetTopLeft(fixDiff);
+			resetCanvasRectPos();
 		} else {
 			// maybe move ?
 		}
 	}
-	recalcCanvasRectSize();
-	resetCanvasRectPos();
 	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight() || zoomLvl != 0) {
 		if (zoomLvl == 0) {
 			canvas = bmp.GetSubBitmap(bmpRect);
@@ -345,21 +351,19 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 	if (evType == wxEVT_MOTION) {
 		wxPoint curr(evt.GetX(), evt.GetY());
 		if (curr != mousePos) {
-			if (mouseLeftDrag && (bmpClip.any != 0)) {
-				//const wxPoint diff = curr - mousePos;
-				//setFocus(currentFocus - diff);
-				//dirtyCanvas = true;
-				//Refresh(); // to force redraw
+			if (mouseMoveDrag && (bmpClip.any != 0) && curr != updatedMousePos) {
 				canvasState |= CS_DIRTY_POS;
+				Refresh();
 			}
 			mousePos = curr;
 			updateStatus();
 		}
-	} else if (evType == wxEVT_LEFT_DOWN) {
+	} else if (evType == wxEVT_MIDDLE_DOWN) {
 		mousePos = wxPoint(evt.GetX(), evt.GetY());
-		mouseLeftDrag = true;
-	} else if (evType == wxEVT_LEFT_UP) {
-		mouseLeftDrag = false;
+		mouseMoveDrag = true;
+		updatedMousePos = mousePos;
+	} else if (evType == wxEVT_MIDDLE_UP) {
+		mouseMoveDrag = false;
 	} else if (evType == wxEVT_ENTER_WINDOW) {
 		if (!mouseOverCanvas) {
 			mouseOverCanvas = true;
@@ -369,7 +373,7 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 	} else if (evType == wxEVT_LEAVE_WINDOW) {
 		if (mouseOverCanvas) {
 			mouseOverCanvas = false;
-			mouseLeftDrag = false;
+			mouseMoveDrag = false;
 			updateStatus();
 			Refresh();
 		}

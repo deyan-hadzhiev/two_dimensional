@@ -47,7 +47,7 @@ private:
 	// new zooming functions
 	void recalcBmpRectSize(); //!< must have a valid bmp loaded
 	void resetBmpRectPos(); //!< resets the position of the rect to be centralized
-	void recalcBmpRectPos(wxPoint p, const wxRect& prevRect); //!< recalculates the rect position preserving the specified relative position
+	void recalcBmpRectPos(wxPoint p, const wxRect& prevRect); //!< recalculates the rect position preserving the specified relative position (in bmp coords)
 	void recalcCanvasRectSize(); //!< recalculates the size of the canvas rect
 	void resetCanvasRectPos(); //!< resets the position of the canvas to be centralized on the panel
 
@@ -83,13 +83,14 @@ private:
 	void drawFill(wxBufferedPaintDC& pdc, const wxSize& bmpSize, const wxPoint& bmpCoord);
 
 	bool mouseOverCanvas; //!< whether the mouse is currently over the window
-	bool mouseLeftDrag; //!< whether the mouse has initiated a drag inside this wnd
+	bool mouseMoveDrag; //!< whether the mouse has initiated a drag inside this wnd
 	// zooming
-	int zoomLvl; //!< the current zoom level
+	int zoomLvl; //!< the current zoom level (only update in the remapping function!!)
 	int zoomLvlDelta; //!< the delta that has to be applied to the zoom
 	static const int maxZoom; //!< maximum zoom level supported
 	static const int minZoom; //!< minimum zoom level supported
 	wxPoint mousePos; //!< the current pointer position
+	wxPoint updatedMousePos; //!< the last position of the mouse that was considered (only update in the remapping function)
 	wxRect bmpRect; //!< the currently seen rect from the bitmap in bmp coordinates
 	wxRect canvasRect; //!< the current canvas position and size
 
