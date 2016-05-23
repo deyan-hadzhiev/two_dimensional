@@ -99,9 +99,9 @@ public:
 
 	void updateStatus() const;
 
-	//void addSynchronizer(BitmapCanvas * s); //!< adds another canvas that will synchronize zooming/panning
+	void addSynchronizer(BitmapCanvas * s); //!< adds another canvas that will synchronize zooming/panning
 
-	//void synchronize(); //!< synchronizes with other canvases to show the same rect
+	void synchronize(); //!< synchronizes with other canvases to show the same rect
 
 protected:
 
@@ -173,6 +173,7 @@ private:
 		CS_DIRTY_ZOOM = 1 << 1,
 		CS_DIRTY_POS = 1 << 2,
 		CS_DIRTY_FULL = CS_DIRTY_SIZE | CS_DIRTY_ZOOM | CS_DIRTY_POS,
+		CS_DIRTY_SYNCHRONIZE,
 	};
 	unsigned canvasState;
 	wxSize panelSize; //!< the panel size from the last event (NOTE: use this instead of GetSize() because it may be changed between event handling)

@@ -66,8 +66,8 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
 	BitmapCanvas * inputCanvas = inputPanel->getCanvas();
 	BitmapCanvas * outputCanvas = outputPanel->getCanvas();
 	// add synchornizers
-	//inputCanvas->addSynchronizer(outputCanvas);
-	//outputCanvas->addSynchronizer(inputCanvas);
+	inputCanvas->addSynchronizer(outputCanvas);
+	outputCanvas->addSynchronizer(inputCanvas);
 	// set the background colours
 	wxColour bc(75, 75, 75);
 	inputCanvas->SetBackgroundColour(bc);

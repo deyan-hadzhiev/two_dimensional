@@ -149,10 +149,6 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 		bmpId = id;
 	}
 	canvasState = CS_DIRTY_FULL;
-	if (id == 0) {
-		// TODO - reset Focus
-		//resetFocus();
-	}
 	Refresh();
 }
 
@@ -241,7 +237,6 @@ void BitmapCanvas::boundFixView() {
 	}
 }
 
-#if 0
 void BitmapCanvas::addSynchronizer(BitmapCanvas * s) {
 	synchronizers.push_back(s);
 }
@@ -249,18 +244,16 @@ void BitmapCanvas::addSynchronizer(BitmapCanvas * s) {
 void BitmapCanvas::synchronize() {
 	for (auto i = synchronizers.begin(); i != synchronizers.end(); ++i) {
 		BitmapCanvas * s = *i;
-		const bool needsUpdate = (zoomLvl != s->zoomLvl || currentFocus != s->currentFocus);
 		// this is improtant because it gurads us from bouncing from one synchronization to another recursively
 		// and only if the two ids match, unmatching ids mean that the output image was not generated yet
-		if (needsUpdate && bmpId == s->bmpId) {
+		if (bmpId == s->bmpId) {
 			s->zoomLvl = this->zoomLvl;
-			s->setFocus(currentFocus);
-			s->dirtyCanvas = true;
+			s->view = this->view;
+			s->canvasState = CS_DIRTY_SYNCHRONIZE;
 			s->Refresh();
 		}
 	}
 }
-#endif // disabled
 
 wxPoint BitmapCanvas::getCanvasTopLeftInScreen() const {
 	return wxPoint(
@@ -296,36 +289,43 @@ void BitmapCanvas::remapCanvas() {
 	// first obtain all necessary previus state stuff before zoom level changes
 	view.x = clamp(view.x, 0.0f, static_cast<float>(bmp.GetWidth())  - view.width - 1);
 	view.y = clamp(view.y, 0.0f, static_cast<float>(bmp.GetHeight()) - view.height - 1);
-	const Rect prevBmpRect = view;
-	const Vector2 bmpMousePos = convertScreenToBmp(mousePos);
-	// now update zoom if necessary
-	if ((canvasState & CS_DIRTY_ZOOM) != 0 && 0 != zoomLvlDelta) {
-		zoomLvl += zoomLvlDelta;
-		// reset the delta
+	if ((canvasState & CS_DIRTY_SYNCHRONIZE) == CS_DIRTY_SYNCHRONIZE) {
+		const wxSize scaledBmpSize = scale(bmp.GetSize());
+		bmpClip.x = panelSize.GetWidth() < scaledBmpSize.GetWidth();
+		bmpClip.y = panelSize.GetHeight() < scaledBmpSize.GetHeight();
 		zoomLvlDelta = 0;
-	}
-	if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
-		recalcViewSize();
-	}
-	if (canvasState == CS_DIRTY_FULL) {
-		resetViewPos();
 	} else {
-		if ((canvasState & CS_DIRTY_ZOOM) != 0) {
-			recalcViewPos(bmpMousePos, prevBmpRect);
-		} else if ((canvasState & CS_DIRTY_SIZE) != 0) {
-			const Vector2 halfDelta = Vector2(
-				prevBmpRect.width - view.width,
-				prevBmpRect.height - view.height
-			) / 2.0f;
-			view.setPosition(prevBmpRect.getPosition() + halfDelta);
-		} else if ((canvasState & CS_DIRTY_POS) != 0) {
-			wxPoint screenDelta = mousePos - updatedMousePos;
-			Vector2 bmpDelta = unscale(Convert::vector(screenDelta));
-			view.setPosition(view.getPosition() - bmpDelta);
-			updatedMousePos = mousePos;
+		const Rect prevBmpRect = view;
+		const Vector2 bmpMousePos = convertScreenToBmp(mousePos);
+		// now update zoom if necessary
+		if ((canvasState & CS_DIRTY_ZOOM) != 0 && 0 != zoomLvlDelta) {
+			zoomLvl += zoomLvlDelta;
+			// reset the delta
+			zoomLvlDelta = 0;
 		}
+		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
+			recalcViewSize();
+		}
+		if (canvasState == CS_DIRTY_FULL) {
+			resetViewPos();
+		} else {
+			if ((canvasState & CS_DIRTY_ZOOM) != 0) {
+				recalcViewPos(bmpMousePos, prevBmpRect);
+			} else if ((canvasState & CS_DIRTY_SIZE) != 0) {
+				const Vector2 halfDelta = Vector2(
+					prevBmpRect.width - view.width,
+					prevBmpRect.height - view.height
+				) / 2.0f;
+				view.setPosition(prevBmpRect.getPosition() + halfDelta);
+			} else if ((canvasState & CS_DIRTY_POS) != 0) {
+				wxPoint screenDelta = mousePos - updatedMousePos;
+				Vector2 bmpDelta = unscale(Convert::vector(screenDelta));
+				view.setPosition(view.getPosition() - bmpDelta);
+				updatedMousePos = mousePos;
+			}
+		}
+		synchronize();
 	}
-
 	const Size2d bmpSize = Convert::size(bmp.GetSize());
 	boundFixView(); // fix any bound errors
 	if (view.getSize() != bmpSize || zoomLvl != 0) {
@@ -578,7 +578,7 @@ int ImagePanel::getBmpId() const {
 }
 
 void ImagePanel::synchronize() {
-	//canvas->synchronize();
+	canvas->synchronize();
 }
 
 void ImagePanel::setImage(const wxImage & img, int id) {
@@ -629,7 +629,7 @@ bool ImagePanel::getInput(Bitmap & ibmp, int & id) const {
 
 void ImagePanel::kernelDone(KernelBase::ProcessResult result) {
 	if (result == KernelBase::KPR_OK) {
-		//canvas->synchronize();
+		canvas->synchronize();
 	}
 }
 
