@@ -6,6 +6,7 @@
 #include <wx/wfstream.h>
 #include <wx/stdpaths.h>
 #include <wx/valnum.h>
+#include <wx/filename.h>
 
 #include <sstream>
 
@@ -102,11 +103,6 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 				if (inputImage.Ok()) {
 					inputPanel->setImage(inputImage);
 					viewFrame->SetStatusText(wxString(wxT("Loaded input image: ") + fdlg.GetPath()));
-					// DEBUG
-					//const int id = inputCanvas->getBmpId();
-					//outputCanvas->setImage(inputImage, id);
-					// ENDDEBUG
-					// force synchronziation
 					inputPanel->synchronize();
 				} else {
 					viewFrame->SetStatusText(wxString(wxT("File is NOT a valid image: ")) + fdlg.GetPath());
@@ -118,8 +114,31 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	}
 	case (ViewFrame::MID_VF_FILE_SAVE) :
-		// TODO:
+	{
+		const wxStandardPaths& stdPaths = wxStandardPaths::Get();
+		wxFileDialog fdlg(this, wxT("Save output image file"), stdPaths.GetUserDir(wxStandardPaths::Dir_Pictures), wxT(""), ioFileSelector, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		if (fdlg.ShowModal() != wxID_CANCEL) {
+			const wxImage outImage = outputPanel->getImage();
+			if (outImage.IsOk()) {
+				wxFileName outFn(fdlg.GetPath());
+				const wxString outExt = outFn.GetExt();
+				wxBitmapType outType = wxBitmapType::wxBITMAP_TYPE_BMP;
+				if (0 == outExt.CmpNoCase(wxT("png"))) {
+					outType = wxBitmapType::wxBITMAP_TYPE_PNG;
+				} else if (0 == outExt.CmpNoCase(wxT("jpg")) || 0 == outExt.CmpNoCase(wxT("jpeg"))) {
+					outType = wxBitmapType::wxBITMAP_TYPE_JPEG;
+				}
+				if (outImage.SaveFile(outFn.GetFullPath(), outType)) {
+					viewFrame->SetStatusText(wxString(wxT("Saved output image: ")) + outFn.GetFullPath());
+				} else {
+					viewFrame->SetStatusText(wxString(wxT("Could NOT save output image: ")) + outFn.GetFullPath());
+				}
+			} else {
+				viewFrame->SetStatusText(wxString(wxT("The output image is corrupted!")));
+			}
+		}
 		break;
+	}
 	case (ViewFrame::MID_VF_CNT_RUN) :
 		cb.reset();
 		kernel->runKernel(0);

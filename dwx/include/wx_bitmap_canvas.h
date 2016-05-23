@@ -210,6 +210,8 @@ public:
 
 	void setImage(const wxImage& img, int id = 0);
 
+	wxImage getImage();
+
 	void toggleHist();
 
 	// from InputManager

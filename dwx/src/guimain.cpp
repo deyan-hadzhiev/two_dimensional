@@ -26,7 +26,7 @@ const wxString ViewFrame::modeNames[] = {
 	wxT("Negative"),
 	wxT("Text Segmentation"),
 	wxT("Sinosoid curve"),
-	wxT("Hough Ro Theta"),
+	wxT("Hough Rho Theta"),
 	wxT("Image rotation"),
 	wxT("Histograms"),
 	wxT("Threshold"),

@@ -375,6 +375,9 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 			cb->setPercentDone(y, obh);
 		}
 	}
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	if (oman) {
 		oman->setOutput(bmpOut, 1);
 	}

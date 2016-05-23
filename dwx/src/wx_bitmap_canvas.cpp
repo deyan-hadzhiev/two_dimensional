@@ -612,6 +612,10 @@ void ImagePanel::setImage(const wxImage & img, int id) {
 	Refresh();
 }
 
+wxImage ImagePanel::getImage() {
+	return canvas->bmp.ConvertToImage();
+}
+
 void ImagePanel::toggleHist() {
 	histPanel->Show(!histPanel->IsShown());
 }
