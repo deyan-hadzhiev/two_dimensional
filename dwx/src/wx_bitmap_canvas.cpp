@@ -197,15 +197,14 @@ void BitmapCanvas::remapCanvas() {
 	if (canvasState == CS_DIRTY_FULL) {
 		resetBmpRectPos();
 	} else {
-		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
-			const Vector2 absolutePreserve = ((canvasState & CS_DIRTY_ZOOM) != 0 ?
-				bmpMousePos :
-				Vector2( // TODO - fix center on size changes
-					(prevBmpRect.x + prevBmpRect.width  + (prevBmpRect.width  - view.width ) / 2.0f) / 2.0f,
-					(prevBmpRect.y + prevBmpRect.height + (prevBmpRect.height - view.height) / 2.0f) / 2.0f
-					)
-				);
-			recalcBmpRectPos(absolutePreserve, prevBmpRect);
+		if ((canvasState & CS_DIRTY_ZOOM) != 0) {
+			recalcBmpRectPos(bmpMousePos, prevBmpRect);
+		} else if ((canvasState & CS_DIRTY_SIZE) != 0) {
+			const Vector2 halfDelta = Vector2(
+				prevBmpRect.width - view.width,
+				prevBmpRect.height - view.height
+			) / 2.0f;
+			view.setPosition(prevBmpRect.getPosition() + halfDelta);
 		} else {
 			// maybe move ?
 		}
