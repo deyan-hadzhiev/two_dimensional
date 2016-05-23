@@ -48,12 +48,12 @@ const int ModePanel::panelBorder = 4;
 
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
 
-InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleModule * module)
+InputOutputMode::InputOutputMode(ViewFrame * viewFrame, ModuleBase * _module)
 	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
 	, inputPanel(nullptr)
 	, outputPanel(nullptr)
 	, compareCanvas(nullptr)
-	, module(module)
+	, module(_module)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
 	//inputCanvas = new BitmapCanvas(this, viewFrame);
@@ -74,8 +74,10 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleModule * module)
 	inputCanvas->SetBackgroundColour(bc);
 	outputCanvas->SetBackgroundColour(bc);
 
+	module->setProgressCallback(&cb);
 	module->addInputManager(inputPanel);
 	module->addOutputManager(outputPanel);
+	module->addParamManager(paramPanel);
 
 	compareCanvas = new wxPanel(this);
 	canvasSizer->Add(compareCanvas, 1, wxEXPAND | wxALL, panelBorder);
@@ -83,11 +85,6 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleModule * module)
 	compareCanvas->Show(false);
 	mPanelSizer->Add(canvasSizer, 1, wxEXPAND | wxALL);
 	SendSizeEvent();
-}
-
-InputOutputMode::~InputOutputMode() {
-	if (module)
-		delete module;
 }
 
 void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
@@ -162,9 +159,9 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
-GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricModule * gk)
+GeometricOutput::GeometricOutput(ViewFrame * vf, ModuleBase * _module)
 	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
-	, gmodule(gk)
+	, module(_module)
 	, outputPanel(nullptr)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -173,93 +170,21 @@ GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricModule * gk)
 	canvasSizer->Add(outputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
 	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
 
-	gmodule->addOutputManager(outputPanel);
-	//gmodule->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addOutputManager(outputPanel);
+	module->addParamManager(paramPanel);
 
 	SendSizeEvent();
-}
-
-GeometricOutput::~GeometricOutput() {
-	delete gmodule;
 }
 
 void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	switch (ev.GetId())
 	{
 	case(ViewFrame::MID_VF_CNT_RUN) : {
-		gmodule->runModule(0);
+		module->runModule(0);
 		break;
 	}
 	default:
 		break;
 	}
-}
-
-NegativePanel::NegativePanel(ViewFrame * viewFrame)
-	: InputOutputMode(viewFrame, new NegativeModule)
-{
-	module->setProgressCallback(&cb);
-}
-
-TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
-	: InputOutputMode(vf, new TextSegmentationModule)
-{
-	module->setProgressCallback(&cb);
-	module->addParamManager(paramPanel);
-
-	SendSizeEvent();
-}
-
-SinosoidPanel::SinosoidPanel(ViewFrame * vf)
-	: GeometricOutput(vf, new SinosoidModule)
-{
-	gmodule->setProgressCallback(&cb);
-	gmodule->addParamManager(paramPanel);
-}
-
-HoughRoTheta::HoughRoTheta(ViewFrame * vf)
-	: InputOutputMode(vf, new HoughModule)
-{
-	module->setProgressCallback(&cb);
-}
-
-RotationPanel::RotationPanel(ViewFrame * vf)
-	: InputOutputMode(vf, new RotationModule)
-{
-	module->setProgressCallback(&cb);
-	module->addParamManager(paramPanel);
-
-	SendSizeEvent();
-}
-
-HistogramModePanel::HistogramModePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new HistogramModule)
-{
-	module->setProgressCallback(&cb);
-	module->addParamManager(paramPanel);
-	SendSizeEvent();
-}
-
-ThresholdModePanel::ThresholdModePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new ThresholdModule)
-{
-	module->setProgressCallback(&cb);
-	module->addParamManager(paramPanel);
-	SendSizeEvent();
-}
-
-FilterModePanel::FilterModePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new FilterModule)
-{
-	module->setProgressCallback(&cb);
-	module->addParamManager(paramPanel);
-	SendSizeEvent();
-}
-
-DownScalePanel::DownScalePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new DownScaleModule)
-{
-	module->setProgressCallback(&cb);
-	module->addParamManager(paramPanel);
-	SendSizeEvent();
 }

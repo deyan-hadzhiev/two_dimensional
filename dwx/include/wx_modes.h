@@ -33,15 +33,14 @@ protected:
 
 class InputOutputMode : public ModePanel {
 public:
-	InputOutputMode(ViewFrame * viewFrame, SimpleModule * module);
-	virtual ~InputOutputMode();
+	InputOutputMode(ViewFrame * viewFrame, ModuleBase * _module);
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 protected:
 	ImagePanel * inputPanel;
 	ImagePanel * outputPanel;
 	wxPanel * compareCanvas;
-	SimpleModule * module;
+	ModuleBase * module;
 
 	//wxPanel * inputCanvas;
 	//wxPanel * outputCanvas;
@@ -50,59 +49,13 @@ protected:
 
 class GeometricOutput : public ModePanel {
 public:
-	GeometricOutput(ViewFrame * vf, GeometricModule * gmodule);
-	virtual ~GeometricOutput();
+	GeometricOutput(ViewFrame * vf, ModuleBase * _module);
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 
 protected:
-	GeometricModule * gmodule;
+	ModuleBase * module;
 	ImagePanel * outputPanel;
-};
-
-class NegativePanel : public InputOutputMode {
-public:
-	NegativePanel(ViewFrame * viewFrame);
-};
-
-class TextSegmentationPanel : public InputOutputMode {
-public:
-	TextSegmentationPanel(ViewFrame * vf);
-};
-
-class SinosoidPanel : public GeometricOutput {
-public:
-	SinosoidPanel(ViewFrame * vf);
-};
-
-class HoughRoTheta : public InputOutputMode {
-public:
-	HoughRoTheta(ViewFrame * vf);
-};
-
-class RotationPanel : public InputOutputMode {
-public:
-	RotationPanel(ViewFrame * vf);
-};
-
-class HistogramModePanel : public InputOutputMode {
-public:
-	HistogramModePanel(ViewFrame * vf);
-};
-
-class ThresholdModePanel : public InputOutputMode {
-public:
-	ThresholdModePanel(ViewFrame * vf);
-};
-
-class FilterModePanel : public InputOutputMode {
-public:
-	FilterModePanel(ViewFrame * vf);
-};
-
-class DownScalePanel : public InputOutputMode {
-public:
-	DownScalePanel(ViewFrame * vf);
 };
 
 #endif // __WX_MODES_H__

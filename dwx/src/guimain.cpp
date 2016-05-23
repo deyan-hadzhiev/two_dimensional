@@ -12,6 +12,7 @@
 #include "guimain.h"
 #include "wx_modes.h"
 #include "wx_bitmap_canvas.h"
+#include "module_manager.h"
 
 #include "color.h"
 #include "bitmap.h"
@@ -19,19 +20,6 @@
 class ViewApp : public wxApp {
 public:
 	virtual bool OnInit() override;
-};
-
-
-const wxString ViewFrame::modeNames[] = {
-	wxT("Negative"),
-	wxT("Text Segmentation"),
-	wxT("Sinosoid curve"),
-	wxT("Hough Rho Theta"),
-	wxT("Image rotation"),
-	wxT("Histograms"),
-	wxT("Threshold"),
-	wxT("Filter"),
-	wxT("Downscale"),
 };
 
 const wxString ViewFrame::controlNames[] = {
@@ -105,7 +93,7 @@ ViewFrame::ViewFrame(const wxString& title)
 
 	wxMenu * modes = new wxMenu;
 	for (unsigned modei = MID_VF_MODES_RANGE_START + 1; modei < MID_VF_MODES_RANGE_END; ++modei) {
-		modes->Append(modei, modeNames[modei - MID_VF_MODES_RANGE_START - 1]);
+		modes->Append(modei, MODULE_DESC[modei - MID_VF_MODES_RANGE_START - 1].fullName);
 		Connect(modei, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
 	}
 	menuBar->Append(modes, wxT("&Modes"));
@@ -146,47 +134,24 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 		mPanel = nullptr;
 		setCustomStyle(VFS_NOTHING_ENABLED);
 	}
-	switch (ev.GetId())
-	{
-	case(MID_VF_NEGATIVE) :
-		SetStatusText(wxT("Using negative mode"));
-		mPanel = new NegativePanel(this);
-		break;
-	case(MID_VF_TEXT_SEGMENTATION) :
-		SetStatusText(wxT("Using text segmentation mode"));
-		mPanel = new TextSegmentationPanel(this);
-		break;
-	case(MID_VF_SINOSOID) :
-		SetStatusText(wxT("Using sinosoid geometric module"));
-		mPanel = new SinosoidPanel(this);
-		break;
-	case(MID_VF_HOUGH_RO_THETA) :
-		SetStatusText(wxT("Using Ro Theta Hough module"));
-		mPanel = new HoughRoTheta(this);
-		break;
-	case(MID_VF_ROTATION) :
-		SetStatusText(wxT("Using Image rotation"));
-		mPanel = new RotationPanel(this);
-		break;
-	case(MID_VF_HISTOGRAMS) :
-		SetStatusText(wxT("Using Histograms"));
-		mPanel = new HistogramModePanel(this);
-		break;
-	case(MID_VF_THRESHOLD) :
-		SetStatusText(wxT("Using Threshold"));
-		mPanel = new ThresholdModePanel(this);
-		break;
-	case(MID_VF_FILTER) :
-		SetStatusText(wxT("Using Filter"));
-		mPanel = new FilterModePanel(this);
-		break;
-	case(MID_VF_DOWNSCALE) :
-		SetStatusText(wxT("Using Downscale"));
-		mPanel = new DownScalePanel(this);
-		break;
-	default:
-		SetStatusText(wxT("[ERROR] Unknown on unavailable model!"));
-		break;
+	const int modeId = ev.GetId() - MID_VF_MODES_RANGE_START - 1;
+	if (modeId > ModuleId::M_VOID && modeId < ModuleId::M_COUNT) {
+		const ModuleDescription& md = MODULE_DESC[modeId];
+		SetStatusText(wxString(wxT("Using ")) + md.fullName + wxString(wxT(" module")));
+		// TODO maybe don't clear if in mutli module mode
+		moduleFactory.clear();
+		ModuleBase * module = moduleFactory.getModule(md.id);
+		if (module) {
+			if (md.inputs == 0) {
+				mPanel = new GeometricOutput(this, module);
+			} else if (md.inputs == 1) {
+				mPanel = new InputOutputMode(this, module);
+			}
+		} else {
+			SetStatusText(wxT("[ERROR] Could not create module!"));
+		}
+	} else {
+		SetStatusText(wxT("[ERROR] Unknown on unavailable module!"));
 	}
 	Update();
 	Refresh();

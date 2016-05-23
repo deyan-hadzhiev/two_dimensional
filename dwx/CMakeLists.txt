@@ -35,6 +35,7 @@ set (HEADERS
 	include/wx_param_panel.h
 	include/module_base.h
 	include/modules.h
+	inclide/module_manager.h
 	include/geom_primitive.h
 )
 
@@ -49,6 +50,7 @@ set (SOURCES
 	src/color.cpp
 	src/matrix2.cpp
 	src/modules.cpp
+	src/module_manager.cpp
 	src/geom_primitive.cpp
 )
 

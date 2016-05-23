@@ -74,6 +74,10 @@ ModuleBase::ProcessResult AsyncModule::runModule(unsigned flags) {
 	return KPR_RUNNING;
 }
 
+ModuleBase::ProcessResult IdentityModule::moduleImplementation(unsigned flags) {
+	return ModuleBase::KPR_OK;
+}
+
 ModuleBase::ProcessResult NegativeModule::moduleImplementation(unsigned flags) {
 	auto negativePix = [](Color a) -> Color {
 		return Color(255, 255, 255) - a;

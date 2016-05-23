@@ -3,6 +3,8 @@
 
 #include <wx/wx.h>
 
+#include "module_manager.h"
+
 class ModePanel;
 
 class WinIDProvider {
@@ -56,16 +58,8 @@ public:
 		MID_VF_CNT_RANGE_END,
 
 		MID_VF_MODES_RANGE_START,
-		MID_VF_NEGATIVE,
-		MID_VF_TEXT_SEGMENTATION,
-		MID_VF_SINOSOID,
-		MID_VF_HOUGH_RO_THETA,
-		MID_VF_ROTATION,
-		MID_VF_HISTOGRAMS,
-		MID_VF_THRESHOLD,
-		MID_VF_FILTER,
-		MID_VF_DOWNSCALE,
-		MID_VF_MODES_RANGE_END,
+		// ... this ids will be used for creating modules for single input/output
+		MID_VF_MODES_RANGE_END = MID_VF_MODES_RANGE_START + ModuleId::M_COUNT + 1,
 
 		MID_VF_TIMER,
 
@@ -77,8 +71,6 @@ private:
 	static const wxItemKind controlKinds[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // kinds of controls
 	wxMenuItem * controls[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // an array with all the controls
 
-	static const wxString modeNames[MID_VF_MODES_RANGE_END - MID_VF_MODES_RANGE_START - 1]; // name of the modes supported
-
 	// some layout constants
 	static const wxSize vfMinSize;
 	static const wxSize vfInitSize;
@@ -89,6 +81,8 @@ private:
 	wxMenuItem * fileOpen;
 	wxMenuItem * fileSave;
 	wxTimer refreshTimer;
+
+	ModuleFactory moduleFactory;
 };
 
 #endif // __GUIMAIN_H__

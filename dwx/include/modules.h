@@ -102,6 +102,11 @@ protected:
 	virtual void setOutput() const override {}
 };
 
+class IdentityModule : public SimpleModule {
+public:
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class NegativeModule : public SimpleModule {
 public:
 	// starts the module process (still havent thought of decent flags, but multithreaded is a candidate :)
