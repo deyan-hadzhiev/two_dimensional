@@ -57,6 +57,7 @@ public:
 		MID_VF_CNT_HISTOGRAM,
 		MID_VF_CNT_RANGE_END,
 
+		MID_VF_MULTI_MODULE_SWITCH, //!< switches between mutli and single module
 		MID_VF_MODES_RANGE_START,
 		// ... this ids will be used for creating modules for single input/output
 		MID_VF_MODES_RANGE_END = MID_VF_MODES_RANGE_START + ModuleId::M_COUNT + 1,
@@ -83,6 +84,7 @@ private:
 	wxTimer refreshTimer;
 
 	ModuleFactory moduleFactory;
+	bool multiModuleMode;
 };
 
 #endif // __GUIMAIN_H__

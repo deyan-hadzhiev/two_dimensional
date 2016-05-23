@@ -70,6 +70,7 @@ ViewFrame::ViewFrame(const wxString& title)
 	, fileOpen(nullptr)
 	, fileSave(nullptr)
 	, refreshTimer(this, MID_VF_TIMER)
+	, multiModuleMode(false)
 {
 	SetMinClientSize(vfMinSize);
 
@@ -92,6 +93,10 @@ ViewFrame::ViewFrame(const wxString& title)
 	Connect(wxID_EXIT, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnQuit));
 
 	wxMenu * modes = new wxMenu;
+	// append the multi module switch first
+	modes->Append(MID_VF_MULTI_MODULE_SWITCH, wxT("Multi-module mode"), wxT("Switch between single and multi module modes"), wxITEM_CHECK);
+	Connect(MID_VF_MULTI_MODULE_SWITCH, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
+	modes->AppendSeparator();
 	for (unsigned modei = MID_VF_MODES_RANGE_START + 1; modei < MID_VF_MODES_RANGE_END; ++modei) {
 		modes->Append(modei, MODULE_DESC[modei - MID_VF_MODES_RANGE_START - 1].fullName);
 		Connect(modei, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
@@ -130,31 +135,49 @@ void ViewFrame::OnQuit(wxCommandEvent &) {
 
 void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	wxImage lastInputImage;
-	if (mPanel) {
+	if (mPanel && !multiModuleMode) {
 		lastInputImage = mPanel->getLastInput();
 		mPanel->Destroy();
 		mPanel = nullptr;
 		setCustomStyle(VFS_NOTHING_ENABLED);
 	}
+	if (MID_VF_MULTI_MODULE_SWITCH == ev.GetId()) {
+		multiModuleMode = !multiModuleMode;
+		if (multiModuleMode) {
+			if (mPanel) {
+				mPanel->Destroy();
+				setCustomStyle(VFS_NOTHING_ENABLED);
+			}
+			mPanel = new MultiModuleMode(this, &moduleFactory);
+			SetStatusText(wxT("Using multi module mode"));
+		} else {
+			SetStatusText(wxT("Using single module mode"));
+		}
+	}
 	const int modeId = ev.GetId() - MID_VF_MODES_RANGE_START - 1;
 	if (modeId > ModuleId::M_VOID && modeId < ModuleId::M_COUNT) {
 		const ModuleDescription& md = MODULE_DESC[modeId];
-		SetStatusText(wxString(wxT("Using ")) + md.fullName + wxString(wxT(" module")));
-		// TODO maybe don't clear if in mutli module mode
-		moduleFactory.clear();
-		ModuleBase * module = moduleFactory.getModule(md.id);
-		if (module) {
-			if (md.inputs == 0) {
-				mPanel = new GeometricOutput(this, module);
-			} else if (md.inputs == 1) {
-				mPanel = new InputOutputMode(this, module);
-			}
-			mPanel->setInput(lastInputImage);
+		if (multiModuleMode) {
+			SetStatusText(wxString(wxT("Adding ")) + md.fullName + wxString(wxT(" module")));
+			mPanel->addModule(md.id);
 		} else {
-			SetStatusText(wxT("[ERROR] Could not create module!"));
+			SetStatusText(wxString(wxT("Using ")) + md.fullName + wxString(wxT(" module")));
+			// TODO maybe don't clear if in mutli module mode
+			moduleFactory.clear();
+			ModuleBase * module = moduleFactory.getModule(md.id);
+			if (module) {
+				if (md.inputs == 0) {
+					mPanel = new GeometricOutput(this, module);
+				} else if (md.inputs == 1) {
+					mPanel = new InputOutputMode(this, module);
+					mPanel->setInput(lastInputImage);
+				}
+			} else {
+				SetStatusText(wxT("[ERROR] Could not create module!"));
+			}
 		}
 	} else {
-		SetStatusText(wxT("[ERROR] Unknown on unavailable module!"));
+		SetStatusText(wxT("[ERROR] Unknown or unavailable module!"));
 	}
 	Update();
 	Refresh();

@@ -205,3 +205,10 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	}
 }
+
+MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
+	: ModePanel(vf, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE)
+	, moduleFactory(mf)
+{
+	moduleFactory->clear();
+}

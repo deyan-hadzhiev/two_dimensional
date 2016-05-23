@@ -9,6 +9,7 @@
 #include "wx_param_panel.h"
 #include "module_base.h"
 #include "geom_primitive.h"
+#include "module_manager.h"
 
 class ViewFrame;
 
@@ -26,6 +27,8 @@ public:
 	}
 
 	virtual void setInput(const wxImage& input) {}
+
+	virtual void addModule(ModuleId mid) {}
 
 	wxString getCbString() const;
 
@@ -67,6 +70,14 @@ public:
 protected:
 	ModuleBase * module;
 	ImagePanel * outputPanel;
+};
+
+class MultiModuleMode : public ModePanel {
+public:
+	MultiModuleMode(ViewFrame * vf, ModuleFactory * mf);
+
+protected:
+	ModuleFactory * moduleFactory;
 };
 
 #endif // __WX_MODES_H__
