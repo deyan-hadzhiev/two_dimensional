@@ -3,6 +3,7 @@
 
 #include "wx_bitmap_canvas.h"
 #include "util.h"
+#include "drect.h"
 
 const int BitmapCanvas::minZoom = -8;
 const int BitmapCanvas::maxZoom = 16;
@@ -15,8 +16,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 	, zoomLvlDelta(0)
 	, mousePos(0, 0)
 	, updatedMousePos(0, 0)
-	, bmpRect(0, 0, 0, 0)
-	, canvasRect(0, 0, 0, 0)
+	, view(0.0f, 0.0f, 0.0f, 0.0f)
 	, canvasState(CS_DIRTY_FULL)
 	, topFrame(topFrame)
 	, bmpId(0)
@@ -64,19 +64,18 @@ void BitmapCanvas::updateStatus() const {
 		//focusStr.Printf(wxT("bmp: ( %4d, %4d) screen: ( %4d, %4d)"), mouseBmp.x, mouseBmp.y, screenPos.x, screenPos.y);
 		//topFrame->SetStatusText(focusStr);
 		wxString posStr;
-		const wxPoint mouseBmp = convertScreenToBmp(mousePos);
-		posStr.Printf(wxT("Screen x: %4d y: %4d Bmp x: %4d y: %4d"), mousePos.x, mousePos.y, mouseBmp.x, mouseBmp.y);
+		const Vector2 mouseBmp = convertScreenToBmp(mousePos);
+		posStr.Printf(wxT("Screen x: %4d y: %4d Bmp x: %7.2f y: %7.2f"), mousePos.x, mousePos.y, mouseBmp.x, mouseBmp.y);
 		topFrame->SetStatusText(posStr, 1);
 		wxString rectStr;
-		rectStr.Printf(wxT("bmpRect(%d, %d, %d, %d) w: %d, h: %d"),
-			bmpRect.x, bmpRect.y, bmpRect.width, bmpRect.height,
+		rectStr.Printf(wxT("view(%7.2f, %7.2f, %7.2f, %7.2f) w: %d, h: %d"),
+			view.x, view.y, view.width, view.height,
 			bmp.GetWidth(), bmp.GetHeight()
 			);
 		topFrame->SetStatusText(rectStr, 2);
 		wxString canvStr;
-		canvStr.Printf(wxT("zoom: %d canvas(%d, %d, %d, %d) w: %d, h: %d"),
+		canvStr.Printf(wxT("zoom: %d canvas w: %d, h: %d"),
 			zoomLvl,
-			canvasRect.x, canvasRect.y, canvasRect.width, canvasRect.height,
 			canvas.GetWidth(), canvas.GetHeight());
 		topFrame->SetStatusText(canvStr, 3);
 	}/* else {
@@ -89,36 +88,36 @@ void BitmapCanvas::recalcBmpRectSize() {
 	const wxSize scaledBmpSize = scale(bmp.GetSize());
 	// with little hakz for the downscaling to avoid performance issues
 	// always have the full bmp stored on downscales
-	if (panelSize.GetWidth() >= scaledBmpSize.GetWidth() || zoomLvl < 0) {
-		bmpRect.width = bmp.GetWidth();
+	if (panelSize.GetWidth() >= scaledBmpSize.GetWidth()) {
+		view.width = static_cast<float>(bmp.GetWidth());
 		bmpClip.x = panelSize.GetWidth() < scaledBmpSize.GetWidth();
 	} else {
-		bmpRect.width = std::min(unscale(panelSize.GetWidth()) + 2, bmp.GetWidth());
+		view.width = std::min(unscale(static_cast<float>(panelSize.GetWidth())), static_cast<float>(bmp.GetWidth()));
 		bmpClip.x = true;
 	}
-	DASSERT(bmpRect.width <= bmp.GetSize().GetWidth());
-	if (panelSize.GetHeight() >= scaledBmpSize.GetHeight() || zoomLvl < 0) {
-		bmpRect.height = bmp.GetHeight();
+	DASSERT(view.width <= bmp.GetWidth());
+	if (panelSize.GetHeight() >= scaledBmpSize.GetHeight()) {
+		view.height = static_cast<float>(bmp.GetHeight());
 		bmpClip.y = panelSize.GetHeight() < scaledBmpSize.GetHeight();
 	} else {
-		bmpRect.height = std::min(unscale(panelSize.GetHeight()) + 2, bmp.GetHeight());
+		view.height = std::min(unscale(static_cast<float>(panelSize.GetHeight())), static_cast<float>(bmp.GetHeight()));
 		bmpClip.y = true;
 	}
-	DASSERT(bmpRect.height <= bmp.GetSize().GetHeight());
+	DASSERT(view.height <= bmp.GetHeight());
 }
 
 void BitmapCanvas::resetBmpRectPos() {
-	bmpRect.x = (bmpClip.x ? (bmp.GetWidth() - bmpRect.width) / 2 : 0);
-	DASSERT(bmpRect.x >= 0);
-	bmpRect.y = (bmpClip.y ? (bmp.GetHeight() - bmpRect.height) / 2 : 0);
-	DASSERT(bmpRect.y >= 0);
+	view.x = (bmpClip.x ? (static_cast<float>(bmp.GetWidth()) - view.width) / 2 : 0.0f);
+	DASSERT(view.x >= 0);
+	view.y = (bmpClip.y ? (static_cast<float>(bmp.GetHeight()) - view.height) / 2 : 0.0f);
+	DASSERT(view.y >= 0);
 }
 
-void BitmapCanvas::recalcBmpRectPos(wxPoint p, const wxRect& prevRect) {
-	bmpRect.x = (bmpClip.x ? p.x - ((p.x - prevRect.x) * bmpRect.width ) / (prevRect.width ) : 0);
-	bmpRect.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * bmpRect.height) / (prevRect.height) : 0);
-	bmpRect.x = clamp(bmpRect.x, 0, bmp.GetWidth()  - bmpRect.width - 1 );
-	bmpRect.y = clamp(bmpRect.y, 0, bmp.GetHeight() - bmpRect.height - 1);
+void BitmapCanvas::recalcBmpRectPos(Vector2 p, const Rect& prevRect) {
+	view.x = (bmpClip.x ? p.x - ((p.x - prevRect.x) * view.width ) / (prevRect.width ) : 0);
+	view.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * view.height) / (prevRect.height) : 0);
+	view.x = clamp(view.x, 0.0f, static_cast<float>(bmp.GetWidth())  - view.width - 1 );
+	view.y = clamp(view.y, 0.0f, static_cast<float>(bmp.GetHeight()) - view.height - 1);
 #if 0 // this was the alternative idea with making calculations based on the screen center - doesn't work...
 	const wxPoint cp((prevRect.x + prevRect.width) / 2, (prevRect.y + prevRect.height) / 2);
 	const wxPoint delta = cp - p;
@@ -129,10 +128,6 @@ void BitmapCanvas::recalcBmpRectPos(wxPoint p, const wxRect& prevRect) {
 #endif
 }
 
-void BitmapCanvas::recalcCanvasRectSize() {
-	canvasRect.width = (bmpClip.x ? panelSize.GetWidth() : scale(bmpRect.width));
-	canvasRect.height = (bmpClip.y ? panelSize.GetHeight() : scale(bmpRect.height));
-}
 #if 0
 void BitmapCanvas::addSynchronizer(BitmapCanvas * s) {
 	synchronizers.push_back(s);
@@ -154,37 +149,31 @@ void BitmapCanvas::synchronize() {
 }
 #endif // disabled
 
-void BitmapCanvas::resetCanvasRectPos() {
-	const wxSize scaledBmpRectSize = scale(bmpRect.GetSize());
-	canvasRect.x = (bmpClip.x ? (scaledBmpRectSize.GetWidth() - canvasRect.width) / 2 : 0);
-	canvasRect.y = (bmpClip.y ? (scaledBmpRectSize.GetHeight() - canvasRect.height) / 2 : 0);
-}
-
 wxPoint BitmapCanvas::getCanvasTopLeftInScreen() const {
 	return wxPoint(
-		(bmpClip.x ? 0 : (panelSize.GetWidth() - canvasRect.width) / 2),
-		(bmpClip.y ? 0 : (panelSize.GetHeight() - canvasRect.height) / 2)
+		(bmpClip.x ? 0 : (panelSize.GetWidth() - static_cast<int>(scale(view.getWidth()))) / 2),
+		(bmpClip.y ? 0 : (panelSize.GetHeight() - static_cast<int>(scale(view.getHeight()))) / 2)
 		);
 }
 
-wxPoint BitmapCanvas::convertScreenToBmp(const wxPoint in) const {
-	const wxPoint unscaled = unscale(in - getCanvasTopLeftInScreen() + canvasRect.GetTopLeft());
-	const wxPoint bmpCoord = bmpRect.GetTopLeft() + unscaled;
-	return wxPoint(
-		clamp(bmpCoord.x, -1, bmp.GetWidth()),
-		clamp(bmpCoord.y, -1, bmp.GetHeight())
+Vector2 BitmapCanvas::convertScreenToBmp(const wxPoint& in) const {
+	const Vector2 unscaled = unscale(Convert::vector(in - getCanvasTopLeftInScreen()));
+	const Vector2 bmpCoord = view.getTopLeft() + unscaled;
+	return Vector2(
+		clamp(bmpCoord.x, -1.0f, static_cast<float>(bmp.GetWidth())),
+		clamp(bmpCoord.y, -1.0f, static_cast<float>(bmp.GetHeight()))
 		);
 }
 
-wxPoint BitmapCanvas::convertBmpToScreen(const wxPoint in) const {
-	const wxPoint clippedBmpCoord = in - bmpRect.GetTopLeft();
-	wxPoint scaled = scale(clippedBmpCoord);
-	const wxPoint canvasTopLeft = getCanvasTopLeftInScreen() + canvasRect.GetTopLeft();
-	scaled.x += (bmpClip.x ? -canvasRect.x : canvasTopLeft.x);
-	scaled.y += (bmpClip.y ? -canvasRect.y : canvasTopLeft.y);
+wxPoint BitmapCanvas::convertBmpToScreen(const Vector2& in) const {
+	const Vector2 clippedBmpCoord = in - view.getTopLeft();
+	Vector2 scaled = scale(clippedBmpCoord);
+	const wxPoint canvasTopLeft = getCanvasTopLeftInScreen();// + canvasRect.GetTopLeft();
+	scaled.x += (bmpClip.x ? 0.0f : canvasTopLeft.x);
+	scaled.y += (bmpClip.y ? 0.0f : canvasTopLeft.y);
 	return wxPoint(
-		clamp(scaled.x, -1, panelSize.GetWidth()),
-		clamp(scaled.y, -1, panelSize.GetHeight())
+		clamp(static_cast<int>(roundf(scaled.x)), -1, panelSize.GetWidth()),
+		clamp(static_cast<int>(roundf(scaled.y)), -1, panelSize.GetHeight())
 		);
 }
 
@@ -192,10 +181,10 @@ void BitmapCanvas::remapCanvas() {
 	if (canvasState == CS_CLEAN || bmp.GetWidth() == 0 || bmp.GetHeight() == 0)
 		return;
 	// first obtain all necessary previus state stuff before zoom level changes
-	bmpRect.x = clamp(bmpRect.x, 0, bmp.GetWidth() - bmpRect.width - 1);
-	bmpRect.y = clamp(bmpRect.y, 0, bmp.GetHeight() - bmpRect.height - 1);
-	const wxRect prevBmpRect = bmpRect;
-	const wxPoint bmpMousePos = convertScreenToBmp(mousePos);
+	view.x = clamp(view.x, 0.0f, static_cast<float>(bmp.GetWidth())  - view.width - 1);
+	view.y = clamp(view.y, 0.0f, static_cast<float>(bmp.GetHeight()) - view.height - 1);
+	const Rect prevBmpRect = view;
+	const Vector2 bmpMousePos = convertScreenToBmp(mousePos);
 	// now update zoom if necessary
 	if ((canvasState & CS_DIRTY_ZOOM) != 0 && 0 != zoomLvlDelta) {
 		zoomLvl += zoomLvlDelta;
@@ -204,36 +193,30 @@ void BitmapCanvas::remapCanvas() {
 	}
 	if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
 		recalcBmpRectSize();
-		recalcCanvasRectSize();
 	}
 	if (canvasState == CS_DIRTY_FULL) {
-		// todo change with preserved point for convenience
 		resetBmpRectPos();
-		resetCanvasRectPos();
 	} else {
 		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
-			const wxPoint absolutePreserve = ((canvasState & CS_DIRTY_ZOOM) != 0 ?
+			const Vector2 absolutePreserve = ((canvasState & CS_DIRTY_ZOOM) != 0 ?
 				bmpMousePos :
-				wxPoint(
-					(prevBmpRect.x + prevBmpRect.width) / 2,
-					(prevBmpRect.y + prevBmpRect.height) / 2
+				Vector2( // TODO - fix center on size changes
+					(prevBmpRect.x + prevBmpRect.width  + (prevBmpRect.width  - view.width ) / 2.0f) / 2.0f,
+					(prevBmpRect.y + prevBmpRect.height + (prevBmpRect.height - view.height) / 2.0f) / 2.0f
 					)
 				);
 			recalcBmpRectPos(absolutePreserve, prevBmpRect);
-			//const wxPoint screenFocusPos = convertBmpToScreen(absolutePreserve);
-			//const wxPoint fixDiff = scale(screenFocusPos - mousePos);
-			//canvasRect.SetTopLeft(fixDiff);
-			resetCanvasRectPos();
 		} else {
 			// maybe move ?
 		}
 	}
-	if (bmpRect.width != bmp.GetWidth() || bmpRect.height != bmp.GetHeight() || zoomLvl != 0) {
+	const Size2d bmpSize = Convert::size(bmp.GetSize());
+	if (view.getSize() != bmpSize || zoomLvl != 0) {
 		if (zoomLvl == 0) {
-			canvas = bmp.GetSubBitmap(bmpRect);
+			canvas = bmp.GetSubBitmap(Convert::rect(view));
 		} else if (zoomLvl > 0) {
 			const int scale = zoomLvl + 1;
-			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
+			wxBitmap subBmp = bmp.GetSubBitmap(Convert::rect(view));
 			const wxSize scaledSize = this->scale(subBmp.GetSize());
 			const int width = subBmp.GetWidth();
 			const int height = subBmp.GetHeight();
@@ -259,10 +242,10 @@ void BitmapCanvas::remapCanvas() {
 				}
 			}
 			canvas = wxBitmap(scaledImg);
-		} else if (scale(bmpRect.GetSize()) != canvas.GetSize()) {
+		} else {
 			const int scale = -zoomLvl + 1;
 			const int scaleSqr = scale * scale;
-			wxBitmap subBmp = bmp.GetSubBitmap(bmpRect);
+			wxBitmap subBmp = bmp.GetSubBitmap(Convert::rect(view));
 			const wxSize scaledSize = this->scale(subBmp.GetSize());
 			const int unscaledWidth = subBmp.GetWidth();
 			const int width = scaledSize.GetWidth();
@@ -303,10 +286,13 @@ void BitmapCanvas::remapCanvas() {
 void BitmapCanvas::OnPaint(wxPaintEvent& evt) {
 	wxBufferedPaintDC dc(this);
 	remapCanvas();
-	const wxPoint drawPos(getCanvasTopLeftInScreen() - canvasRect.GetTopLeft());
+	const Vector2 offset = Vector2(floorf(view.x) - view.x, floorf(view.y) - view.y);
+	const wxPoint scaledOffset = Convert::vector(scale(offset));
+	const wxPoint canvasPos = getCanvasTopLeftInScreen();
+	const wxPoint drawPos = scaledOffset + canvasPos;
 	dc.DrawBitmap(canvas, drawPos);
 
-	drawFill(dc, canvasRect.GetSize(), canvasRect.GetTopLeft() + drawPos);
+	drawFill(dc, canvas.GetSize(), drawPos);
 }
 
 void BitmapCanvas::drawFill(wxBufferedPaintDC & pdc, const wxSize & bmpSize, const wxPoint & bmpCoord) {

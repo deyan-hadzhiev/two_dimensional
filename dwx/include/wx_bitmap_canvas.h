@@ -10,6 +10,52 @@
 
 #include "bitmap.h"
 #include "kernel_base.h"
+#include "drect.h"
+
+namespace Convert {
+	inline wxPoint vector(const Vector2& v) {
+		return wxPoint(
+			static_cast<int>(roundf(v.x)),
+			static_cast<int>(roundf(v.y))
+		);
+	}
+	inline Vector2 vector(const wxPoint& p) {
+		return Vector2(
+			static_cast<float>(p.x),
+			static_cast<float>(p.y)
+		);
+	}
+	inline wxSize size(const Size2d& sz) {
+		return wxSize(
+			static_cast<int>(sz.getWidth()),
+			static_cast<int>(sz.getHeight())
+		);
+	}
+	inline Size2d size(const wxSize& sz) {
+		return Size2d(
+			static_cast<float>(sz.GetWidth()),
+			static_cast<float>(sz.GetHeight())
+		);
+	}
+	inline wxRect rect(const Rect& r) {
+		const float fx = floorf(r.x);
+		const float fy = floorf(r.y);
+		return wxRect(
+			static_cast<int>(fx),
+			static_cast<int>(fy),
+			static_cast<int>(ceilf(r.width + (r.x - fx))),
+			static_cast<int>(ceilf(r.height + (r.y - fy)))
+		);
+	}
+	inline Rect rect(const wxRect& r) {
+		return Rect(
+			static_cast<float>(r.x),
+			static_cast<float>(r.y),
+			static_cast<float>(r.width),
+			static_cast<float>(r.height)
+		);
+	}
+}
 
 // TODO make it a base class and split the input and output - if it makes sense
 class BitmapCanvas : public wxPanel {
@@ -47,9 +93,7 @@ private:
 	// new zooming functions
 	void recalcBmpRectSize(); //!< must have a valid bmp loaded
 	void resetBmpRectPos(); //!< resets the position of the rect to be centralized
-	void recalcBmpRectPos(wxPoint p, const wxRect& prevRect); //!< recalculates the rect position preserving the specified relative position (in bmp coords)
-	void recalcCanvasRectSize(); //!< recalculates the size of the canvas rect
-	void resetCanvasRectPos(); //!< resets the position of the canvas to be centralized on the panel
+	void recalcBmpRectPos(Vector2 p, const Rect& prevRect); //!< recalculates the rect position preserving the specified relative position (in bmp coords)
 
 	template<class Scalable>
 	Scalable scale(Scalable input) const {
@@ -73,8 +117,8 @@ private:
 		}
 	}
 	wxPoint getCanvasTopLeftInScreen() const; //!< returns the current screen coordinates of the top left corner of the canvas
-	wxPoint convertScreenToBmp(const wxPoint in) const; //!< convert screen to bmp coordinates (may return out of bounds!)
-	wxPoint convertBmpToScreen(const wxPoint in) const; //!< convert bmp to screen coordinates (may return out of bounds!)
+	Vector2 convertScreenToBmp(const wxPoint& in) const; //!< convert screen to bmp coordinates (may return out of bounds!)
+	wxPoint convertBmpToScreen(const Vector2& in) const; //!< convert bmp to screen coordinates (may return out of bounds!)
 	// remaps the current canvas to the new as specified by the zoomLvl
 	// NOTE: Call only when necessary!
 	void remapCanvas();
@@ -91,8 +135,7 @@ private:
 	static const int minZoom; //!< minimum zoom level supported
 	wxPoint mousePos; //!< the current pointer position
 	wxPoint updatedMousePos; //!< the last position of the mouse that was considered (only update in the remapping function)
-	wxRect bmpRect; //!< the currently seen rect from the bitmap in bmp coordinates
-	wxRect canvasRect; //!< the current canvas position and size
+	Rect view; //!< The currently seen rect from the bitmap in bmp coordinates
 
 	int bmpId;
 	wxBitmap bmp;

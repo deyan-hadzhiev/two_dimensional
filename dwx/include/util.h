@@ -16,6 +16,8 @@
 #define DASSERT(expr)
 #endif // DDEBUG
 
+static const float FEPS = 1e-8f;
+
 using uint64 = uint64_t;
 using uint32 = uint32_t;
 using uint16 = uint16_t;
