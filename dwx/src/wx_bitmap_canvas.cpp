@@ -224,7 +224,8 @@ void BitmapCanvas::boundFixView() {
 	} else if (view.x < 0.0f) {
 		view.x = 0.0f;
 	} else if (view.x + view.width >= static_cast<float>(bmp.GetWidth())) {
-		view.x = static_cast<float>(bmp.GetWidth()) - view.width;
+		view.width = ceilf(view.width);
+		view.x = roundf(static_cast<float>(bmp.GetWidth()) - view.width);
 	}
 	if (view.height >= static_cast<float>(bmp.GetHeight())) {
 		view.y = 0.0f;
@@ -233,7 +234,8 @@ void BitmapCanvas::boundFixView() {
 	} else if (view.y < 0.0f) {
 		view.y = 0.0f;
 	} else if (view.y + view.height >= static_cast<float>(bmp.GetHeight())) {
-		view.y = static_cast<float>(bmp.GetHeight()) - view.height;
+		view.height = ceilf(view.height);
+		view.y = roundf(static_cast<float>(bmp.GetHeight()) - view.height);
 	}
 }
 
