@@ -5,6 +5,105 @@
 #include "util.h"
 #include "drect.h"
 
+/************************************
+*          ImageRescaler            *
+*************************************/
+
+ImageRescaler::~ImageRescaler() {
+	clearCache();
+}
+
+void ImageRescaler::setBitmap(const wxBitmap & _bmp) {
+	clearCache();
+	bmp = _bmp;
+}
+
+wxBitmap ImageRescaler::getUpscaledSubBitmap(int scale, const wxRect & subRect, const wxSize& scaledSize) const {
+	wxBitmap subBmp = bmp.GetSubBitmap(subRect);
+	const int width = subRect.GetWidth();
+	const int height = subRect.GetHeight();
+	const int bpp = 3;
+	const int bppWidth = width * bpp;
+	const int rowScaledWidth = bppWidth * scale;
+	const wxImage sourceImg = subBmp.ConvertToImage();
+	wxImage scaledImg(scaledSize);
+	const unsigned char * srcData = sourceImg.GetData();
+	unsigned char * imgData = scaledImg.GetData();
+	for (int y = 0; y < height; ++y) {
+		// set a row
+		for (int x = 0; x < width; ++x) {
+			for (int s = 0; s < scale; ++s) {
+				imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 0] = srcData[y * bppWidth + x * bpp + 0];
+				imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 1] = srcData[y * bppWidth + x * bpp + 1];
+				imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 2] = srcData[y * bppWidth + x * bpp + 2];
+			}
+		}
+		// copy the row over the next scales
+		for (int s = 1; s < scale; ++s) {
+			memcpy(imgData + (y * scale + s) * rowScaledWidth, imgData + y * rowScaledWidth * scale, rowScaledWidth);
+		}
+	}
+	return wxBitmap(scaledImg);
+}
+
+wxBitmap ImageRescaler::getDownscaledSubBitmap(int scale, const wxRect & subRect) const {
+	wxBitmap * fullBmp = nullptr;
+	auto it = downscaleCache.find(scale);
+	if (it != downscaleCache.end()) {
+		fullBmp = it->second;
+	} else {
+		const int scaleSqr = scale * scale;
+		const wxSize scaledSize = bmp.GetSize() / scale;
+		const int unscaledWidth = bmp.GetWidth();
+		const int width = scaledSize.GetWidth();
+		const int height = scaledSize.GetHeight();
+		const int bpp = 3;
+		int accumulated[bpp] = { 0 };
+		const wxImage sourceImg = bmp.ConvertToImage();
+		wxImage scaledImg(scaledSize);
+		const unsigned char * srcData = sourceImg.GetData();
+		unsigned char * imgData = scaledImg.GetData();
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				memset(accumulated, 0, bpp * sizeof(accumulated[0]));
+				for (int s = 0; s < scaleSqr; ++s) {
+					const int row = s / scale;
+					const int column = s % scale;
+					accumulated[0] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 0];
+					accumulated[1] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 1];
+					accumulated[2] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 2];
+				}
+				for (int i = 0; i < bpp; ++i) {
+					accumulated[i] /= scaleSqr;
+				}
+				imgData[(y * width + x) * bpp + 0] = static_cast<unsigned char>(accumulated[0]);
+				imgData[(y * width + x) * bpp + 1] = static_cast<unsigned char>(accumulated[1]);
+				imgData[(y * width + x) * bpp + 2] = static_cast<unsigned char>(accumulated[2]);
+			}
+		}
+		wxBitmap * downscaledBmp = new wxBitmap(scaledImg);
+		downscaleCache[scale] = downscaledBmp;
+		fullBmp = downscaledBmp;
+	}
+	wxRect scaledSubRect = subRect;
+	scaledSubRect.x /= scale;
+	scaledSubRect.y /= scale;
+	scaledSubRect.width /= scale;
+	scaledSubRect.height /= scale;
+	return fullBmp->GetSubBitmap(scaledSubRect);
+}
+
+void ImageRescaler::clearCache() {
+	for (auto it = downscaleCache.begin(); it != downscaleCache.end(); ++it) {
+		delete it->second;
+	}
+	downscaleCache.clear();
+}
+
+/************************************
+*          BitmapCanvas             *
+*************************************/
+
 const int BitmapCanvas::minZoom = -8;
 const int BitmapCanvas::maxZoom = 16;
 
@@ -39,6 +138,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 
 void BitmapCanvas::setImage(const wxImage & img, int id) {
 	bmp = wxBitmap(img);
+	rescaler.setBitmap(bmp);
 	if (id == 0) {
 		int rndId = rand();
 		while (rndId == 0) {
@@ -84,13 +184,13 @@ void BitmapCanvas::updateStatus() const {
 	}*/
 }
 
-void BitmapCanvas::recalcBmpRectSize() {
+void BitmapCanvas::recalcViewSize() {
 	const wxSize scaledBmpSize = scale(bmp.GetSize());
 	// with little hakz for the downscaling to avoid performance issues
 	// always have the full bmp stored on downscales
 	if (panelSize.GetWidth() >= scaledBmpSize.GetWidth()) {
 		view.width = static_cast<float>(bmp.GetWidth());
-		bmpClip.x = panelSize.GetWidth() < scaledBmpSize.GetWidth();
+		bmpClip.x = false;
 	} else {
 		view.width = std::min(unscale(static_cast<float>(panelSize.GetWidth())), static_cast<float>(bmp.GetWidth()));
 		bmpClip.x = true;
@@ -98,7 +198,7 @@ void BitmapCanvas::recalcBmpRectSize() {
 	DASSERT(view.width <= bmp.GetWidth());
 	if (panelSize.GetHeight() >= scaledBmpSize.GetHeight()) {
 		view.height = static_cast<float>(bmp.GetHeight());
-		bmpClip.y = panelSize.GetHeight() < scaledBmpSize.GetHeight();
+		bmpClip.y = false;
 	} else {
 		view.height = std::min(unscale(static_cast<float>(panelSize.GetHeight())), static_cast<float>(bmp.GetHeight()));
 		bmpClip.y = true;
@@ -106,18 +206,39 @@ void BitmapCanvas::recalcBmpRectSize() {
 	DASSERT(view.height <= bmp.GetHeight());
 }
 
-void BitmapCanvas::resetBmpRectPos() {
+void BitmapCanvas::resetViewPos() {
 	view.x = (bmpClip.x ? (static_cast<float>(bmp.GetWidth()) - view.width) / 2 : 0.0f);
 	DASSERT(view.x >= 0);
 	view.y = (bmpClip.y ? (static_cast<float>(bmp.GetHeight()) - view.height) / 2 : 0.0f);
 	DASSERT(view.y >= 0);
 }
 
-void BitmapCanvas::recalcBmpRectPos(Vector2 p, const Rect& prevRect) {
+void BitmapCanvas::recalcViewPos(Vector2 p, const Rect& prevRect) {
 	view.x = (bmpClip.x ? p.x - ((p.x - prevRect.x) * view.width ) / (prevRect.width ) : 0);
 	view.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * view.height) / (prevRect.height) : 0);
 	view.x = clamp(view.x, 0.0f, static_cast<float>(bmp.GetWidth())  - view.width - 1 );
 	view.y = clamp(view.y, 0.0f, static_cast<float>(bmp.GetHeight()) - view.height - 1);
+}
+
+void BitmapCanvas::boundFixView() {
+	if (view.width >= static_cast<float>(bmp.GetWidth())) {
+		view.x = 0.0f;
+		view.width = static_cast<float>(bmp.GetWidth());
+		bmpClip.x = false;
+	} else if (view.x < 0.0f) {
+		view.x = 0.0f;
+	} else if (view.x + view.width >= static_cast<float>(bmp.GetWidth())) {
+		view.x = static_cast<float>(bmp.GetWidth()) - view.width;
+	}
+	if (view.height >= static_cast<float>(bmp.GetHeight())) {
+		view.y = 0.0f;
+		view.height = static_cast<float>(bmp.GetHeight());
+		bmpClip.y = false;
+	} else if (view.y < 0.0f) {
+		view.y = 0.0f;
+	} else if (view.y + view.height >= static_cast<float>(bmp.GetHeight())) {
+		view.y = static_cast<float>(bmp.GetHeight()) - view.height;
+	}
 }
 
 #if 0
@@ -184,13 +305,13 @@ void BitmapCanvas::remapCanvas() {
 		zoomLvlDelta = 0;
 	}
 	if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
-		recalcBmpRectSize();
+		recalcViewSize();
 	}
 	if (canvasState == CS_DIRTY_FULL) {
-		resetBmpRectPos();
+		resetViewPos();
 	} else {
 		if ((canvasState & CS_DIRTY_ZOOM) != 0) {
-			recalcBmpRectPos(bmpMousePos, prevBmpRect);
+			recalcViewPos(bmpMousePos, prevBmpRect);
 		} else if ((canvasState & CS_DIRTY_SIZE) != 0) {
 			const Vector2 halfDelta = Vector2(
 				prevBmpRect.width - view.width,
@@ -204,71 +325,21 @@ void BitmapCanvas::remapCanvas() {
 			updatedMousePos = mousePos;
 		}
 	}
+
 	const Size2d bmpSize = Convert::size(bmp.GetSize());
+	boundFixView(); // fix any bound errors
 	if (view.getSize() != bmpSize || zoomLvl != 0) {
 		if (zoomLvl == 0) {
 			canvas = bmp.GetSubBitmap(Convert::rect(view));
 		} else if (zoomLvl > 0) {
 			const int scale = zoomLvl + 1;
-			wxBitmap subBmp = bmp.GetSubBitmap(Convert::rect(view));
-			const wxSize scaledSize = this->scale(subBmp.GetSize());
-			const int width = subBmp.GetWidth();
-			const int height = subBmp.GetHeight();
-			const int bpp = 3;
-			const int bppWidth = width * bpp;
-			const int rowScaledWidth = bppWidth * scale;
-			const wxImage sourceImg = subBmp.ConvertToImage();
-			wxImage scaledImg(scaledSize);
-			const unsigned char * srcData = sourceImg.GetData();
-			unsigned char * imgData = scaledImg.GetData();
-			for (int y = 0; y < height; ++y) {
-				// set a row
-				for (int x = 0; x < width; ++x) {
-					for (int s = 0; s < scale; ++s) {
-						imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 0] = srcData[y * bppWidth + x * bpp + 0];
-						imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 1] = srcData[y * bppWidth + x * bpp + 1];
-						imgData[y * rowScaledWidth * scale + (x * scale + s) * bpp + 2] = srcData[y * bppWidth + x * bpp + 2];
-					}
-				}
-				// copy the row over the next scales
-				for (int s = 1; s < scale; ++s) {
-					memcpy(imgData + (y * scale + s) * rowScaledWidth, imgData + y * rowScaledWidth * scale, rowScaledWidth);
-				}
-			}
-			canvas = wxBitmap(scaledImg);
+			const wxRect subRect = Convert::rect(view);
+			const wxSize scaledSize = this->scale(subRect.GetSize());
+			canvas = rescaler.getUpscaledSubBitmap(scale, subRect, scaledSize);
 		} else {
 			const int scale = -zoomLvl + 1;
-			const int scaleSqr = scale * scale;
-			wxBitmap subBmp = bmp.GetSubBitmap(Convert::rect(view));
-			const wxSize scaledSize = this->scale(subBmp.GetSize());
-			const int unscaledWidth = subBmp.GetWidth();
-			const int width = scaledSize.GetWidth();
-			const int height = scaledSize.GetHeight();
-			const int bpp = 3;
-			int accumulated[bpp] = { 0 };
-			const wxImage sourceImg = subBmp.ConvertToImage();
-			wxImage scaledImg(scaledSize);
-			const unsigned char * srcData = sourceImg.GetData();
-			unsigned char * imgData = scaledImg.GetData();
-			for (int y = 0; y < height; ++y) {
-				for (int x = 0; x < width; ++x) {
-					memset(accumulated, 0, bpp * sizeof(accumulated[0]));
-					for (int s = 0; s < scaleSqr; ++s) {
-						const int row = s / scale;
-						const int column = s % scale;
-						accumulated[0] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 0];
-						accumulated[1] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 1];
-						accumulated[2] += srcData[((y * scale + row) * unscaledWidth) * bpp + (x * scale + column) * bpp + 2];
-					}
-					for (int i = 0; i < bpp; ++i) {
-						accumulated[i] /= scaleSqr;
-					}
-					imgData[(y * width + x) * bpp + 0] = static_cast<unsigned char>(accumulated[0]);
-					imgData[(y * width + x) * bpp + 1] = static_cast<unsigned char>(accumulated[1]);
-					imgData[(y * width + x) * bpp + 2] = static_cast<unsigned char>(accumulated[2]);
-				}
-			}
-			canvas = wxBitmap(scaledImg);
+			const wxRect subRect = Convert::rect(view);
+			canvas = rescaler.getDownscaledSubBitmap(scale, subRect);
 		}
 	} else {
 		canvas = bmp;

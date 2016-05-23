@@ -141,6 +141,23 @@ public:
 	inline void setBottomLeft(const Vector2& p) noexcept { setLeft(p.x); setBottom(p.y); }
 	inline void setLeftBottom(const Vector2& p) noexcept { setBottomLeft(p); }
 
+	inline Rect& intersect(const Rect& r) {
+		float x2 = getRight();
+		float y2 = getBottom();
+		if (x < r.x)
+			x = r.x;
+		if (y < r.y)
+			y = r.y;
+		if (x2 > r.getRight())
+			width = r.getRight() - x + 1.0f;
+		if (y2 > r.getBottom())
+			height = r.getBottom() - y + 1.0f;
+
+		if (width <= 0.0f || height <= 0.0f) {
+			width = height = 0.0f;
+		}
+		return *this;
+	}
 };
 
 #endif // __DRECT_H__

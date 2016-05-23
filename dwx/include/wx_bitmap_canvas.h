@@ -7,6 +7,7 @@
 #include <wx/vector.h>
 
 #include <mutex>
+#include <unordered_map>
 
 #include "bitmap.h"
 #include "kernel_base.h"
@@ -57,6 +58,29 @@ namespace Convert {
 	}
 }
 
+class BitmapCanvas;
+
+// a class for rescaling wxImage and wxBitmaps (roughly - no subpixel magics)
+// @note: the class keeps cache for downscaled images
+class ImageRescaler {
+public:
+	ImageRescaler() = default;
+	~ImageRescaler();
+	ImageRescaler(const ImageRescaler&) = delete;
+	ImageRescaler& operator=(const ImageRescaler&) = delete;
+
+	void setBitmap(const wxBitmap& _bmp);
+
+	wxBitmap getUpscaledSubBitmap(int scale, const wxRect& subRect, const wxSize& scaledSize) const;
+
+	wxBitmap getDownscaledSubBitmap(int scale, const wxRect& subRect) const;
+private:
+	void clearCache(); // manual deletion of cached elements
+
+	wxBitmap bmp;
+	mutable std::unordered_map<int, wxBitmap*> downscaleCache;
+};
+
 // TODO make it a base class and split the input and output - if it makes sense
 class BitmapCanvas : public wxPanel {
 	friend class ImagePanel;
@@ -91,9 +115,10 @@ private:
 		unsigned char any : 2;
 	} bmpClip;
 	// new zooming functions
-	void recalcBmpRectSize(); //!< must have a valid bmp loaded
-	void resetBmpRectPos(); //!< resets the position of the rect to be centralized
-	void recalcBmpRectPos(Vector2 p, const Rect& prevRect); //!< recalculates the rect position preserving the specified relative position (in bmp coords)
+	void recalcViewSize(); //!< must have a valid bmp loaded
+	void resetViewPos(); //!< resets the position of the rect to be centralized
+	void recalcViewPos(Vector2 p, const Rect& prevRect); //!< recalculates the rect position preserving the specified relative position (in bmp coords)
+	void boundFixView(); //!< Checks the bounds of the view and fixes them
 
 	template<class Scalable>
 	Scalable scale(Scalable input) const {
@@ -140,6 +165,7 @@ private:
 	int bmpId;
 	wxBitmap bmp;
 	wxBitmap canvas;
+	ImageRescaler rescaler; // for cached rescaling of downscaled images
 	//bool dirtyCanvas; //!< whether the current canvas is dirty and has to be updated from the bmp based on focus point and zoomLvl
 	enum CanvasState {
 		CS_CLEAN = 0,
