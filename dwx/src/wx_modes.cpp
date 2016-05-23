@@ -13,7 +13,7 @@
 #include "guimain.h"
 #include "wx_modes.h"
 #include "wx_bitmap_canvas.h"
-#include "kernels.h"
+#include "modules.h"
 #include "geom_primitive.h"
 
 ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
@@ -36,10 +36,10 @@ ModePanel::~ModePanel() {}
 
 wxString ModePanel::getCbString() const {
 	wxString statusText;
-	const std::string& kernelName = cb.getKernelName();
+	const std::string& moduleName = cb.getModuleName();
 	const float percentDone = cb.getPercentDone();
-	if (!kernelName.empty() && percentDone > 0.05f) {
-		statusText.Printf(wxT("%s : %6.2f %%"), kernelName.c_str(), percentDone);
+	if (!moduleName.empty() && percentDone > 0.05f) {
+		statusText.Printf(wxT("%s : %6.2f %%"), moduleName.c_str(), percentDone);
 	}
 	return statusText;
 }
@@ -48,12 +48,12 @@ const int ModePanel::panelBorder = 4;
 
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
 
-InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
+InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleModule * module)
 	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
 	, inputPanel(nullptr)
 	, outputPanel(nullptr)
 	, compareCanvas(nullptr)
-	, kernel(kernel)
+	, module(module)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
 	//inputCanvas = new BitmapCanvas(this, viewFrame);
@@ -74,8 +74,8 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
 	inputCanvas->SetBackgroundColour(bc);
 	outputCanvas->SetBackgroundColour(bc);
 
-	kernel->addInputManager(inputPanel);
-	kernel->addOutputManager(outputPanel);
+	module->addInputManager(inputPanel);
+	module->addOutputManager(outputPanel);
 
 	compareCanvas = new wxPanel(this);
 	canvasSizer->Add(compareCanvas, 1, wxEXPAND | wxALL, panelBorder);
@@ -86,8 +86,8 @@ InputOutputMode::InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel)
 }
 
 InputOutputMode::~InputOutputMode() {
-	if (kernel)
-		delete kernel;
+	if (module)
+		delete module;
 }
 
 void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
@@ -141,7 +141,7 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 	case (ViewFrame::MID_VF_CNT_RUN) :
 		cb.reset();
-		kernel->runKernel(0);
+		module->runModule(0);
 		break;
 	case (ViewFrame::MID_VF_CNT_STOP) :
 		cb.setAbortFlag();
@@ -162,9 +162,9 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
-GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
+GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricModule * gk)
 	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
-	, gkernel(gk)
+	, gmodule(gk)
 	, outputPanel(nullptr)
 {
 	wxBoxSizer * canvasSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -173,21 +173,21 @@ GeometricOutput::GeometricOutput(ViewFrame * vf, GeometricKernel * gk)
 	canvasSizer->Add(outputPanel, 1, wxSHRINK | wxEXPAND | wxALL, panelBorder);
 	mPanelSizer->Add(canvasSizer, 1, wxEXPAND, wxALL);
 
-	gkernel->addOutputManager(outputPanel);
-	//gkernel->addParamManager(paramPanel);
+	gmodule->addOutputManager(outputPanel);
+	//gmodule->addParamManager(paramPanel);
 
 	SendSizeEvent();
 }
 
 GeometricOutput::~GeometricOutput() {
-	delete gkernel;
+	delete gmodule;
 }
 
 void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	switch (ev.GetId())
 	{
 	case(ViewFrame::MID_VF_CNT_RUN) : {
-		gkernel->runKernel(0);
+		gmodule->runModule(0);
 		break;
 	}
 	default:
@@ -196,70 +196,70 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 }
 
 NegativePanel::NegativePanel(ViewFrame * viewFrame)
-	: InputOutputMode(viewFrame, new NegativeKernel)
+	: InputOutputMode(viewFrame, new NegativeModule)
 {
-	kernel->setProgressCallback(&cb);
+	module->setProgressCallback(&cb);
 }
 
 TextSegmentationPanel::TextSegmentationPanel(ViewFrame * vf)
-	: InputOutputMode(vf, new TextSegmentationKernel)
+	: InputOutputMode(vf, new TextSegmentationModule)
 {
-	kernel->setProgressCallback(&cb);
-	kernel->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addParamManager(paramPanel);
 
 	SendSizeEvent();
 }
 
 SinosoidPanel::SinosoidPanel(ViewFrame * vf)
-	: GeometricOutput(vf, new SinosoidKernel)
+	: GeometricOutput(vf, new SinosoidModule)
 {
-	gkernel->setProgressCallback(&cb);
-	gkernel->addParamManager(paramPanel);
+	gmodule->setProgressCallback(&cb);
+	gmodule->addParamManager(paramPanel);
 }
 
 HoughRoTheta::HoughRoTheta(ViewFrame * vf)
-	: InputOutputMode(vf, new HoughKernel)
+	: InputOutputMode(vf, new HoughModule)
 {
-	kernel->setProgressCallback(&cb);
+	module->setProgressCallback(&cb);
 }
 
 RotationPanel::RotationPanel(ViewFrame * vf)
-	: InputOutputMode(vf, new RotationKernel)
+	: InputOutputMode(vf, new RotationModule)
 {
-	kernel->setProgressCallback(&cb);
-	kernel->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addParamManager(paramPanel);
 
 	SendSizeEvent();
 }
 
 HistogramModePanel::HistogramModePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new HistogramKernel)
+	: InputOutputMode(vf, new HistogramModule)
 {
-	kernel->setProgressCallback(&cb);
-	kernel->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addParamManager(paramPanel);
 	SendSizeEvent();
 }
 
 ThresholdModePanel::ThresholdModePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new ThresholdKernel)
+	: InputOutputMode(vf, new ThresholdModule)
 {
-	kernel->setProgressCallback(&cb);
-	kernel->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addParamManager(paramPanel);
 	SendSizeEvent();
 }
 
 FilterModePanel::FilterModePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new FilterKernel)
+	: InputOutputMode(vf, new FilterModule)
 {
-	kernel->setProgressCallback(&cb);
-	kernel->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addParamManager(paramPanel);
 	SendSizeEvent();
 }
 
 DownScalePanel::DownScalePanel(ViewFrame * vf)
-	: InputOutputMode(vf, new DownScaleKernel)
+	: InputOutputMode(vf, new DownScaleModule)
 {
-	kernel->setProgressCallback(&cb);
-	kernel->addParamManager(paramPanel);
+	module->setProgressCallback(&cb);
+	module->addParamManager(paramPanel);
 	SendSizeEvent();
 }

@@ -157,11 +157,11 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 		mPanel = new TextSegmentationPanel(this);
 		break;
 	case(MID_VF_SINOSOID) :
-		SetStatusText(wxT("Using sinosoid geometric kernel"));
+		SetStatusText(wxT("Using sinosoid geometric module"));
 		mPanel = new SinosoidPanel(this);
 		break;
 	case(MID_VF_HOUGH_RO_THETA) :
-		SetStatusText(wxT("Using Ro Theta Hough kernel"));
+		SetStatusText(wxT("Using Ro Theta Hough module"));
 		mPanel = new HoughRoTheta(this);
 		break;
 	case(MID_VF_ROTATION) :

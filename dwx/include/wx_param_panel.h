@@ -7,7 +7,7 @@
 
 #include <unordered_map>
 
-#include "kernel_base.h"
+#include "module_base.h"
 #include "convolution.h"
 #include "wx_modes.h"
 
@@ -93,7 +93,7 @@ class ParamPanel : public wxPanel, public ParamManager {
 	std::unordered_map<int, wxCheckBox*> checkBoxMap;
 	std::unordered_map<int, CKernelPanel*> kernelMap;
 	std::unordered_map<int, wxChoice*> choiceMap;
-	std::unordered_map<const KernelBase*, wxBoxSizer*> kernelSizers;
+	std::unordered_map<const ModuleBase*, wxBoxSizer*> moduleSizers;
 
 	void createTextCtrl(const int id, const ParamDescriptor& pd);
 
@@ -103,8 +103,8 @@ class ParamPanel : public wxPanel, public ParamManager {
 
 	void createChoice(const int id, const ParamDescriptor& pd);
 
-	// will get the sizer associated with the kernel, or it will create a new one
-	wxBoxSizer * getKernelSizer(const KernelBase*);
+	// will get the sizer associated with the module, or it will create a new one
+	wxBoxSizer * getModuleSizer(const ModuleBase*);
 public:
 	ParamPanel(ModePanel * parent);
 

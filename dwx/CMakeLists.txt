@@ -33,8 +33,8 @@ set (HEADERS
 	include/wx_modes.h
 	include/wx_bitmap_canvas.h
 	include/wx_param_panel.h
-	include/kernel_base.h
-	include/kernels.h
+	include/module_base.h
+	include/modules.h
 	include/geom_primitive.h
 )
 
@@ -48,7 +48,7 @@ set (SOURCES
 	src/bitmap.cpp
 	src/color.cpp
 	src/matrix2.cpp
-	src/kernels.cpp
+	src/modules.cpp
 	src/geom_primitive.cpp
 )
 

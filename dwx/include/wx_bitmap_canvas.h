@@ -10,7 +10,7 @@
 #include <unordered_map>
 
 #include "bitmap.h"
-#include "kernel_base.h"
+#include "module_base.h"
 #include "drect.h"
 
 namespace Convert {
@@ -71,7 +71,7 @@ public:
 
 	void setBitmap(const wxBitmap& _bmp);
 
-	wxBitmap getUpscaledSubBitmap(int scale, const wxRect& subRect, const wxSize& scaledSize) const;
+	wxBitmap getUpscaledSubBitmap(int scale, const wxRect& subRect) const;
 
 	wxBitmap getDownscaledSubBitmap(int scale, const wxRect& subRect) const;
 private:
@@ -217,7 +217,7 @@ public:
 	// from InputManager
 	virtual bool getInput(Bitmap& inputBmp, int& id) const override;
 
-	virtual void kernelDone(KernelBase::ProcessResult result) override;
+	virtual void moduleDone(ModuleBase::ProcessResult result) override;
 
 	// from OutputManager
 	virtual void setOutput(const Bitmap& outputBmp, int id) override;

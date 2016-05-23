@@ -1,5 +1,5 @@
-#ifndef __KERNEL_BASE_H__
-#define __KERNEL_BASE_H__
+#ifndef __MODULE_BASE_H__
+#define __MODULE_BASE_H__
 
 #include <string>
 #include <atomic>
@@ -17,13 +17,13 @@ class ProgressCallback {
 	std::atomic<int> fractionsDone;
 	std::atomic<int> fractionMax;
 	mutable std::mutex nameMutex;
-	std::string kernelName;
+	std::string moduleName;
 public:
 	ProgressCallback()
 		: abortFlag(false)
 		, fractionsDone(0)
 		, fractionMax(1)
-		, kernelName("None")
+		, moduleName("None")
 	{}
 
 	void setAbortFlag() {
@@ -43,37 +43,37 @@ public:
 		return float(fractionsDone * 100) / fractionMax;
 	}
 
-	void setKernelName(const std::string& _kernelName) {
+	void setModuleName(const std::string& _moduleName) {
 		std::unique_lock<std::mutex> a(nameMutex);
-		kernelName = _kernelName;
+		moduleName = _moduleName;
 	}
 
-	std::string getKernelName() const {
+	std::string getModuleName() const {
 		std::unique_lock<std::mutex> a(nameMutex);
-		return kernelName;
+		return moduleName;
 	}
 
 	void reset() {
 		abortFlag = false;
 		fractionsDone = 0;
 		fractionMax = 1;
-		kernelName = std::string("None");
+		moduleName = std::string("None");
 	}
 };
 
-class KernelBase {
+class ModuleBase {
 protected:
 	unsigned flags;
 	ProgressCallback * cb;
 public:
-	virtual ~KernelBase() {}
+	virtual ~ModuleBase() {}
 	// adds an input manager (note there may be more than one (probably))
 	virtual void addInputManager(InputManager * iman) {}
 
 	// adds an output manager (probably not more than one, but who knows...)
 	virtual void addOutputManager(OutputManager * oman) {}
 
-	// adds a parameter manager for getting user parameters for the kernel
+	// adds a parameter manager for getting user parameters for the module
 	virtual void addParamManager(ParamManager * pman) {}
 
 	virtual void setProgressCallback(ProgressCallback * _cb) {
@@ -84,12 +84,12 @@ public:
 		return std::string("None");
 	}
 
-	// forces an update of the kernel
+	// forces an update of the module
 	virtual void update() {
-		runKernel(flags);
+		runModule(flags);
 	}
 
-	// sets kernel flags
+	// sets module flags
 	virtual void setFlags(unsigned _flags) {
 		flags = _flags;
 	}
@@ -102,8 +102,8 @@ public:
 		KPR_FATAL_ERROR,
 	};
 
-	// starts the kernel process (still havent thought of decent flags, but multithreaded is a candidate :)
-	virtual ProcessResult runKernel(unsigned flags) = 0;
+	// starts the module process (still havent thought of decent flags, but multithreaded is a candidate :)
+	virtual ProcessResult runModule(unsigned flags) = 0;
 
 	// interface for checking the status of processing
 	virtual int percentDone() {
@@ -117,8 +117,8 @@ public:
 	// provides a bitmap for processing
 	virtual bool getInput(Bitmap& inputBmp, int& id) const = 0;
 
-	// will be called immediately after the kernel is done
-	virtual void kernelDone(KernelBase::ProcessResult result) {}
+	// will be called immediately after the module is done
+	virtual void moduleDone(ModuleBase::ProcessResult result) {}
 };
 
 class OutputManager {
@@ -139,14 +139,14 @@ public:
 		PT_ENUM,
 		PT_CKERNEL,
 	} type;
-	KernelBase * kernel;
+	ModuleBase * module;
 	std::string name;
 	std::string defaultValue;
-	ParamDescriptor(KernelBase * _kernel = nullptr,
+	ParamDescriptor(ModuleBase * _module = nullptr,
 	                ParamType _type = ParamType::PT_NONE,
 	                const std::string& _name = std::string(),
 	                const std::string& _defaultValue = std::string("0"))
-		: kernel(_kernel)
+		: module(_module)
 		, type(_type)
 		, name(_name)
 		, defaultValue(_defaultValue)
@@ -181,8 +181,8 @@ public:
 		return false;
 	}
 
-	// adds a parameter to internal storage for type info and optionally updates to the kernel
+	// adds a parameter to internal storage for type info and optionally updates to the module
 	virtual void addParam(const ParamDescriptor& pd) = 0;
 };
 
-#endif
+#endif // __MODULE_BASE_H__

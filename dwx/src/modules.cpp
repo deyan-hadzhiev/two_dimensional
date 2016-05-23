@@ -3,38 +3,38 @@
 #include <utility>
 #include <algorithm>
 
-#include "kernels.h"
+#include "modules.h"
 #include "vector2.h"
 #include "matrix2.h"
 #include "util.h"
 #include "convolution.h"
 
-KernelBase::ProcessResult SimpleKernel::runKernel(unsigned flags) {
+ModuleBase::ProcessResult SimpleModule::runModule(unsigned flags) {
 	const bool hasInput = getInput();
-	KernelBase::ProcessResult retval;
+	ModuleBase::ProcessResult retval;
 	if (hasInput && bmp.isOK()) {
-		retval = kernelImplementation(flags);
-		if (KernelBase::KPR_OK == retval) {
+		retval = moduleImplementation(flags);
+		if (ModuleBase::KPR_OK == retval) {
 			setOutput();
 			if (iman)
-				iman->kernelDone(retval);
+				iman->moduleDone(retval);
 		}
 	} else {
-		retval = KernelBase::KPR_INVALID_INPUT;
+		retval = ModuleBase::KPR_INVALID_INPUT;
 	}
 	return retval;
 }
 
-void AsyncKernel::kernelLoop(AsyncKernel * k) {
+void AsyncModule::moduleLoop(AsyncModule * k) {
 	while(k->state != State::AKS_TERMINATED) {
-		std::unique_lock<std::mutex> lk(k->kernelMutex);
+		std::unique_lock<std::mutex> lk(k->moduleMutex);
 		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
 			k->ev.wait(lk);
 			State dirty = State::AKS_DIRTY;
 			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 		}
 		if (k->state != State::AKS_TERMINATED) {
-			k->kernelImplementation(0);
+			k->moduleImplementation(0);
 			// be carefull not to change the state!!!
 			State fin = State::AKS_RUNNING; // expected state
 			k->state.compare_exchange_weak(fin, State::AKS_FINISHED);
@@ -42,47 +42,47 @@ void AsyncKernel::kernelLoop(AsyncKernel * k) {
 	}
 }
 
-bool AsyncKernel::getAbortState() const {
+bool AsyncModule::getAbortState() const {
 	return
 		state == State::AKS_TERMINATED ||
 		state == State::AKS_DIRTY ||
 		(nullptr != cb && cb->getAbortFlag());
 }
 
-AsyncKernel::AsyncKernel()
+AsyncModule::AsyncModule()
 	: state(State::AKS_INIT)
-	, loopThread(kernelLoop, this)
+	, loopThread(moduleLoop, this)
 {}
 
-AsyncKernel::~AsyncKernel() {
+AsyncModule::~AsyncModule() {
 	state = State::AKS_TERMINATED;
 	ev.notify_one();
 	loopThread.join();
 }
 
-AsyncKernel::State AsyncKernel::getState() const {
+AsyncModule::State AsyncModule::getState() const {
 	return state;
 }
 
-void AsyncKernel::update() {
+void AsyncModule::update() {
 	state = State::AKS_DIRTY;
 	ev.notify_one();
 }
 
-KernelBase::ProcessResult AsyncKernel::runKernel(unsigned flags) {
+ModuleBase::ProcessResult AsyncModule::runModule(unsigned flags) {
 	update();
 	return KPR_RUNNING;
 }
 
-KernelBase::ProcessResult NegativeKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult NegativeModule::moduleImplementation(unsigned flags) {
 	auto negativePix = [](Color a) -> Color {
 		return Color(255, 255, 255) - a;
 	};
 	bmp.remap(negativePix);
-	return KernelBase::KPR_OK;
+	return ModuleBase::KPR_OK;
 }
 
-IntervalList TextSegmentationKernel::extractIntervals(const int * accumValues, const int count, int threshold) {
+IntervalList TextSegmentationModule::extractIntervals(const int * accumValues, const int count, int threshold) {
 	int firstOverThreshold = -1;
 	IntervalList list;
 	for (int i = 0; i < count; ++i) {
@@ -103,7 +103,7 @@ IntervalList TextSegmentationKernel::extractIntervals(const int * accumValues, c
 	return list;
 }
 
-KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult TextSegmentationModule::moduleImplementation(unsigned flags) {
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	int threshold = 25;
@@ -203,10 +203,10 @@ KernelBase::ProcessResult TextSegmentationKernel::kernelImplementation(unsigned 
 			}
 		}
 	}
-	return KernelBase::KPR_OK;
+	return ModuleBase::KPR_OK;
 }
 
-void GeometricKernel::setSize(int _width, int _height) {
+void GeometricModule::setSize(int _width, int _height) {
 	if (width != _width || height != _height) {
 		width = _width;
 		height = _height;
@@ -214,11 +214,11 @@ void GeometricKernel::setSize(int _width, int _height) {
 	}
 }
 
-void GeometricKernel::setColor(Color rgb) {
+void GeometricModule::setColor(Color rgb) {
 	col = rgb;
 }
 
-KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
+ModuleBase::ProcessResult GeometricModule::runModule(unsigned flags) {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
@@ -249,21 +249,21 @@ KernelBase::ProcessResult GeometricKernel::runKernel(unsigned flags) {
 	bmp = primitive->getBitmap();
 	setOutput();
 	if (iman)
-		iman->kernelDone(KPR_OK);
+		iman->moduleDone(KPR_OK);
 	return KPR_OK;
 }
 
-SinosoidKernel::SinosoidKernel()
-	: GeometricKernel(new Sinosoid<Color>)
+SinosoidModule::SinosoidModule()
+	: GeometricModule(new Sinosoid<Color>)
 {}
 
-KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult HoughModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
-		cb->setKernelName("Hough Rho Theta");
+		cb->setModuleName("Hough Rho Theta");
 	}
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
@@ -316,10 +316,10 @@ KernelBase::ProcessResult HoughKernel::kernelImplementation(unsigned flags) {
 		// so the maximum value has to be mapped to 255 -> multiply by 255 and divide by the max value
 		oman->setOutput(bmpOut, 1); // the zero is important
 	}
-	return KernelBase::KPR_OK;
+	return ModuleBase::KPR_OK;
 }
 
-KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
 		return KPR_INVALID_INPUT;
@@ -381,16 +381,16 @@ KernelBase::ProcessResult RotationKernel::kernelImplementation(unsigned flags) {
 	if (oman) {
 		oman->setOutput(bmpOut, 1);
 	}
-	return KernelBase::KPR_OK;
+	return ModuleBase::KPR_OK;
 }
 
-KernelBase::ProcessResult HistogramKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult HistogramModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
-		cb->setKernelName("Histogram");
+		cb->setModuleName("Histogram");
 	}
 	int outWidth = 512;
 	int outHeight = 255;
@@ -435,7 +435,7 @@ KernelBase::ProcessResult HistogramKernel::kernelImplementation(unsigned flags) 
 	return KPR_OK;
 }
 
-void HistogramKernel::drawIntensityHisto(Bitmap & histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const {
+void HistogramModule::drawIntensityHisto(Bitmap & histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const {
 	const Color fillColor = Color(0x70, 0x70, 0x70);
 	const Color bkgColor = Color(0x0f, 0x0f, 0x0f);
 	const Color maxColor = Color(0xa0, 0x0f, 0x0f);
@@ -467,13 +467,13 @@ void HistogramKernel::drawIntensityHisto(Bitmap & histBmp, const std::vector<uin
 	}
 }
 
-KernelBase::ProcessResult ThresholdKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult ThresholdModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
-		cb->setKernelName("Threshold");
+		cb->setModuleName("Threshold");
 	}
 	const int w = bmp.getWidth();
 	const int h = bmp.getHeight();
@@ -497,13 +497,13 @@ KernelBase::ProcessResult ThresholdKernel::kernelImplementation(unsigned flags) 
 	return KPR_OK;
 }
 
-KernelBase::ProcessResult FilterKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult FilterModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
-		cb->setKernelName("Filter");
+		cb->setModuleName("Filter");
 	}
 	const float blurKernel[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	ConvolutionKernel k(blurKernel, 3);
@@ -519,13 +519,13 @@ KernelBase::ProcessResult FilterKernel::kernelImplementation(unsigned flags) {
 	return KPR_OK;
 }
 
-KernelBase::ProcessResult DownScaleKernel::kernelImplementation(unsigned flags) {
+ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
-		cb->setKernelName("Downscale");
+		cb->setModuleName("Downscale");
 	}
 	int width = 0;
 	int height = 0;
@@ -546,7 +546,6 @@ KernelBase::ProcessResult DownScaleKernel::kernelImplementation(unsigned flags) 
 	} else if (3 == meduimType) {
 		res = bmp.downscale<TColor<double> >(out, width, height);
 	}
-	//state = AsyncKernel::State::AKS_FINISHED;
 	if (res) {
 		if (oman) {
 			oman->setOutput(out, 1);

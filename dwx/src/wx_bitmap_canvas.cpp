@@ -18,7 +18,8 @@ void ImageRescaler::setBitmap(const wxBitmap & _bmp) {
 	bmp = _bmp;
 }
 
-wxBitmap ImageRescaler::getUpscaledSubBitmap(int scale, const wxRect & subRect, const wxSize& scaledSize) const {
+wxBitmap ImageRescaler::getUpscaledSubBitmap(int scale, const wxRect & subRect) const {
+	const wxSize scaledSize(subRect.GetSize() * scale);
 	wxBitmap subBmp = bmp.GetSubBitmap(subRect);
 	const int width = subRect.GetWidth();
 	const int height = subRect.GetHeight();
@@ -336,8 +337,7 @@ void BitmapCanvas::remapCanvas() {
 		} else if (zoomLvl > 0) {
 			const int scale = zoomLvl + 1;
 			const wxRect subRect = Convert::rect(view);
-			const wxSize scaledSize = this->scale(subRect.GetSize());
-			canvas = rescaler.getUpscaledSubBitmap(scale, subRect, scaledSize);
+			canvas = rescaler.getUpscaledSubBitmap(scale, subRect);
 		} else {
 			const int scale = -zoomLvl + 1;
 			const wxRect subRect = Convert::rect(view);
@@ -633,8 +633,8 @@ bool ImagePanel::getInput(Bitmap & ibmp, int & id) const {
 	return retval;
 }
 
-void ImagePanel::kernelDone(KernelBase::ProcessResult result) {
-	if (result == KernelBase::KPR_OK) {
+void ImagePanel::moduleDone(ModuleBase::ProcessResult result) {
+	if (result == ModuleBase::KPR_OK) {
 		canvas->synchronize();
 	}
 }

@@ -6,8 +6,8 @@
 #include "guimain.h"
 #include "wx_bitmap_canvas.h"
 #include "wx_param_panel.h"
-#include "kernel_base.h"
-#include "kernels.h"
+#include "module_base.h"
+#include "modules.h"
 #include "geom_primitive.h"
 
 class ViewFrame;
@@ -33,7 +33,7 @@ protected:
 
 class InputOutputMode : public ModePanel {
 public:
-	InputOutputMode(ViewFrame * viewFrame, SimpleKernel * kernel);
+	InputOutputMode(ViewFrame * viewFrame, SimpleModule * module);
 	virtual ~InputOutputMode();
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
@@ -41,7 +41,7 @@ protected:
 	ImagePanel * inputPanel;
 	ImagePanel * outputPanel;
 	wxPanel * compareCanvas;
-	SimpleKernel * kernel;
+	SimpleModule * module;
 
 	//wxPanel * inputCanvas;
 	//wxPanel * outputCanvas;
@@ -50,13 +50,13 @@ protected:
 
 class GeometricOutput : public ModePanel {
 public:
-	GeometricOutput(ViewFrame * vf, GeometricKernel * gkernel);
+	GeometricOutput(ViewFrame * vf, GeometricModule * gmodule);
 	virtual ~GeometricOutput();
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 
 protected:
-	GeometricKernel * gkernel;
+	GeometricModule * gmodule;
 	ImagePanel * outputPanel;
 };
 

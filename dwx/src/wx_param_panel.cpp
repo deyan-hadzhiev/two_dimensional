@@ -275,7 +275,7 @@ void CKernelPanel::OnKernelChange(wxCommandEvent & evt) {
 }
 
 void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
-	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
+	wxBoxSizer * sizer = getModuleSizer(pd.module);
 	wxBoxSizer * vert = new wxBoxSizer(wxVERTICAL);
 	vert->Add(new wxStaticText(this, wxID_ANY, pd.name), 1, wxEXPAND | wxCENTER);
 	sizer->Add(vert, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
@@ -288,7 +288,7 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 }
 
 void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
-	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
+	wxBoxSizer * sizer = getModuleSizer(pd.module);
 	wxCheckBox * cb = new wxCheckBox(this, id, pd.name);
 	cb->SetValue(pd.defaultValue != "false" || pd.defaultValue != "0");
 	sizer->Add(cb, 1, wxEXPAND);
@@ -298,7 +298,7 @@ void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
 }
 
 void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
-	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
+	wxBoxSizer * sizer = getModuleSizer(pd.module);
 	CKernelPanel * ckp = new CKernelPanel(this, id, pd.name, pd.defaultValue);
 	sizer->Add(ckp, 1, wxEXPAND);
 	kernelMap[id] = ckp;
@@ -306,7 +306,7 @@ void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
 }
 
 void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
-	wxBoxSizer * sizer = getKernelSizer(pd.kernel);
+	wxBoxSizer * sizer = getModuleSizer(pd.module);
 	wxBoxSizer * labelSizer = new wxBoxSizer(wxVERTICAL);
 	labelSizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 1, wxEXPAND | wxCENTER);
 	sizer->Add(labelSizer, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
@@ -323,15 +323,15 @@ void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 	Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 }
 
-wxBoxSizer * ParamPanel::getKernelSizer(const KernelBase * kernel) {
-	auto kernelSizerIt = kernelSizers.find(kernel);
+wxBoxSizer * ParamPanel::getModuleSizer(const ModuleBase * module) {
+	auto moduleSizerIt = moduleSizers.find(module);
 	wxBoxSizer * sizer = nullptr;
-	if (kernelSizerIt == kernelSizers.end()) {
+	if (moduleSizerIt == moduleSizers.end()) {
 		sizer = new wxBoxSizer(wxHORIZONTAL);
-		kernelSizers[kernel] = sizer;
+		moduleSizers[module] = sizer;
 		panelSizer->Add(sizer, 1, wxEXPAND);
 	} else {
-		sizer = kernelSizerIt->second;
+		sizer = moduleSizerIt->second;
 	}
 	return sizer;
 }
@@ -460,6 +460,6 @@ void ParamPanel::OnParamChange(wxCommandEvent & ev) {
 	auto pdIt = paramIdMap.find(evtId);
 	if (pdIt != paramIdMap.end()) {
 		ParamDescriptor& pd = pdIt->second;
-		pd.kernel->update();
+		pd.module->update();
 	}
 }

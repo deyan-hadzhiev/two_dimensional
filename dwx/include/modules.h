@@ -1,5 +1,5 @@
-#ifndef __KERNELS_H__
-#define __KERNELS_H__
+#ifndef __MODULES_H__
+#define __MODULES_H__
 
 #include <string>
 #include <vector>
@@ -9,15 +9,15 @@
 #include <atomic>
 #include <mutex>
 #include "bitmap.h"
-#include "kernel_base.h"
+#include "module_base.h"
 #include "geom_primitive.h"
 
 using ParamList = std::unordered_map<std::string, std::string>;
 
-// TODO add a kernel as an input/output manager of another kernel to chain kernels
+// TODO add a module as an input/output manager of another module to chain modules
 
-// A simple kernel with a single image, input and output
-class SimpleKernel : public KernelBase {
+// A simple module with a single image, input and output
+class SimpleModule : public ModuleBase {
 protected:
 	virtual bool getInput() {
 		if (iman) {
@@ -37,10 +37,10 @@ protected:
 	InputManager * iman;
 	OutputManager * oman;
 	ParamManager * pman;
-	// setup expected paramters in the constructor and they will be iterated in runKernel(..) function before calling the impelementation
+	// setup expected paramters in the constructor and they will be iterated in runModule(..) function before calling the impelementation
 	std::vector<ParamDescriptor> paramList;
 public:
-	SimpleKernel()
+	SimpleModule()
 		: bmpId(0)
 		, iman(nullptr)
 		, oman(nullptr)
@@ -62,16 +62,16 @@ public:
 		}
 	}
 
-	// a simple implementation that can be overriden and handles basic input output and calls the kernelImplementation function
-	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
+	// a simple implementation that can be overriden and handles basic input output and calls the moduleImplementation function
+	virtual ModuleBase::ProcessResult runModule(unsigned flags) override;
 
-	// this function will be called from the runKernel(..) function and if not overriden will not do anything to the output image
-	virtual KernelBase::ProcessResult kernelImplementation(unsigned flags) {
-		return KernelBase::KPR_NO_IMPLEMENTATION;
+	// this function will be called from the runModule(..) function and if not overriden will not do anything to the output image
+	virtual ModuleBase::ProcessResult moduleImplementation(unsigned flags) {
+		return ModuleBase::KPR_NO_IMPLEMENTATION;
 	}
 };
 
-class AsyncKernel : public SimpleKernel {
+class AsyncModule : public SimpleModule {
 public:
 	enum class State {
 		AKS_RUNNING = 0,
@@ -80,46 +80,46 @@ public:
 		AKS_DIRTY,
 		AKS_TERMINATED,
 	};
-	AsyncKernel();
-	virtual ~AsyncKernel();
+	AsyncModule();
+	virtual ~AsyncModule();
 
 	State getState() const;
 
 	virtual void update() override;
 
-	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
+	virtual ModuleBase::ProcessResult runModule(unsigned flags) override;
 protected:
 	std::atomic<State> state;
-	std::mutex kernelMutex;
+	std::mutex moduleMutex;
 	std::condition_variable ev;
 	std::thread loopThread;
 
-	static void kernelLoop(AsyncKernel * k);
+	static void moduleLoop(AsyncModule * k);
 
 	bool getAbortState() const;
 
-	//!< override for all AsyncKernels by default
+	//!< override for all AsyncModules by default
 	virtual void setOutput() const override {}
 };
 
-class NegativeKernel : public SimpleKernel {
+class NegativeModule : public SimpleModule {
 public:
-	// starts the kernel process (still havent thought of decent flags, but multithreaded is a candidate :)
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	// starts the module process (still havent thought of decent flags, but multithreaded is a candidate :)
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
 using IntervalList = std::vector<std::pair<int, int> >;
-class TextSegmentationKernel : public SimpleKernel {
+class TextSegmentationModule : public SimpleModule {
 	static IntervalList extractIntervals(const int * accumValues, const int count, int threshold);
 public:
-	TextSegmentationKernel() {
+	TextSegmentationModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "threshold"));
 	}
 
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-class GeometricKernel : public SimpleKernel {
+class GeometricModule : public SimpleModule {
 protected:
 	GeometricPrimitive<Color> * primitive;
 	int width;
@@ -130,7 +130,7 @@ protected:
 	bool clear;
 	bool axis;
 public:
-	GeometricKernel(GeometricPrimitive<Color> * p, int _width = 256, int _height = 256)
+	GeometricModule(GeometricPrimitive<Color> * p, int _width = 256, int _height = 256)
 		: primitive(p)
 		, width(_width)
 		, height(_height)
@@ -152,7 +152,7 @@ public:
 		}
 	}
 
-	virtual ~GeometricKernel() {
+	virtual ~GeometricModule() {
 		delete primitive;
 	}
 
@@ -160,73 +160,73 @@ public:
 
 	virtual void setColor(Color rgb);
 
-	virtual KernelBase::ProcessResult runKernel(unsigned flags) override;
+	virtual ModuleBase::ProcessResult runModule(unsigned flags) override;
 };
 
-class SinosoidKernel : public GeometricKernel {
+class SinosoidModule : public GeometricModule {
 public:
-	SinosoidKernel();
+	SinosoidModule();
 };
 
-class HoughKernel : public AsyncKernel {
+class HoughModule : public AsyncModule {
 public:
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-class RotationKernel : public AsyncKernel {
+class RotationModule : public AsyncModule {
 public:
-	RotationKernel() {
+	RotationModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "angle"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch"));
 	}
 
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-class HistogramKernel : public AsyncKernel {
+class HistogramModule : public AsyncModule {
 public:
-	HistogramKernel() {
+	HistogramModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", "512"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", "255"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "smooths", "1"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "vector", "0.075;0.25;0.35;0.25;0.075"));
 	}
 
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 private:
 
 	void drawIntensityHisto(Bitmap& histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const;
 };
 
-class ThresholdKernel : public AsyncKernel {
+class ThresholdModule : public AsyncModule {
 public:
-	ThresholdKernel() {
+	ThresholdModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "lower", "0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upper", "255"));
 	}
 
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-class FilterKernel : public AsyncKernel {
+class FilterModule : public AsyncModule {
 public:
-	FilterKernel() {
+	FilterModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernel", "3"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalize", "true"));
 	}
 
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-class DownScaleKernel : public AsyncKernel {
+class DownScaleModule : public AsyncModule {
 public:
-	DownScaleKernel() {
+	DownScaleModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleWidth", "128"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleHeight", "128"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "medium", "uint16;uint8;float;double"));
 	}
 
-	KernelBase::ProcessResult kernelImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-#endif
+#endif // __MODULES_H__
