@@ -27,6 +27,7 @@ set (HEADERS
 	include/matrix2.h
 	include/transform.h
 	include/vector2.h
+	include/drect.h
 	include/util.h
 	include/guimain.h
 	include/wx_modes.h

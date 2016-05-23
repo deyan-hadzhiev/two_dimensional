@@ -1,9 +1,8 @@
-#ifndef __VECTOR4_H__
-#define __VECTOR4_H__
+#ifndef __VECTOR2_H__
+#define __VECTOR2_H__
 
 #include <math.h>
 
-__declspec( align(16) )
 class Vector2 {
 public:
 	union {
@@ -127,13 +126,6 @@ inline Vector2 reflect(const Vector2& ray, const Vector2& norm) noexcept {
 	return result;
 }
 
-inline Vector2 faceforward(const Vector2& ray, const Vector2& norm) noexcept {
-	if (dot(ray, norm) < 0)
-		return norm;
-	else
-		return -norm;
-}
-
 inline Vector2 project(const Vector2& v, int a, int b) {
 	Vector2 result;
 	result[a] = v[0];
@@ -141,11 +133,11 @@ inline Vector2 project(const Vector2& v, int a, int b) {
 	return result;
 }
 
-inline Vector2 unproject(const Vector2& v, int a, int b, int c, int d) {
+inline Vector2 unproject(const Vector2& v, int a, int b) {
 	Vector2 result;
 	result[0] = v[a];
 	result[1] = v[b];
 	return result;
 }
 
-#endif // __VECTOR4_H__
+#endif // __VECTOR2_H__

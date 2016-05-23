@@ -6,6 +6,18 @@
 #include <vector>
 #include "constants.h"
 
+#ifdef DDEBUG
+#define DASSERT(expr) \
+		do { \
+			if (!(expr)) \
+				__debugbreak(); \
+		} while (0)
+#else
+#define DASSERT(expr)
+#endif // DDEBUG
+
+static const float FEPS = 1e-8f;
+
 using uint64 = uint64_t;
 using uint32 = uint32_t;
 using uint16 = uint16_t;
