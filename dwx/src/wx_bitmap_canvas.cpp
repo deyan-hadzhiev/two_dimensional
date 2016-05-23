@@ -118,14 +118,6 @@ void BitmapCanvas::recalcBmpRectPos(Vector2 p, const Rect& prevRect) {
 	view.y = (bmpClip.y ? p.y - ((p.y - prevRect.y) * view.height) / (prevRect.height) : 0);
 	view.x = clamp(view.x, 0.0f, static_cast<float>(bmp.GetWidth())  - view.width - 1 );
 	view.y = clamp(view.y, 0.0f, static_cast<float>(bmp.GetHeight()) - view.height - 1);
-#if 0 // this was the alternative idea with making calculations based on the screen center - doesn't work...
-	const wxPoint cp((prevRect.x + prevRect.width) / 2, (prevRect.y + prevRect.height) / 2);
-	const wxPoint delta = cp - p;
-	const wxPoint cn(p.x - (delta.x * prevRect.width) / bmpRect.width, p.y - (delta.y * prevRect.height) / bmpRect.height);
-	const wxPoint n(cn.x - bmpRect.width / 2, cn.y - bmpRect.height / 2);
-	bmpRect.x = clamp(n.x, 0, bmp.GetWidth() - bmpRect.width - 1);
-	bmpRect.y = clamp(n.y, 0, bmp.GetHeight() - bmpRect.height - 1);
-#endif
 }
 
 #if 0
@@ -205,8 +197,11 @@ void BitmapCanvas::remapCanvas() {
 				prevBmpRect.height - view.height
 			) / 2.0f;
 			view.setPosition(prevBmpRect.getPosition() + halfDelta);
-		} else {
-			// maybe move ?
+		} else if ((canvasState & CS_DIRTY_POS) != 0) {
+			wxPoint screenDelta = mousePos - updatedMousePos;
+			Vector2 bmpDelta = unscale(Convert::vector(screenDelta));
+			view.setPosition(view.getPosition() - bmpDelta);
+			updatedMousePos = mousePos;
 		}
 	}
 	const Size2d bmpSize = Convert::size(bmp.GetSize());
@@ -343,11 +338,11 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 			mousePos = curr;
 			updateStatus();
 		}
-	} else if (evType == wxEVT_MIDDLE_DOWN) {
+	} else if (evType == wxEVT_LEFT_DOWN) {
 		mousePos = wxPoint(evt.GetX(), evt.GetY());
 		mouseMoveDrag = true;
 		updatedMousePos = mousePos;
-	} else if (evType == wxEVT_MIDDLE_UP) {
+	} else if (evType == wxEVT_LEFT_UP) {
 		mouseMoveDrag = false;
 	} else if (evType == wxEVT_ENTER_WINDOW) {
 		if (!mouseOverCanvas) {
