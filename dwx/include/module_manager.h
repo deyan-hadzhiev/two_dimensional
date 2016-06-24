@@ -19,6 +19,7 @@ enum ModuleId {
 	M_THRESHOLD,
 	M_FILTER,
 	M_DOWNSCALE,
+	M_RELOCATE,
 	M_COUNT, //!< must remain to be used for IDs and array sizes
 };
 

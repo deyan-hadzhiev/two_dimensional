@@ -13,6 +13,7 @@ const ModuleDescription MODULE_DESC[ModuleId::M_COUNT] = {
 	ModuleDescription(M_THRESHOLD,         create<ThresholdModule>,        "threshold",         "Threshold",           1, 1),
 	ModuleDescription(M_FILTER,            create<FilterModule>,           "filter",            "Convolution Filter",  1, 1),
 	ModuleDescription(M_DOWNSCALE,         create<DownScaleModule>,        "downscale",         "Downscale",           1, 1),
+	ModuleDescription(M_RELOCATE,          create<RelocateModule>,         "relocate",          "Relocate",            1, 1),
 };
 
 /* ModuleFactory */

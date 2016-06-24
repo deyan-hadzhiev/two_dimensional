@@ -559,3 +559,29 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) 
 		return KPR_FATAL_ERROR;
 	}
 }
+
+ModuleBase::ProcessResult RelocateModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Relocate");
+	}
+	int nx = 0;
+	int ny = 0;
+	if (pman) {
+		pman->getIntParam(nx, "relocateX");
+		pman->getIntParam(ny, "relocateY");
+	}
+	Bitmap out;
+	bool res = bmp.relocate(out, nx, ny);
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}

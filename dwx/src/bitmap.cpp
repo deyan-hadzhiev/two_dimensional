@@ -434,6 +434,41 @@ const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 }
 
 template<class ColorType>
+bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx, const int ny) const {
+	if (!this->isOK() || nx < 0 || nx >= width || ny < 0 || ny >= height) {
+		return false;
+	}
+	relocated.generateEmptyImage(width, height);
+	ColorType * relocatedData = relocated.getDataPtr();
+
+	const int rwidth = width - nx;
+	const int bheight = height - ny;
+	if (nx != 0) {
+		for (int y = 0; y < height; ++y) {
+			const int yDest = (y + ny) % height;
+			const ColorType * src = data + y * width;
+			ColorType * lDest = relocatedData + yDest * width;
+			ColorType * dest = lDest + nx;
+			memcpy(dest, src, rwidth * sizeof(ColorType));
+			// now the left part
+			const ColorType * lsrc = src + rwidth;
+			memcpy(lDest, lsrc, nx * sizeof(ColorType));
+		}
+	} else {
+		// first copy the first ny rows
+		const int size = ny * width;
+		const int rsize = bheight * width;
+		ColorType * dest = relocatedData + rsize; // bheight * width
+		memcpy(dest, data, size * sizeof(ColorType));
+		// then copy the remiaining
+		const ColorType * src = data + size; // ny * width
+		memcpy(relocatedData, src, rsize * sizeof(ColorType));
+	}
+
+	return true;
+}
+
+template<class ColorType>
 template<class IntermediateColorType>
 bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const {
 	if (!this->isOK() || downWidth <= 0 || downWidth > width || downHeight <= 0 || downHeight > height) {

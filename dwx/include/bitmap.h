@@ -90,10 +90,14 @@ public:
 	ColorType * operator[](int row) noexcept;
 	const ColorType * operator[](int row) const noexcept;
 
+	// relocates the pixelmap (0, 0) -> (x, y)
+	bool relocate(Pixelmap<ColorType>& relocated, const int x, const int y) const;
+
+	// downscales the bitmap using fractions
 	template<class IntermediateColorType>
 	bool downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const;
 
-	//!< draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
+	// draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
 	bool drawBitmap(Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;
 };
 

@@ -234,4 +234,14 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class RelocateModule : public AsyncModule {
+public:
+	RelocateModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "relocateX", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "relocateY", "0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 #endif // __MODULES_H__
