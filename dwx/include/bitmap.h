@@ -54,6 +54,7 @@ enum ColorChannel {
 	CC_RED = 0,
 	CC_GREEN,
 	CC_BLUE,
+	CC_COUNT, //!< the count of available channels
 };
 
 enum FilterEdge {

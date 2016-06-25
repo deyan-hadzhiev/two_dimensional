@@ -8,6 +8,7 @@
 #include "matrix2.h"
 #include "util.h"
 #include "convolution.h"
+#include "fft_butterfly.h"
 
 ModuleBase::ProcessResult SimpleModule::runModule(unsigned flags) {
 	const bool hasInput = getInput();
@@ -603,6 +604,65 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	bool res = bmp.getChannel(channelData, static_cast<ColorChannel>(channel));
 	if (res) {
 		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("FFTCompression");
+	}
+	Pixelmap<TColor<Complex> > bmpComplex(bmp);
+	Pixelmap<TColor<Complex> > outComplex(bmp.getWidth(), bmp.getHeight());
+
+	std::vector<int> dims;
+	dims.push_back(bmp.getWidth());
+	dims.push_back(bmp.getHeight());
+
+	FFT2D forward(dims, false);
+	FFT2D inverse(dims, true);
+
+	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
+	std::unique_ptr<Complex[]> compressedChannels[ColorChannel::CC_COUNT];
+	std::unique_ptr<Complex[]> outChannels[ColorChannel::CC_COUNT];
+	const int dimProd = bmpComplex.getDimensionProduct();
+	for (int i = 0; i < _countof(inChannels); ++i) {
+		bmpComplex.getChannel(inChannels[i], static_cast<ColorChannel>(i));
+		// allocate output buffers
+		compressedChannels[i].reset(new Complex[dimProd]);
+		// run the forward fft
+		forward.transform(inChannels[i].get(), compressedChannels[i].get());
+
+		if (cb)
+			cb->setPercentDone(i * 2, 2 * _countof(inChannels));
+
+		// allocate output channels
+		outChannels[i].reset(new Complex[dimProd]);
+		// run the inverse fft
+		inverse.transform(compressedChannels[i].get(), outChannels[i].get());
+
+		// set the channel to the output pixelmap
+		outComplex.setChannel(outChannels[i].get(), static_cast<ColorChannel>(i));
+
+		if (cb)
+			cb->setPercentDone(i * 2 + 1, 2 * _countof(inChannels));
+	}
+	Bitmap out(outComplex);
+
+	if (cb)
+		cb->setPercentDone(1, 1);
+
+	bool res = true;
+	if (res) {
 		if (oman) {
 			oman->setOutput(out, bmpId);
 		}

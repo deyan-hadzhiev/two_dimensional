@@ -15,6 +15,7 @@ const ModuleDescription MODULE_DESC[ModuleId::M_COUNT] = {
 	ModuleDescription(M_DOWNSCALE,         create<DownScaleModule>,        "downscale",         "Downscale",           1, 1),
 	ModuleDescription(M_RELOCATE,          create<RelocateModule>,         "relocate",          "Relocate",            1, 1),
 	ModuleDescription(M_CHANNEL,           create<ChannelModule>,          "channel",           "Channel",             1, 1),
+	ModuleDescription(M_FFT_COMPRESSION,   create<FFTCompressionModule>,   "fft_compression",   "FFTCompression",      1, 1),
 };
 
 /* ModuleFactory */

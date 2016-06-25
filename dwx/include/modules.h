@@ -253,4 +253,11 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class FFTCompressionModule : public AsyncModule {
+public:
+	FFTCompressionModule() {}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 #endif // __MODULES_H__

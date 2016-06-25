@@ -225,21 +225,30 @@ static CoeffCache coeffsCache;
 
 template class TColor<uint16>;
 template class TColor<int32>;
+template class TColor<Complex>;
 
 template Color::Color(const TColor<uint16>&);
 
 template class Pixelmap<Color>;
 template class Pixelmap<TColor<uint16> >;
 template class Pixelmap<TColor<int32> >;
+template class Pixelmap<TColor<Complex> >;
 template class Pixelmap<uint32>;
 template class Pixelmap<uint64>;
 
+// conversion Color <-> TColor<int32>
 template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
 template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
 
+// conversion Color <-> TColor<Complex>
+template Pixelmap<TColor<Complex> >::Pixelmap(const Pixelmap<Color>&);
+template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<Complex> >&);
+
 template bool Pixelmap<Color>::getChannel<uint8>(std::unique_ptr<uint8[]>&, ColorChannel) const;
+template bool Pixelmap<TColor<Complex> >::getChannel<Complex>(std::unique_ptr<Complex[]>&, ColorChannel) const;
 
 template bool Pixelmap<Color>::setChannel<uint8>(const uint8 *, ColorChannel);
+template bool Pixelmap<TColor<Complex> >::setChannel<Complex>(const Complex *, ColorChannel);
 
 template bool Pixelmap<Color>::downscale<TColor<uint16> >(Pixelmap<Color>&, const int, const int) const;
 template bool Pixelmap<Color>::downscale<Color>(Pixelmap<Color>&, const int, const int) const;
