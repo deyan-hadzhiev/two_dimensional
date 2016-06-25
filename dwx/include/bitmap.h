@@ -105,6 +105,15 @@ public:
 	template<class ChannelScalar>
 	bool setChannel(const ChannelScalar * channel, ColorChannel cc);
 
+	// crops the rectangle with top left (x, y) and w width and h height in place
+	bool crop(const int x, const int y, const int w, const int h);
+
+	// crops the rectangle with top left (x, y) and w width and h height in a specified pixelmap
+	bool crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const;
+
+	// relocates the pixelmap (0, 0) -> (x, y) using a temporary Pixelmap
+	bool relocate(const int x, const int y);
+
 	// relocates the pixelmap (0, 0) -> (x, y)
 	bool relocate(Pixelmap<ColorType>& relocated, const int x, const int y) const;
 

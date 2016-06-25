@@ -244,6 +244,18 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class CropModule : public AsyncModule {
+public:
+	CropModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropX", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropY", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropWidth", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropHeight", "0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class ChannelModule : public AsyncModule {
 public:
 	ChannelModule() {

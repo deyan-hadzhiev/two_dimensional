@@ -587,6 +587,36 @@ ModuleBase::ProcessResult RelocateModule::moduleImplementation(unsigned flags) {
 	}
 }
 
+ModuleBase::ProcessResult CropModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Crop");
+	}
+	int nx = 0;
+	int ny = 0;
+	int nw = 0;
+	int nh = 0;
+	if (pman) {
+		pman->getIntParam(nx, "cropX");
+		pman->getIntParam(ny, "cropY");
+		pman->getIntParam(nw, "cropWidth");
+		pman->getIntParam(nh, "cropHeight");
+	}
+	Bitmap out;
+	bool res = bmp.crop(out, nx, ny, nw, nh);
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
 ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {

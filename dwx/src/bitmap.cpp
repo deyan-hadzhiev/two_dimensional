@@ -452,6 +452,56 @@ const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 }
 
 template<class ColorType>
+bool Pixelmap<ColorType>::crop(const int x, const int y, const int w, const int h) {
+	if (!this->isOK() || x < 0 || y < 0 || x + w > width || y + h > height) {
+		return false;
+	}
+	// create the data for the cropped image
+	ColorType * croppedData = new ColorType[w * h];
+	// now copy over the data
+	for (int cy = 0; cy < h; ++cy) {
+		// copy whole row at a time
+		ColorType * dest = croppedData + cy * w;
+		const ColorType * src = data + (y + cy) * width + x;
+		memcpy(dest, src, w * sizeof(ColorType));
+	}
+	// use freeMem() since it may change in the future
+	freeMem();
+	// now just set the data with the new cropped data
+	data = croppedData;
+	width = w;
+	height = h;
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const {
+	if (!this->isOK() || x < 0 || y < 0 || x + w > width || y + h > height) {
+		return false;
+	}
+	// create the data for the cropped image
+	cropped.generateEmptyImage(w, h);
+	ColorType * croppedData = cropped.getDataPtr();
+	// now copy over the data
+	for (int cy = 0; cy < h; ++cy) {
+		// copy whole row at a time
+		ColorType * dest = croppedData + cy * w;
+		const ColorType * src = data + (y + cy) * width + x;
+		memcpy(dest, src, w * sizeof(ColorType));
+	}
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::relocate(const int nx, const int ny) {
+	if (!this->isOK() || nx < 0 || nx >= width || ny < 0 || ny >= height) {
+		return false;
+	}
+	Pixelmap<ColorType> tmp(*this);
+	return tmp.relocate(*this, nx, ny);
+}
+
+template<class ColorType>
 bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx, const int ny) const {
 	if (!this->isOK() || nx < 0 || nx >= width || ny < 0 || ny >= height) {
 		return false;
