@@ -613,6 +613,119 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	}
 }
 
+ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("FFTDomain");
+		cb->setPercentDone(0, 100);
+	}
+	bool logScale = true;
+	bool centralize = true;
+	if (pman) {
+		pman->getBoolParam(logScale, "logScale");
+		pman->getBoolParam(centralize, "centralized");
+	}
+
+	Pixelmap<TColor<Complex> > bmpComplex(bmp);
+	Pixelmap<TColor<Complex> > outComplex(bmp.getWidth(), bmp.getHeight());
+
+	std::vector<int> dims;
+	dims.push_back(bmp.getWidth());
+	dims.push_back(bmp.getHeight());
+
+	FFT2D forward(dims, false);
+
+	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
+	std::unique_ptr<Complex[]> frequencyChannels[ColorChannel::CC_COUNT];
+
+	const int dimProd = bmpComplex.getDimensionProduct();
+
+	for (int i = 0; i < _countof(inChannels); ++i) {
+		if (cb)
+			cb->setPercentDone(i, _countof(inChannels));
+
+		bmpComplex.getChannel(inChannels[i], static_cast<ColorChannel>(i));
+		// allocate output buffers
+		frequencyChannels[i].reset(new Complex[dimProd]);
+		// run the forward fft
+		forward.transform(inChannels[i].get(), frequencyChannels[i].get());
+
+		// set the channel to the output pixelmap
+		outComplex.setChannel(frequencyChannels[i].get(), static_cast<ColorChannel>(i));
+	}
+
+	// now remap all values to their absolute value
+	outComplex.remap([](TColor<Complex> in) {
+		return TColor<Complex>(
+			Complex(std::abs(in.r), 0.0),
+			Complex(std::abs(in.g), 0.0),
+			Complex(std::abs(in.b), 0.0)
+		);
+	});
+
+	if (logScale) {
+		outComplex.remap([](TColor<Complex> in) {
+			return TColor<Complex>(
+				Complex(std::log(in.r.real()), 0.0),
+				Complex(std::log(in.g.real()), 0.0),
+				Complex(std::log(in.b.real()), 0.0)
+				);
+		});
+	}
+
+	// as a final step normalize all the values
+	TColor<Complex> * outData = outComplex.getDataPtr();
+	double minValue = Inf;
+	double maxValue = 0.0;
+	for (int i = 0; i < dimProd; ++i) {
+		const TColor<Complex>& c = outData[i];
+		for (int ci = 0; ci < 3; ++ci) {
+			if (c[ci].real() > maxValue) {
+				maxValue = c[ci].real();
+			} else if(c[ci].real() < minValue) {
+				minValue = c[ci].real();
+			}
+		}
+	}
+
+	const double valRange = maxValue - minValue;
+	const double valRangeRecip = 1.0 / valRange;
+	outComplex.remap([minValue,valRangeRecip](TColor<Complex> in) {
+		return TColor<Complex>(
+			Complex((in.r.real() - minValue) * valRangeRecip, 0.0),
+			Complex((in.g.real() - minValue) * valRangeRecip, 0.0),
+			Complex((in.b.real() - minValue) * valRangeRecip, 0.0)
+			);
+	});
+
+	Bitmap out(outComplex);
+
+	// make relocations after it is converted to standart uint8 space to save memory
+	if (centralize) {
+		const int width = out.getWidth();
+		const int height = out.getHeight();
+		Bitmap tmp(width, height);
+		out.relocate(tmp, width / 2, height / 2);
+		out = tmp;
+	}
+
+	if (cb)
+		cb->setPercentDone(1, 1);
+
+	bool res = true;
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
 ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {

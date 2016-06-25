@@ -21,6 +21,7 @@ enum ModuleId {
 	M_DOWNSCALE,
 	M_RELOCATE,
 	M_CHANNEL,
+	M_FFT_DOMAIN,
 	M_FFT_COMPRESSION,
 	M_COUNT, //!< must remain to be used for IDs and array sizes
 };
