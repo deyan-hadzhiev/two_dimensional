@@ -24,34 +24,35 @@ set (HEADERS
 	include/color.h
 	include/constants.h
 	include/convolution.h
-	include/matrix2.h
-	include/transform.h
-	include/vector2.h
 	include/drect.h
-	include/util.h
-	include/guimain.h
-	include/wx_modes.h
-	include/wx_bitmap_canvas.h
-	include/wx_param_panel.h
-	include/module_base.h
-	include/modules.h
-	inclide/module_manager.h
+	include/fft_butterfly.h
 	include/geom_primitive.h
+	include/guimain.h
+	include/matrix2.h
+	include/modules.h
+	include/module_base.h
+	inclide/module_manager.h
+	include/util.h
+	include/vector2.h
+	include/wx_bitmap_canvas.h
+	include/wx_modes.h
+	include/wx_param_panel.h
 )
 
 set (SOURCES
-	src/util.cpp
-	src/convolution.cpp
-	src/guimain.cpp
-	src/wx_modes.cpp
-	src/wx_bitmap_canvas.cpp
-	src/wx_param_panel.cpp
 	src/bitmap.cpp
 	src/color.cpp
+	src/convolution.cpp
+	src/fft_butterfly.cpp
+	src/geom_primitive.cpp
+	src/guimain.cpp
 	src/matrix2.cpp
 	src/modules.cpp
 	src/module_manager.cpp
-	src/geom_primitive.cpp
+	src/util.cpp
+	src/wx_modes.cpp
+	src/wx_bitmap_canvas.cpp
+	src/wx_param_panel.cpp
 )
 
 link_directories (
