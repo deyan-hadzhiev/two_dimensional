@@ -7,8 +7,12 @@ ButterflyFFT::ButterflyFFT(const int _nfft, bool _inverse)
 	prepare();
 }
 
-void ButterflyFFT::transform(const Complex * src, Complex * dest) {
+void ButterflyFFT::transform(const Complex * src, Complex * dest) const {
 	work(0, dest, src, 1, 1);
+}
+
+void ButterflyFFT::transform(const Complex * src, Complex * dest, const int inStride) const {
+	work(0, dest, src, 1, inStride);
 }
 
 void ButterflyFFT::prepare() {
