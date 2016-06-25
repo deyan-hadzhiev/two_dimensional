@@ -636,7 +636,7 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 	dims.push_back(bmp.getWidth());
 	dims.push_back(bmp.getHeight());
 
-	FFT2D forward(dims, false);
+	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 
 	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
 	std::unique_ptr<Complex[]> frequencyChannels[ColorChannel::CC_COUNT];
@@ -741,8 +741,8 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	dims.push_back(bmp.getWidth());
 	dims.push_back(bmp.getHeight());
 
-	FFT2D forward(dims, false);
-	FFT2D inverse(dims, true);
+	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
+	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
 
 	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
 	std::unique_ptr<Complex[]> compressedChannels[ColorChannel::CC_COUNT];

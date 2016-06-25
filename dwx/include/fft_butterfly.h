@@ -3,6 +3,7 @@
 
 #include <complex>
 #include <vector>
+#include <memory>
 
 #include "util.h"
 
@@ -118,5 +119,28 @@ inline void MultiDimFFT<nd>::transform(const Complex * fIn, Complex * fOut) cons
 		}
 	}
 }
+
+template<int nd>
+class CachedFFT {
+public:
+	std::vector<int> dims;
+	std::unique_ptr<MultiDimFFT<nd> > forward;
+	std::unique_ptr<MultiDimFFT<nd> > inverse;
+};
+
+template<int nd>
+class FFTCache {
+public:
+	FFTCache();
+	~FFTCache();
+	FFTCache(const FFTCache&) = delete;
+	FFTCache& operator=(const FFTCache&) = delete;
+
+	const MultiDimFFT<nd>& getFFT(const std::vector<int>& dims, bool inverse);
+
+	static FFTCache& get();
+private:
+	std::vector<CachedFFT<nd>* > cache;
+};
 
 #endif // __FFT_BUTTERFLY_H__

@@ -207,3 +207,69 @@ void ButterflyFFT::work(const int stage, Complex * fOut, const Complex * f, cons
 	default: butterflyGeneric(fOut, fStride, m, p); break;
 	}
 }
+
+// FFTCache
+
+template class FFTCache<2>;
+static FFTCache<2> fftCache2d;
+
+template<int nd>
+FFTCache<nd>::FFTCache()
+{}
+
+template<int nd>
+FFTCache<nd>::~FFTCache() {
+	const int cacheSize = static_cast<int>(cache.size());
+	for (int i = 0; i < cacheSize; ++i) {
+		delete cache[i];
+		cache[i] = nullptr;
+	}
+}
+
+template<int nd>
+const MultiDimFFT<nd>& FFTCache<nd>::getFFT(const std::vector<int>& dims, bool inverse) {
+	DASSERT(nd == dims.size());
+	MultiDimFFT<nd> * fft = nullptr;
+	const int cacheSize = static_cast<int>(cache.size());
+	for (int i = 0; i < cacheSize; ++i) {
+		CachedFFT<nd> * cached = cache[i];
+		// now check its dimensions
+		bool match = true;
+		for (int j = 0; j < nd; ++j) {
+			match &= (dims[j] == cached->dims[j]);
+		}
+		if (match) {
+			// we have a match, now check if there is an allocated fft
+			if (inverse) {
+				if (!cached->inverse) {
+					cached->inverse.reset(new MultiDimFFT<nd>(dims, inverse));
+				}
+				fft = cached->inverse.get();
+			} else {
+				if (!cached->forward) {
+					cached->forward.reset(new MultiDimFFT<nd>(dims, inverse));
+				}
+				fft = cached->forward.get();
+			}
+			break;
+		}
+	}
+	// if there is still no match, create a new CachedFFT object
+	if (!fft) {
+		CachedFFT<nd> * cfft = new CachedFFT<nd>;
+		cfft->dims = dims;
+		fft = new MultiDimFFT<nd>(dims, inverse);
+		if (inverse) {
+			cfft->inverse.reset(fft);
+		} else {
+			cfft->forward.reset(fft);
+		}
+		cache.push_back(cfft);
+	}
+	return *fft;
+}
+
+template<>
+FFTCache<2>& FFTCache<2>::get() {
+	return fftCache2d;
+}
