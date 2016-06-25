@@ -634,8 +634,13 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
 	std::unique_ptr<Complex[]> compressedChannels[ColorChannel::CC_COUNT];
 	std::unique_ptr<Complex[]> outChannels[ColorChannel::CC_COUNT];
+
 	const int dimProd = bmpComplex.getDimensionProduct();
+
 	for (int i = 0; i < _countof(inChannels); ++i) {
+		if (cb)
+			cb->setPercentDone(i * 2, 2 * _countof(inChannels));
+
 		bmpComplex.getChannel(inChannels[i], static_cast<ColorChannel>(i));
 		// allocate output buffers
 		compressedChannels[i].reset(new Complex[dimProd]);
@@ -643,7 +648,7 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 		forward.transform(inChannels[i].get(), compressedChannels[i].get());
 
 		if (cb)
-			cb->setPercentDone(i * 2, 2 * _countof(inChannels));
+			cb->setPercentDone(i * 2 + 1, 2 * _countof(inChannels));
 
 		// allocate output channels
 		outChannels[i].reset(new Complex[dimProd]);
@@ -652,10 +657,13 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 
 		// set the channel to the output pixelmap
 		outComplex.setChannel(outChannels[i].get(), static_cast<ColorChannel>(i));
-
-		if (cb)
-			cb->setPercentDone(i * 2 + 1, 2 * _countof(inChannels));
 	}
+	// noramlize the output since it will be with scaled values
+	const double normN = 1.0 / dimProd;
+	outComplex.remap([normN](TColor<Complex> in) {
+		return in * normN;
+	});
+
 	Bitmap out(outComplex);
 
 	if (cb)
