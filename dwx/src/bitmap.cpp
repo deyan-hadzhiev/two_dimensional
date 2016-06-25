@@ -237,6 +237,10 @@ template class Pixelmap<uint64>;
 template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
 template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
 
+template bool Pixelmap<Color>::getChannel<uint8>(std::unique_ptr<uint8[]>&, ColorChannel) const;
+
+template bool Pixelmap<Color>::setChannel<uint8>(const uint8 *, ColorChannel);
+
 template bool Pixelmap<Color>::downscale<TColor<uint16> >(Pixelmap<Color>&, const int, const int) const;
 template bool Pixelmap<Color>::downscale<Color>(Pixelmap<Color>&, const int, const int) const;
 template bool Pixelmap<Color>::downscale<TColor<float> >(Pixelmap<Color>&, const int, const int) const;
@@ -322,6 +326,11 @@ int Pixelmap<ColorType>::getWidth(void) const noexcept {
 template<class ColorType>
 int Pixelmap<ColorType>::getHeight(void) const noexcept {
 	return height;
+}
+
+template<class ColorType>
+int Pixelmap<ColorType>::getDimensionProduct() const noexcept {
+	return width * height;
 }
 
 template<class ColorType>
@@ -465,6 +474,35 @@ bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx,
 		memcpy(relocatedData, src, rsize * sizeof(ColorType));
 	}
 
+	return true;
+}
+
+template<class ColorType>
+template<class ScalarType>
+bool Pixelmap<ColorType>::getChannel(std::unique_ptr<ScalarType[]>& channel, ColorChannel cc) const {
+	if (!this->isOK()) {
+		return false;
+	}
+
+	const int dim = getDimensionProduct();
+	channel.reset(new ScalarType[dim]);
+	for (int i = 0; i < dim; ++i) {
+		channel[i] = data[i][cc];
+	}
+	return true;
+}
+
+template<class ColorType>
+template<class ChannelScalar>
+bool Pixelmap<ColorType>::setChannel(const ChannelScalar * channel, ColorChannel cc) {
+	if (!this->isOK() || !channel) {
+		return false;
+	}
+
+	const int dim = getDimensionProduct();
+	for (int i = 0; i < dim; ++i) {
+		data[i][cc] = channel[i];
+	}
 	return true;
 }
 

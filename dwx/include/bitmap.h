@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <vector>
+#include <memory>
 #include "color.h"
 
 class FloatBitmap {
@@ -49,6 +50,12 @@ public:
 	const FloatColor * operator[](int row) const noexcept;
 };
 
+enum ColorChannel {
+	CC_RED = 0,
+	CC_GREEN,
+	CC_BLUE,
+};
+
 enum FilterEdge {
 	FE_BLANK,   //!< coordinates beyond the edge will be initialized with blank color
 	FE_TILE,    //!< coordinates beyond the edge will be initialized with tiled image
@@ -76,6 +83,7 @@ public:
 	void freeMem(void) noexcept; //!< Deletes the memory, associated with the bitmap
 	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
+	int getDimensionProduct() const noexcept; //!< Gets the product of the width and height dimensions
 	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
 	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
@@ -89,6 +97,12 @@ public:
 
 	ColorType * operator[](int row) noexcept;
 	const ColorType * operator[](int row) const noexcept;
+
+	template<class ChannelScalar>
+	bool getChannel(std::unique_ptr<ChannelScalar[]>& channel, ColorChannel cc) const;
+
+	template<class ChannelScalar>
+	bool setChannel(const ChannelScalar * channel, ColorChannel cc);
 
 	// relocates the pixelmap (0, 0) -> (x, y)
 	bool relocate(Pixelmap<ColorType>& relocated, const int x, const int y) const;

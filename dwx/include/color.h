@@ -318,8 +318,15 @@ public:
 	template<>
 	Color(const TColor<double>& _tc)
 		: r(static_cast<uint8>(clamp(_tc.r * 255.0, 0.0, 255.0)))
-		, g(static_cast<uint8>(clamp(_tc.g * 250.0, 0.0, 255.0)))
-		, b(static_cast<uint8>(clamp(_tc.b * 250.0, 0.0, 255.0)))
+		, g(static_cast<uint8>(clamp(_tc.g * 255.0, 0.0, 255.0)))
+		, b(static_cast<uint8>(clamp(_tc.b * 255.0, 0.0, 255.0)))
+	{}
+
+	template<>
+	explicit Color(const TColor<Complex>& _tc)
+		: r(static_cast<uint8>(clamp(std::abs(_tc.r) * 255.0, 0.0, 255.0)))
+		, g(static_cast<uint8>(clamp(std::abs(_tc.g) * 255.0, 0.0, 255.0)))
+		, b(static_cast<uint8>(clamp(std::abs(_tc.b) * 255.0, 0.0, 255.0)))
 	{}
 
 	explicit Color(uint8 _r, uint8 _g, uint8 _b) noexcept
@@ -401,6 +408,13 @@ public:
 			);
 	}
 
+	explicit operator TColor<Complex>() const {
+		return TColor<Complex>(
+			Complex(static_cast<double>(r / 255.0), 0.0),
+			Complex(static_cast<double>(g / 255.0), 0.0),
+			Complex(static_cast<double>(b / 255.0), 0.0)
+			);
+	}
 };
 #pragma pack(pop)
 

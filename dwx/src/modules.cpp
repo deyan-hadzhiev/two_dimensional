@@ -585,3 +585,29 @@ ModuleBase::ProcessResult RelocateModule::moduleImplementation(unsigned flags) {
 		return KPR_FATAL_ERROR;
 	}
 }
+
+ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Channel");
+	}
+	unsigned channel = 0;
+	if (pman) {
+		pman->getEnumParam(channel, "channel");
+	}
+	Bitmap out(bmp.getWidth(), bmp.getHeight());
+	std::unique_ptr<uint8[]> channelData;
+	bool res = bmp.getChannel(channelData, static_cast<ColorChannel>(channel));
+	if (res) {
+		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}

@@ -6,8 +6,6 @@
 
 #include "util.h"
 
-using Complex = std::complex<double>;
-
 class ButterflyFFT {
 public:
 	ButterflyFFT(const int _nfft, bool _inverse);

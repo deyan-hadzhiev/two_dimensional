@@ -244,4 +244,13 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class ChannelModule : public AsyncModule {
+public:
+	ChannelModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "channel", "red;green;blue"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 #endif // __MODULES_H__
