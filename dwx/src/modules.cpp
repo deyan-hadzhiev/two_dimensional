@@ -764,43 +764,84 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	if (cb) {
 		cb->setModuleName("FFTCompression");
 	}
+	float percent = 100.0f;
+	if (pman) {
+		pman->getFloatParam(percent, "compressPercent");
+	}
+	if (percent < 0.0f || percent > 100.0f) {
+		return KPR_INVALID_INPUT;
+	}
+	const int width = bmp.getWidth();
+	const int height = bmp.getHeight();
+
+	const float ratio = sqrtf(percent / 100.0f);
+	const int compWidth = static_cast<int>(ceilf(width * ratio));
+	const int compHeight = static_cast<int>(ceilf(height * ratio));
+
 	Pixelmap<TColor<Complex> > bmpComplex(bmp);
-	Pixelmap<TColor<Complex> > outComplex(bmp.getWidth(), bmp.getHeight());
+	Pixelmap<TColor<Complex> > bmpCompressed(width, height);
+	Pixelmap<TColor<Complex> > outComplex(width, height);
 
 	std::vector<int> dims;
-	dims.push_back(bmp.getWidth());
-	dims.push_back(bmp.getHeight());
+	dims.push_back(width);
+	dims.push_back(height);
 
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
 
-	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
-	std::unique_ptr<Complex[]> compressedChannels[ColorChannel::CC_COUNT];
-	std::unique_ptr<Complex[]> outChannels[ColorChannel::CC_COUNT];
+	std::unique_ptr<Complex[]> fftInChannels[ColorChannel::CC_COUNT];
+	std::unique_ptr<Complex[]> fftOutChannels[ColorChannel::CC_COUNT];
 
 	const int dimProd = bmpComplex.getDimensionProduct();
 
-	for (int i = 0; i < _countof(inChannels); ++i) {
+	for (int i = 0; i < _countof(fftInChannels); ++i) {
 		if (cb)
-			cb->setPercentDone(i * 2, 2 * _countof(inChannels));
+			cb->setPercentDone(i, 2 * _countof(fftInChannels));
 
-		bmpComplex.getChannel(inChannels[i], static_cast<ColorChannel>(i));
+		bmpComplex.getChannel(fftInChannels[i], static_cast<ColorChannel>(i));
 		// allocate output buffers
-		compressedChannels[i].reset(new Complex[dimProd]);
+		fftOutChannels[i].reset(new Complex[dimProd]);
 		// run the forward fft
-		forward.transform(inChannels[i].get(), compressedChannels[i].get());
+		forward.transform(fftInChannels[i].get(), fftOutChannels[i].get());
 
-		if (cb)
-			cb->setPercentDone(i * 2 + 1, 2 * _countof(inChannels));
-
-		// allocate output channels
-		outChannels[i].reset(new Complex[dimProd]);
-		// run the inverse fft
-		inverse.transform(compressedChannels[i].get(), outChannels[i].get());
-
-		// set the channel to the output pixelmap
-		outComplex.setChannel(outChannels[i].get(), static_cast<ColorChannel>(i));
+		// set the channel to the compressed pixelmap
+		bmpCompressed.setChannel(fftOutChannels[i].get(), static_cast<ColorChannel>(i));
 	}
+
+	// compute the x and y coordinates that will mark the zoroing to simulate compression
+	const int compWidthRemainder = width - compWidth;
+	const int compHeightRemainder = height - compHeight;
+	const int compX = (width - compWidthRemainder) / 2;
+	const int compY = (height - compHeightRemainder) / 2;
+	// now zero out all pixel which are in the two strips
+	TColor<Complex> * compData = bmpCompressed.getDataPtr();
+	for (int y = 0; y < height; ++y) {
+		// if this row is in the cropped area - zero the whole row
+		if (y > compY && y < compY + compHeightRemainder) {
+			memset(compData + y * width, 0, width * sizeof(TColor<Complex>));
+		} else {
+			// else go through the columns
+			for (int x = 0; x < width; ++x) {
+				if (x > compX && x < compX + compWidthRemainder) {
+					compData[y * width + x] = TColor<Complex>();
+				}
+			}
+		}
+	}
+
+	// now after the compression is simulated - make the inverse transform over the compressed pixelmap
+	for (int i = 0; i < _countof(fftInChannels); ++i) {
+		if (cb)
+			cb->setPercentDone(_countof(fftInChannels) + i, 2 * _countof(fftInChannels));
+
+		bmpCompressed.getChannel(fftInChannels[i], static_cast<ColorChannel>(i));
+		// run the inverse fft - fftOutChannel is already initialized
+		inverse.transform(fftInChannels[i].get(), fftOutChannels[i].get());
+
+		// set the channel to the output pixelmap and use it before the actual compress
+		outComplex.setChannel(fftOutChannels[i].get(), static_cast<ColorChannel>(i));
+	}
+
 	// noramlize the output since it will be with scaled values
 	const double normN = 1.0 / dimProd;
 	outComplex.remap([normN](TColor<Complex> in) {

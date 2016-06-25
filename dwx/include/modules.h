@@ -277,7 +277,9 @@ public:
 
 class FFTCompressionModule : public AsyncModule {
 public:
-	FFTCompressionModule() {}
+	FFTCompressionModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "compressPercent", "50.0"));
+	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
