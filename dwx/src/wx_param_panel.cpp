@@ -16,15 +16,24 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 	, currentSymmetry(ST_NO_SYMMETRY)
 	, paramPanel(parent)
-	, sumText(nullptr)
+	, sideCtrl(nullptr)
+	, sideButton(nullptr)
 	, symmetryRb{ nullptr }
 	, symmetryRbId(0)
+	, sumText(nullptr)
 	, kernelParamsId(0)
 	, normalizeButton(nullptr)
 	, normalizationValue(nullptr)
 	, resetButton(nullptr)
 	, kernelSide(0)
 {
+	Connect(wxEVT_SHOW, wxShowEventHandler(CKernelDlg::OnShow), NULL, this);
+
+	sideCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << side);
+	const wxWindowID sideButtonId = WinIDProvider::getProvider().getId();
+	sideButton = new wxButton(this, sideButtonId, "Change Side");
+	Connect(sideButtonId, wxEVT_BUTTON, wxCommandEventHandler(CKernelDlg::OnKernelSide), NULL, this);
+
 	sumText = new wxStaticText(this, wxID_ANY, wxT("0"));
 	sumText->SetSizeHints(wxSize(20, -1));
 	symmetryRbId = WinIDProvider::getProvider().getId(ST_COUNT);
@@ -33,7 +42,6 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 		symmetryRb[i] = new wxRadioButton(this, rbId, symmetryName[i], wxDefaultPosition, wxDefaultSize, (i == 0 ? wxRB_GROUP : 0L));
 		Connect(rbId, wxEVT_RADIOBUTTON, wxCommandEventHandler(CKernelDlg::OnSymmetryChange), NULL, this);
 	}
-	setKernelSide(side);
 
 	const wxWindowID normalizeId = WinIDProvider::getProvider().getId();
 	normalizeButton = new wxButton(this, normalizeId, "Normalize");
@@ -91,11 +99,15 @@ void CKernelDlg::setKernelSide(int s) {
 		kernelSide = s;
 		wxBoxSizer * dlgSizer = new wxBoxSizer(wxVERTICAL);
 		wxBoxSizer * topSizer = new wxBoxSizer(wxHORIZONTAL);
-		for (int i = 0; i < ST_COUNT; ++i) {
-			topSizer->Add(symmetryRb[i], 1, wxEXPAND | wxALL, 5);
-		}
-		topSizer->Add(sumText, 1, wxEXPAND | wxALL, 5);
+		topSizer->Add(sideButton, 0, wxALL, 5);
+		topSizer->Add(sideCtrl, 1, wxEXPAND | wxALL, 5);
 		dlgSizer->Add(topSizer, 0, wxEXPAND | wxALL);
+		wxBoxSizer * symmetrySizer = new wxBoxSizer(wxHORIZONTAL);
+		for (int i = 0; i < ST_COUNT; ++i) {
+			symmetrySizer->Add(symmetryRb[i], 1, wxEXPAND | wxALL, 5);
+		}
+		symmetrySizer->Add(sumText, 1, wxEXPAND | wxALL, 5);
+		dlgSizer->Add(symmetrySizer, 0, wxEXPAND | wxALL);
 		wxBoxSizer * normSizer = new wxBoxSizer(wxHORIZONTAL);
 		normSizer->Add(normalizeButton, 0, wxALL, 5);
 		normSizer->Add(normalizationValue, 1, wxEXPAND | wxALL, 5);
@@ -117,8 +129,18 @@ void CKernelDlg::setKernelSide(int s) {
 		updateSymmetry();
 		dlgSizer->Add(gridSizer, 1, wxEXPAND | wxSHRINK | wxALL, 2);
 		SetSizerAndFit(dlgSizer);
-		SendSizeEvent();
 	}
+	Layout();
+	SendSizeEvent();
+}
+
+void CKernelDlg::OnKernelSide(wxCommandEvent & evt) {
+	const int kSide = wxAtoi(sideCtrl->GetValue());
+	setKernelSide(kSide);
+}
+
+void CKernelDlg::OnShow(wxShowEvent & evt) {
+	setKernelSide(wxAtoi(sideCtrl->GetValue()));
 }
 
 void CKernelDlg::OnClose(wxCloseEvent & evt) {
@@ -130,6 +152,9 @@ void CKernelDlg::OnEscape(wxKeyEvent & evt) {
 	if (evt.GetKeyCode() == WXK_ESCAPE) {
 		wxCommandEvent dummy;
 		paramPanel->OnHideButton(dummy);
+	} else if (evt.GetKeyCode() == WXK_F5) {
+		wxCommandEvent dummy;
+		paramPanel->OnKernelChange(dummy);
 	} else {
 		evt.Skip();
 	}
@@ -264,18 +289,13 @@ void CKernelDlg::recalculateSum() {
 CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
 	: wxPanel(_parent, id)
 	, paramPanel(_parent)
-	, kernelDlg(new CKernelDlg(this, label, 0))
+	, kernelDlg(new CKernelDlg(this, label, wxAtoi(defSide)))
 	, mainSizer(nullptr)
-	, sideCtrl(nullptr)
 	, showButton(nullptr)
 	, hideButton(nullptr)
 {
 	mainSizer = new wxBoxSizer(wxHORIZONTAL);
 	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL);
-
-	sideCtrl = new wxTextCtrl(this, wxID_ANY, defSide, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-	sideCtrl->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnSideChnage), NULL, this);
-	mainSizer->Add(sideCtrl, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
 
 	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
 	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnShowButton), NULL, this);
@@ -294,12 +314,7 @@ ConvolutionKernel CKernelPanel::GetValue() const {
 	return kernelDlg->getKernel();
 }
 
-void CKernelPanel::OnSideChnage(wxCommandEvent & evt) {
-	kernelDlg->setKernelSide(wxAtoi(sideCtrl->GetValue()));
-}
-
 void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
-	kernelDlg->setKernelSide(wxAtoi(sideCtrl->GetValue()));
 	kernelDlg->Show();
 	hideButton->Show();
 	showButton->Hide();

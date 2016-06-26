@@ -24,6 +24,10 @@ public:
 
 	void setKernelSide(int s);
 
+	void OnKernelSide(wxCommandEvent& evt);
+
+	void OnShow(wxShowEvent& evt);
+
 	void OnClose(wxCloseEvent& evt);
 	void OnEscape(wxKeyEvent& evt);
 
@@ -56,9 +60,11 @@ private:
 	void recalculateSum();
 
 	CKernelPanel * paramPanel;
-	wxStaticText * sumText;
+	wxButton * sideButton;
+	wxTextCtrl * sideCtrl;
 	wxRadioButton * symmetryRb[ST_COUNT];
 	wxWindowID symmetryRbId;
+	wxStaticText * sumText;
 	wxVector<wxTextCtrl*> kernelParams;
 	wxWindowID kernelParamsId;
 	wxButton * normalizeButton;
@@ -73,8 +79,6 @@ public:
 
 	ConvolutionKernel GetValue() const;
 
-	void OnSideChnage(wxCommandEvent& evt);
-
 	void OnShowButton(wxCommandEvent& evt);
 	void OnHideButton(wxCommandEvent& evt);
 
@@ -84,7 +88,6 @@ private:
 
 	CKernelDlg * kernelDlg;
 	wxBoxSizer * mainSizer;
-	wxTextCtrl * sideCtrl;
 	wxButton * showButton;
 	wxButton * hideButton;
 };
