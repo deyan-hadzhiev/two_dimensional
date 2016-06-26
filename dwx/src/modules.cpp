@@ -364,11 +364,11 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	Color * bmpData = bmpOut.getDataPtr();
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
-	FilterEdge edge = FilterEdge::FE_BLANK;
+	EdgeFillType edge = EdgeFillType::EFT_BLANK;
 	if (pman) {
 		unsigned edgeType = 0;
 		if (pman->getEnumParam(edgeType, "edge")) {
-			edge = static_cast<FilterEdge>(edgeType);
+			edge = static_cast<EdgeFillType>(edgeType);
 		}
 	}
 	for (int y = 0; y < obh && !getAbortState(); ++y) {

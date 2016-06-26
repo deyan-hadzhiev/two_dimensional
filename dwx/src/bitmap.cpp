@@ -399,23 +399,43 @@ ColorType Pixelmap<ColorType>::getPixel(int x, int y) const  noexcept {
 }
 
 template<class ColorType>
-ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, FilterEdge edge) const noexcept {
+ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, EdgeFillType edge) const noexcept {
 	if (!data || !width || !height)
 		return ColorType();
-	const bool tile = (FE_TILE == edge);
+	const bool tile = (EFT_TILE == edge);
 	if (x < 0.0f || int(x) >= width || y < 0.0f || int(y) >= height) {
-		if (FE_BLANK == edge) {
+		if (EFT_BLANK == edge) {
 			return ColorType();
-		} else if (FE_TILE == edge) {
+		} else if (EFT_TILE == edge) {
 			x = x - float((int(x) / width - (x < 0 ? 1 : 0)) * width);
 			if (x >= width)
 				y = width - 0.05f;
 			y = y - float((int(y) / height - (y < 0 ? 1 : 0)) * height);
 			if (y >= height)
 				y = height - 0.05f;
-		} else if (FE_STRETCH == edge) {
+		} else if (EFT_STRETCH == edge) {
 			x = (x < 0.0f ? 0.0f : (x >= width ? width - 1 : x));
 			y = (y < 0.0f ? 0.0f : (y >= height ? height - 1 : y));
+		} else if (EFT_MIRROR == edge) {
+			// first make x and y absolute
+			x = fabs(x);
+			y = fabs(y);
+			const int dWidth = width * 2;
+			const int dHeight = height * 2;
+			// then tile to the width * 2 and height * 2 domain
+			if (x >= dWidth) {
+				x = x - float((int(x) / dWidth) * dWidth);
+			}
+			if (y >= dHeight) {
+				y = y - float((int(y) / dHeight) * dHeight);
+			}
+			// and finally calculate the positions
+			if (x >= width) {
+				x = (dWidth - x);
+			}
+			if (y >= height) {
+				y = (dHeight - y);
+			}
 		} else {
 			return ColorType();
 		}

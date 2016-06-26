@@ -182,7 +182,7 @@ class RotationModule : public AsyncModule {
 public:
 	RotationModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "angle"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch;mirror"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;

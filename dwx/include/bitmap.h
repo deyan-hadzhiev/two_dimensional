@@ -57,10 +57,12 @@ enum ColorChannel {
 	CC_COUNT, //!< the count of available channels
 };
 
-enum FilterEdge {
-	FE_BLANK,   //!< coordinates beyond the edge will be initialized with blank color
-	FE_TILE,    //!< coordinates beyond the edge will be initialized with tiled image
-	FE_STRETCH, //!< coordinates beyond the edge will be the stretched edge
+// used for operations which require decision on what is to be done beyond the borders of the current pixelmap
+enum EdgeFillType {
+	EFT_BLANK,   //!< coordinates beyond the edge will be initialized with blank color
+	EFT_TILE,    //!< coordinates beyond the edge will be initialized with tiled image
+	EFT_STRETCH, //!< coordinates beyond the edge will be the stretched edge
+	EFT_MIRROR,  //!< coordinates beyond the edge will start mirroring based on the edge
 };
 
 template<class ColorType = Color>
@@ -89,7 +91,7 @@ public:
 	void generateEmptyImage(int width, int height, bool clear = true) noexcept; //!< Creates an empty image with the given dimensions (and clears it by default)
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
 	ColorType getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
-	ColorType getFilteredPixel(float x, float y, FilterEdge edge = FilterEdge::FE_BLANK) const noexcept;
+	ColorType getFilteredPixel(float x, float y, EdgeFillType edge = EdgeFillType::EFT_BLANK) const noexcept;
 	void remap(std::function<ColorType(ColorType)>) noexcept; // remap R, G, B channels by a function
 
 	void setPixel(int x, int y, const ColorType& col) noexcept; //!< Sets the pixel at coordinates (x, y)
