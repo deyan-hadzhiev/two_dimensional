@@ -20,6 +20,8 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	, symmetryRb{ nullptr }
 	, symmetryRbId(0)
 	, kernelParamsId(0)
+	, normalizeButton(nullptr)
+	, normalizationValue(nullptr)
 	, kernelSide(0)
 {
 	sumText = new wxStaticText(this, wxID_ANY, wxT("0"));
@@ -32,6 +34,13 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	}
 	setKernelSide(side);
 
+	const wxWindowID normalizeId = WinIDProvider::getProvider().getId();
+	normalizeButton = new wxButton(this, normalizeId, "Normalize");
+	Connect(normalizeId, wxEVT_BUTTON, wxCommandEventHandler(CKernelDlg::OnNormalize), NULL, this);
+
+	normalizationValue = new wxTextCtrl(this, wxID_ANY, "1.0");
+	normalizationValue->SetSizeHints(wxSize(20, -1));
+
 	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(CKernelDlg::OnClose), NULL, this);
 	Connect(wxID_ANY, wxEVT_CHAR_HOOK, wxKeyEventHandler(CKernelDlg::OnEscape), NULL, this);
 }
@@ -43,6 +52,18 @@ ConvolutionKernel CKernelDlg::getKernel() const {
 		ckData[i] = wxAtof(kernelParams[i]->GetValue());
 	}
 	return retval;
+}
+
+void CKernelDlg::setKernel(const ConvolutionKernel & kernel) {
+	const int inKernelSide = kernel.getSide();
+	if (inKernelSide != kernelSide) {
+		setKernelSide(inKernelSide);
+	}
+	const int sqSide = inKernelSide * inKernelSide;
+	const float * kernelData = kernel.getDataPtr();
+	for (int i = 0; i < sqSide; ++i) {
+		kernelParams[i]->ChangeValue(wxString() << kernelData[i]);
+	}
 }
 
 void CKernelDlg::setKernelSide(int s) {
@@ -70,6 +91,10 @@ void CKernelDlg::setKernelSide(int s) {
 		}
 		topSizer->Add(sumText, 1, wxEXPAND | wxALL, 5);
 		dlgSizer->Add(topSizer, 0, wxEXPAND | wxALL);
+		wxBoxSizer * normSizer = new wxBoxSizer(wxHORIZONTAL);
+		normSizer->Add(normalizeButton, 0, wxALL, 5);
+		normSizer->Add(normalizationValue, 1, wxEXPAND | wxALL, 5);
+		dlgSizer->Add(normSizer, 0, wxEXPAND | wxSHRINK | wxALL, 5);
 
 		wxGridSizer * gridSizer = new wxGridSizer(kernelSide, kernelSide, 2, 2);
 		const int sideSqr = kernelSide * kernelSide;
@@ -123,6 +148,14 @@ void CKernelDlg::OnSymmetryChange(wxCommandEvent & evt) {
 		currentSymmetry = static_cast<SymmetryType>(evtId - symmetryRbId);
 		updateSymmetry();
 	}
+}
+
+void CKernelDlg::OnNormalize(wxCommandEvent& evt) {
+	ConvolutionKernel current = getKernel();
+	const float targetValue = wxAtof(normalizationValue->GetValue());
+	current.normalize(targetValue);
+	setKernel(current);
+	recalculateSum();
 }
 
 void CKernelDlg::updateCentral(int index) {
@@ -218,7 +251,7 @@ void CKernelDlg::recalculateSum() {
 CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
 	: wxPanel(_parent, id)
 	, paramPanel(_parent)
-	, kernelDlg(new CKernelDlg(this, label, wxAtoi(defSide)))
+	, kernelDlg(new CKernelDlg(this, label, 0))
 	, mainSizer(nullptr)
 	, sideCtrl(nullptr)
 	, showButton(nullptr)

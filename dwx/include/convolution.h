@@ -19,7 +19,7 @@ public:
 
 	void init(const float * mat, int side);
 
-	void normalize();
+	void normalize(const float targetSum = 1.0f);
 
 	int getSide() const;
 
@@ -39,7 +39,7 @@ template<class T>
 std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec);
 
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& in, const ConvolutionKernel& k, const bool normalize = true);
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& in, const ConvolutionKernel& k, const bool normalize = true, const float normalizationValue = 1.0f);
 
 struct Extremum {
 	int start;

@@ -513,11 +513,13 @@ ModuleBase::ProcessResult FilterModule::moduleImplementation(unsigned flags) {
 	const float blurKernel[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	ConvolutionKernel k(blurKernel, 3);
 	bool normalize = true;
+	float normalizationValue = 1.0f;
 	if (pman) {
 		pman->getCKernelParam(k, "kernel");
 		pman->getBoolParam(normalize, "normalize");
+		pman->getFloatParam(normalizationValue, "normalValue");
 	}
-	Bitmap out = convolute(bmp, k, normalize);
+	Bitmap out = convolute(bmp, k, normalize, normalizationValue);
 	if (oman) {
 		oman->setOutput(out, bmpId);
 	}

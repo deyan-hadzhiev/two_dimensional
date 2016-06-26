@@ -218,6 +218,7 @@ public:
 	FilterModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernel", "3"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalize", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalValue", "1.0"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;

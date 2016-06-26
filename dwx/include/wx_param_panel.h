@@ -20,6 +20,8 @@ public:
 
 	ConvolutionKernel getKernel() const;
 
+	void setKernel(const ConvolutionKernel& kernel);
+
 	void setKernelSide(int s);
 
 	void OnClose(wxCloseEvent& evt);
@@ -28,6 +30,8 @@ public:
 	void OnParamChange(wxCommandEvent& evt);
 
 	void OnSymmetryChange(wxCommandEvent& evt);
+
+	void OnNormalize(wxCommandEvent& evt);
 private:
 	enum SymmetryType {
 		ST_NO_SYMMETRY = 0,
@@ -55,6 +59,8 @@ private:
 	wxWindowID symmetryRbId;
 	wxVector<wxTextCtrl*> kernelParams;
 	wxWindowID kernelParamsId;
+	wxButton * normalizeButton;
+	wxTextCtrl * normalizationValue;
 	int kernelSide;
 };
 

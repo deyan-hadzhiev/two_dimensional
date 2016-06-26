@@ -51,18 +51,74 @@ void ConvolutionKernel::init(const float * mat, int _side) {
 	}
 }
 
-void ConvolutionKernel::normalize() {
+void ConvolutionKernel::normalize(const float targetSum) {
 	if (!data || side <= 0)
 		return;
-	float sum = 0.0f;
+	float negSum = 0.0f;
+	float posSum = 0.0f;
 	const int kn = side * side;
 	for (int i = 0; i < kn; ++i) {
-		sum += fabs(data[i]);
+		const float fi = data[i];
+		if (fi > 0.0f) {
+			posSum += fi;
+		} else {
+			negSum += fi;
+		}
 	}
-	if (fabs(sum - 1.0f) > Eps) {
-		const float factor = 1.0f / sum;
-		for (int i = 0; i < kn; ++i) {
-			data[i] *= factor;
+	const float sum = posSum + negSum;
+	const float absSum = posSum - negSum;
+	if (fabs(sum - targetSum) > Eps) {
+		if (fabs(targetSum) < Eps) {
+			// this is to assert for NaNs and also there is no way other than making all zero
+			if (posSum > Eps && negSum < -Eps) {
+				// normalize the positive and negative separately to 1 and -1 respectively
+				const float posFactor = 1.0 / posSum;
+				const float negFactor = -1.0 / negSum;
+				for (int i = 0; i < kn; ++i) {
+					if (data[i] > 0.0f) {
+						data[i] *= posFactor;
+					} else {
+						data[i] *= negFactor;
+					}
+				}
+			}
+		} else {
+			if (sum * targetSum > Eps) {
+				// if the current sum and target sums have equal signs - just scale the parameters
+				const float factor = targetSum / sum;
+				for (int i = 0; i < kn; ++i) {
+					data[i] *= factor;
+				}
+			} else if (posSum > Eps && negSum < -Eps) {
+				// this is only possible when both the positive and negative sums are not 0
+				// scale both to 1 and -1
+				const float posFactor = 1.0 / posSum;
+				const float negFactor = -1.0 / negSum;
+				for (int i = 0; i < kn; ++i) {
+					if (data[i] > Eps) {
+						data[i] *= posFactor;
+					} else if (data[i] < -Eps) {
+						data[i] *= negFactor;
+					}
+				}
+				// and afterfwards scale only the ones that are required
+				if (targetSum > Eps) {
+					// increase the positive sum
+					const float scaleFactor = targetSum + 1.0;
+					for (int i = 0; i < kn; ++i) {
+						if (data[i] > Eps) {
+							data[i] *= scaleFactor;
+						}
+					}
+				} else if (targetSum < Eps) {
+					const float scaleFactor = -targetSum - 1.0;
+					for (int i = 0; i < kn; ++i) {
+						if (data[i] < -Eps) {
+							data[i] *= scaleFactor;
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -135,16 +191,16 @@ std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 	return result;
 }
 
-template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize);
+template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue);
 
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize) {
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue) {
 	// this may be increased to int64 if necessary, but for now even int16 is an option
 	Pixelmap<TColor<int32> > in(_in);
 	Pixelmap<TColor<int32> > out(in.getWidth(), in.getHeight());
 	ConvolutionKernel k(_k);
 	if (normalize) {
-		k.normalize();
+		k.normalize(normalizationValue);
 	}
 	const int w = in.getWidth();
 	const int h = in.getHeight();
