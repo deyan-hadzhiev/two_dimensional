@@ -59,10 +59,18 @@ enum ColorChannel {
 
 // used for operations which require decision on what is to be done beyond the borders of the current pixelmap
 enum EdgeFillType {
-	EFT_BLANK,   //!< coordinates beyond the edge will be initialized with blank color
-	EFT_TILE,    //!< coordinates beyond the edge will be initialized with tiled image
-	EFT_STRETCH, //!< coordinates beyond the edge will be the stretched edge
-	EFT_MIRROR,  //!< coordinates beyond the edge will start mirroring based on the edge
+	EFT_BLANK = 0, //!< coordinates beyond the edge will be initialized with blank color
+	EFT_TILE,      //!< coordinates beyond the edge will be initialized with tiled image
+	EFT_STRETCH,   //!< coordinates beyond the edge will be the stretched edge
+	EFT_MIRROR,    //!< coordinates beyond the edge will start mirroring based on the edge
+};
+
+// used for operations which require axis decisions
+enum PixelmapAxis {
+	PA_NONE = 0,                     //!< none of the axes
+	PA_X_AXIS = 1 << 0,              //!< the x axis of the pixelmap
+	PA_Y_AXIS = 1 << 1,              //!< the y axis of the pixelmap
+	PA_BOTH = PA_X_AXIS | PA_Y_AXIS, //!< both the axes
 };
 
 template<class ColorType = Color>
@@ -107,6 +115,12 @@ public:
 
 	template<class ChannelScalar>
 	bool setChannel(const ChannelScalar * channel, ColorChannel cc);
+
+	// mirrors the pixelmap in-place
+	bool mirror(PixelmapAxis axis);
+
+	// mirrors the pixelmap in the output pixelmap
+	bool mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis) const;
 
 	// crops the rectangle with top left (x, y) and w width and h height in place
 	bool crop(const int x, const int y, const int w, const int h);

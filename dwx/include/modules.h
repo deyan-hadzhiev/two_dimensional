@@ -257,6 +257,16 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class MirrorModule : public AsyncModule {
+public:
+	MirrorModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "mirrorX", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "mirrorY", "true"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class ChannelModule : public AsyncModule {
 public:
 	ChannelModule() {

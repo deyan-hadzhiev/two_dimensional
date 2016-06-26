@@ -483,6 +483,44 @@ const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 }
 
 template<class ColorType>
+bool Pixelmap<ColorType>::mirror(PixelmapAxis axis) {
+	if (!this->isOK()) {
+		return false;
+	} else if (PA_NONE == axis) {
+		return true;
+	}
+	if ((axis & PA_Y_AXIS) != 0) {
+		std::unique_ptr<ColorType[]> tmp(new ColorType[width]);
+		const int halfHeight = height / 2;
+		const int rowSize = width * sizeof(ColorType);
+		for (int y = 0, yy = height - 1; y < halfHeight; ++y, --yy) {
+			memcpy(tmp.get(), data + y * width, rowSize);
+			memcpy(data + y * width, data + yy * width, rowSize);
+			memcpy(data + yy * width, tmp.get(), rowSize);
+		}
+	}
+	if ((axis & PA_X_AXIS) != 0) {
+		const int halfWidth = width / 2;
+		for (int y = 0; y < height; ++y) {
+			ColorType * rowData = data + y * width;
+			for (int x = 0, xx = width - 1; x < halfWidth; ++x, --xx) {
+				std::swap(rowData[x], rowData[xx]);
+			}
+		}
+	}
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis) const {
+	if (!this->isOK() || this == &mirrored) {
+		return false;
+	}
+	mirrored = *this;
+	return mirrored.mirror(axis);
+}
+
+template<class ColorType>
 bool Pixelmap<ColorType>::crop(const int x, const int y, const int w, const int h) {
 	if (!this->isOK() || x < 0 || y < 0 || x + w > width || y + h > height) {
 		return false;
@@ -507,7 +545,7 @@ bool Pixelmap<ColorType>::crop(const int x, const int y, const int w, const int 
 
 template<class ColorType>
 bool Pixelmap<ColorType>::crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const {
-	if (!this->isOK() || x < 0 || y < 0 || x + w > width || y + h > height) {
+	if (!this->isOK() || this == &cropped || x < 0 || y < 0 || x + w > width || y + h > height) {
 		return false;
 	}
 	// create the data for the cropped image
@@ -534,7 +572,7 @@ bool Pixelmap<ColorType>::relocate(const int nx, const int ny) {
 
 template<class ColorType>
 bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx, const int ny) const {
-	if (!this->isOK() || nx < 0 || nx >= width || ny < 0 || ny >= height) {
+	if (!this->isOK() || this == &relocated || nx < 0 || nx >= width || ny < 0 || ny >= height) {
 		return false;
 	}
 	relocated.generateEmptyImage(width, height);
@@ -598,7 +636,7 @@ bool Pixelmap<ColorType>::setChannel(const ChannelScalar * channel, ColorChannel
 template<class ColorType>
 template<class IntermediateColorType>
 bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const {
-	if (!this->isOK() || downWidth <= 0 || downWidth > width || downHeight <= 0 || downHeight > height) {
+	if (!this->isOK() || this == &downScaled || downWidth <= 0 || downWidth > width || downHeight <= 0 || downHeight > height) {
 		return false;
 	} else if (downWidth == width && downHeight == height) {
 		downScaled = *this;
@@ -662,7 +700,7 @@ bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int d
 
 template<class ColorType>
 bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, const int y) noexcept {
-	if (!subBmp.isOK() || !this->isOK())
+	if (!subBmp.isOK() || !this->isOK() || this == &subBmp)
 		return false;
 	const int sw = subBmp.getWidth();
 	const int sh = subBmp.getHeight();

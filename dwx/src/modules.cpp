@@ -619,6 +619,33 @@ ModuleBase::ProcessResult CropModule::moduleImplementation(unsigned flags) {
 	}
 }
 
+ModuleBase::ProcessResult MirrorModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Mirror");
+	}
+	bool mx = true;
+	bool my = true;
+	if (pman) {
+		pman->getBoolParam(mx, "mirrorX");
+		pman->getBoolParam(my, "mirrorY");
+	}
+	unsigned axes = (mx ? PA_X_AXIS : PA_NONE) | (my ? PA_Y_AXIS : PA_NONE);
+	Bitmap out;
+	bool res = bmp.mirror(out, static_cast<PixelmapAxis>(axes));
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
 ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
@@ -967,3 +994,4 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 		return KPR_FATAL_ERROR;
 	}
 }
+
