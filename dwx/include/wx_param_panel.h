@@ -16,9 +16,18 @@ class CKernelPanel;
 
 class CKernelDlg : public wxDialog {
 public:
-	CKernelDlg(CKernelPanel * parent, const wxString& title, int side);
+	CKernelDlg(CKernelPanel * parent, const wxString& title, long style);
 
-	ConvolutionKernel getKernel() const;
+	virtual ~CKernelDlg() {}
+
+	virtual ConvolutionKernel getKernel() const = 0;
+};
+
+class CKernelTableDlg : public CKernelDlg {
+public:
+	CKernelTableDlg(CKernelPanel * parent, const wxString& title, int side);
+
+	ConvolutionKernel getKernel() const override final;
 
 	void setKernel(const ConvolutionKernel& kernel);
 

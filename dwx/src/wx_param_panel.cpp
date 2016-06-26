@@ -6,14 +6,18 @@
 #include "wx_modes.h"
 #include "guimain.h"
 
-const wxString CKernelDlg::symmetryName[CKernelDlg::ST_COUNT] = {
+CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, long style)
+	: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, style)
+{}
+
+const wxString CKernelTableDlg::symmetryName[CKernelTableDlg::ST_COUNT] = {
 	wxT("None"),    //!< ST_NO_SYMMETRY
 	wxT("Central"),	//!< ST_CENTRAL
 	wxT("Radial"),	//!< ST_RADIAL
 };
 
-CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
-	: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+CKernelTableDlg::CKernelTableDlg(CKernelPanel * parent, const wxString& title, int side)
+	: CKernelDlg(parent, title, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 	, currentSymmetry(ST_NO_SYMMETRY)
 	, paramPanel(parent)
 	, sideCtrl(nullptr)
@@ -27,12 +31,12 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	, resetButton(nullptr)
 	, kernelSide(0)
 {
-	Connect(wxEVT_SHOW, wxShowEventHandler(CKernelDlg::OnShow), NULL, this);
+	Connect(wxEVT_SHOW, wxShowEventHandler(CKernelTableDlg::OnShow), NULL, this);
 
 	sideCtrl = new wxTextCtrl(this, wxID_ANY, wxString() << side);
 	const wxWindowID sideButtonId = WinIDProvider::getProvider().getId();
 	sideButton = new wxButton(this, sideButtonId, "Change Side");
-	Connect(sideButtonId, wxEVT_BUTTON, wxCommandEventHandler(CKernelDlg::OnKernelSide), NULL, this);
+	Connect(sideButtonId, wxEVT_BUTTON, wxCommandEventHandler(CKernelTableDlg::OnKernelSide), NULL, this);
 
 	sumText = new wxStaticText(this, wxID_ANY, wxT("0"));
 	sumText->SetSizeHints(wxSize(20, -1));
@@ -40,25 +44,25 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	for (int i = 0; i < ST_COUNT; ++i) {
 		const wxWindowID rbId = symmetryRbId + i;
 		symmetryRb[i] = new wxRadioButton(this, rbId, symmetryName[i], wxDefaultPosition, wxDefaultSize, (i == 0 ? wxRB_GROUP : 0L));
-		Connect(rbId, wxEVT_RADIOBUTTON, wxCommandEventHandler(CKernelDlg::OnSymmetryChange), NULL, this);
+		Connect(rbId, wxEVT_RADIOBUTTON, wxCommandEventHandler(CKernelTableDlg::OnSymmetryChange), NULL, this);
 	}
 
 	const wxWindowID normalizeId = WinIDProvider::getProvider().getId();
 	normalizeButton = new wxButton(this, normalizeId, "Normalize");
-	Connect(normalizeId, wxEVT_BUTTON, wxCommandEventHandler(CKernelDlg::OnNormalize), NULL, this);
+	Connect(normalizeId, wxEVT_BUTTON, wxCommandEventHandler(CKernelTableDlg::OnNormalize), NULL, this);
 
 	normalizationValue = new wxTextCtrl(this, wxID_ANY, "1.0");
 	normalizationValue->SetSizeHints(wxSize(20, -1));
 
 	const wxWindowID resetId = WinIDProvider::getProvider().getId();
 	resetButton = new wxButton(this, resetId, "Reset");
-	Connect(resetId, wxEVT_BUTTON, wxCommandEventHandler(CKernelDlg::OnReset), NULL, this);
+	Connect(resetId, wxEVT_BUTTON, wxCommandEventHandler(CKernelTableDlg::OnReset), NULL, this);
 
-	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(CKernelDlg::OnClose), NULL, this);
-	Connect(wxID_ANY, wxEVT_CHAR_HOOK, wxKeyEventHandler(CKernelDlg::OnEscape), NULL, this);
+	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(CKernelTableDlg::OnClose), NULL, this);
+	Connect(wxID_ANY, wxEVT_CHAR_HOOK, wxKeyEventHandler(CKernelTableDlg::OnEscape), NULL, this);
 }
 
-ConvolutionKernel CKernelDlg::getKernel() const {
+ConvolutionKernel CKernelTableDlg::getKernel() const {
 	ConvolutionKernel retval(kernelSide);
 	float * ckData = retval.getDataPtr();
 	for (int i = 0; i < kernelParams.size(); ++i) {
@@ -67,7 +71,7 @@ ConvolutionKernel CKernelDlg::getKernel() const {
 	return retval;
 }
 
-void CKernelDlg::setKernel(const ConvolutionKernel & kernel) {
+void CKernelTableDlg::setKernel(const ConvolutionKernel & kernel) {
 	const int inKernelSide = kernel.getSide();
 	if (inKernelSide != kernelSide) {
 		setKernelSide(inKernelSide);
@@ -79,7 +83,7 @@ void CKernelDlg::setKernel(const ConvolutionKernel & kernel) {
 	}
 }
 
-void CKernelDlg::setKernelSide(int s) {
+void CKernelTableDlg::setKernelSide(int s) {
 	if (s > 0 && (s != kernelSide || 0 == kernelSide) && (s & 1) != 0) {
 		// clear previous param controls
 		for (auto rit = kernelParams.rbegin(); rit != kernelParams.rend(); ++rit) {
@@ -122,7 +126,7 @@ void CKernelDlg::setKernelSide(int s) {
 			const wxWindowID paramId = kernelParamsId + i;
 			wxTextCtrl * kernelPar = new wxTextCtrl(this, paramId, wxString() << 0.0, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 			kernelPar->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, paramPanel);
-			Connect(paramId, wxEVT_TEXT, wxCommandEventHandler(CKernelDlg::OnParamChange), NULL, this);
+			Connect(paramId, wxEVT_TEXT, wxCommandEventHandler(CKernelTableDlg::OnParamChange), NULL, this);
 			kernelParams.push_back(kernelPar);
 			gridSizer->Add(kernelPar, 1, wxEXPAND | wxSHRINK | wxALL, 2);
 		}
@@ -134,21 +138,21 @@ void CKernelDlg::setKernelSide(int s) {
 	SendSizeEvent();
 }
 
-void CKernelDlg::OnKernelSide(wxCommandEvent & evt) {
+void CKernelTableDlg::OnKernelSide(wxCommandEvent & evt) {
 	const int kSide = wxAtoi(sideCtrl->GetValue());
 	setKernelSide(kSide);
 }
 
-void CKernelDlg::OnShow(wxShowEvent & evt) {
+void CKernelTableDlg::OnShow(wxShowEvent & evt) {
 	setKernelSide(wxAtoi(sideCtrl->GetValue()));
 }
 
-void CKernelDlg::OnClose(wxCloseEvent & evt) {
+void CKernelTableDlg::OnClose(wxCloseEvent & evt) {
 	wxCommandEvent dummy;
 	paramPanel->OnHideButton(dummy);
 }
 
-void CKernelDlg::OnEscape(wxKeyEvent & evt) {
+void CKernelTableDlg::OnEscape(wxKeyEvent & evt) {
 	if (evt.GetKeyCode() == WXK_ESCAPE) {
 		wxCommandEvent dummy;
 		paramPanel->OnHideButton(dummy);
@@ -160,7 +164,7 @@ void CKernelDlg::OnEscape(wxKeyEvent & evt) {
 	}
 }
 
-void CKernelDlg::OnParamChange(wxCommandEvent & evt) {
+void CKernelTableDlg::OnParamChange(wxCommandEvent & evt) {
 	const int id = evt.GetId();
 	if (id >= kernelParamsId && id < kernelParamsId + kernelSide * kernelSide) {
 		const int index = id - kernelParamsId;
@@ -173,7 +177,7 @@ void CKernelDlg::OnParamChange(wxCommandEvent & evt) {
 	}
 }
 
-void CKernelDlg::OnSymmetryChange(wxCommandEvent & evt) {
+void CKernelTableDlg::OnSymmetryChange(wxCommandEvent & evt) {
 	const wxWindowID evtId = evt.GetId();
 	if (evtId >= symmetryRbId && evtId < symmetryRbId + ST_COUNT) {
 		currentSymmetry = static_cast<SymmetryType>(evtId - symmetryRbId);
@@ -181,7 +185,7 @@ void CKernelDlg::OnSymmetryChange(wxCommandEvent & evt) {
 	}
 }
 
-void CKernelDlg::OnNormalize(wxCommandEvent& evt) {
+void CKernelTableDlg::OnNormalize(wxCommandEvent& evt) {
 	ConvolutionKernel current = getKernel();
 	const float targetValue = wxAtof(normalizationValue->GetValue());
 	current.normalize(targetValue);
@@ -189,14 +193,14 @@ void CKernelDlg::OnNormalize(wxCommandEvent& evt) {
 	recalculateSum();
 }
 
-void CKernelDlg::OnReset(wxCommandEvent & evt) {
+void CKernelTableDlg::OnReset(wxCommandEvent & evt) {
 	const int squareSide = kernelSide * kernelSide;
 	for (int i = 0; i < squareSide; ++i) {
 		kernelParams[i]->ChangeValue(wxString() << 0.0);
 	}
 }
 
-void CKernelDlg::updateCentral(int index) {
+void CKernelTableDlg::updateCentral(int index) {
 	wxPoint op = indexToPoint(index);
 	// the update is not necessary for the cental point
 	if (op.x != 0 || op.y != 0) {
@@ -210,7 +214,7 @@ void CKernelDlg::updateCentral(int index) {
 	}
 }
 
-void CKernelDlg::updateRadial(int index) {
+void CKernelTableDlg::updateRadial(int index) {
 	const wxPoint op = indexToPoint(index);
 	// the update is not necessary for the central point
 	if (op.x != 0 || op.y != 0) {
@@ -246,7 +250,7 @@ void CKernelDlg::updateRadial(int index) {
 	}
 }
 
-void CKernelDlg::updateSymmetry() {
+void CKernelTableDlg::updateSymmetry() {
 	if (ST_NO_SYMMETRY == currentSymmetry) {
 		for (auto it = kernelParams.begin(); it != kernelParams.end(); ++it) {
 			(*it)->Enable();
@@ -268,17 +272,17 @@ void CKernelDlg::updateSymmetry() {
 	}
 }
 
-wxPoint CKernelDlg::indexToPoint(int index) const {
+wxPoint CKernelTableDlg::indexToPoint(int index) const {
 	const int c = kernelSide / 2;
 	return wxPoint((index % kernelSide) - c, (index / kernelSide) - c);
 }
 
-int CKernelDlg::pointToIndex(const wxPoint & p) const {
+int CKernelTableDlg::pointToIndex(const wxPoint & p) const {
 	const int c = kernelSide / 2;
 	return (p.y + c) * kernelSide + p.x + c;
 }
 
-void CKernelDlg::recalculateSum() {
+void CKernelTableDlg::recalculateSum() {
 	float sum = 0.0f;
 	for (auto it = kernelParams.begin(); it != kernelParams.end(); ++it) {
 		sum += wxAtof((*it)->GetValue());
@@ -289,7 +293,7 @@ void CKernelDlg::recalculateSum() {
 CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
 	: wxPanel(_parent, id)
 	, paramPanel(_parent)
-	, kernelDlg(new CKernelDlg(this, label, wxAtoi(defSide)))
+	, kernelDlg(new CKernelTableDlg(this, label, wxAtoi(defSide)))
 	, mainSizer(nullptr)
 	, showButton(nullptr)
 	, hideButton(nullptr)
