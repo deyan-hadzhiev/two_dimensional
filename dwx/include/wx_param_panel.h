@@ -32,6 +32,8 @@ public:
 	void OnSymmetryChange(wxCommandEvent& evt);
 
 	void OnNormalize(wxCommandEvent& evt);
+
+	void OnReset(wxCommandEvent& evt);
 private:
 	enum SymmetryType {
 		ST_NO_SYMMETRY = 0,
@@ -61,6 +63,7 @@ private:
 	wxWindowID kernelParamsId;
 	wxButton * normalizeButton;
 	wxTextCtrl * normalizationValue;
+	wxButton * resetButton;
 	int kernelSide;
 };
 

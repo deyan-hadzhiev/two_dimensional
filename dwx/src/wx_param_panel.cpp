@@ -22,6 +22,7 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 	, kernelParamsId(0)
 	, normalizeButton(nullptr)
 	, normalizationValue(nullptr)
+	, resetButton(nullptr)
 	, kernelSide(0)
 {
 	sumText = new wxStaticText(this, wxID_ANY, wxT("0"));
@@ -40,6 +41,10 @@ CKernelDlg::CKernelDlg(CKernelPanel * parent, const wxString& title, int side)
 
 	normalizationValue = new wxTextCtrl(this, wxID_ANY, "1.0");
 	normalizationValue->SetSizeHints(wxSize(20, -1));
+
+	const wxWindowID resetId = WinIDProvider::getProvider().getId();
+	resetButton = new wxButton(this, resetId, "Reset");
+	Connect(resetId, wxEVT_BUTTON, wxCommandEventHandler(CKernelDlg::OnReset), NULL, this);
 
 	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(CKernelDlg::OnClose), NULL, this);
 	Connect(wxID_ANY, wxEVT_CHAR_HOOK, wxKeyEventHandler(CKernelDlg::OnEscape), NULL, this);
@@ -94,6 +99,7 @@ void CKernelDlg::setKernelSide(int s) {
 		wxBoxSizer * normSizer = new wxBoxSizer(wxHORIZONTAL);
 		normSizer->Add(normalizeButton, 0, wxALL, 5);
 		normSizer->Add(normalizationValue, 1, wxEXPAND | wxALL, 5);
+		normSizer->Add(resetButton, 0, wxALL, 5);
 		dlgSizer->Add(normSizer, 0, wxEXPAND | wxSHRINK | wxALL, 5);
 
 		wxGridSizer * gridSizer = new wxGridSizer(kernelSide, kernelSide, 2, 2);
@@ -102,7 +108,7 @@ void CKernelDlg::setKernelSide(int s) {
 		kernelParamsId = WinIDProvider::getProvider().getId(sideSqr);
 		for (int i = 0; i < sideSqr; ++i) {
 			const wxWindowID paramId = kernelParamsId + i;
-			wxTextCtrl * kernelPar = new wxTextCtrl(this, paramId, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+			wxTextCtrl * kernelPar = new wxTextCtrl(this, paramId, wxString() << 0.0, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 			kernelPar->Connect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, paramPanel);
 			Connect(paramId, wxEVT_TEXT, wxCommandEventHandler(CKernelDlg::OnParamChange), NULL, this);
 			kernelParams.push_back(kernelPar);
@@ -156,6 +162,13 @@ void CKernelDlg::OnNormalize(wxCommandEvent& evt) {
 	current.normalize(targetValue);
 	setKernel(current);
 	recalculateSum();
+}
+
+void CKernelDlg::OnReset(wxCommandEvent & evt) {
+	const int squareSide = kernelSide * kernelSide;
+	for (int i = 0; i < squareSide; ++i) {
+		kernelParams[i]->ChangeValue(wxString() << 0.0);
+	}
 }
 
 void CKernelDlg::updateCentral(int index) {
