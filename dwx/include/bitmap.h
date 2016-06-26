@@ -73,7 +73,7 @@ protected:
 	void copy(const Pixelmap& rhs) noexcept;
 public:
 	Pixelmap() noexcept; //!< Generates an empty bitmap
-	Pixelmap(int width, int height) noexcept; //!< Generates empty bitmap with specified dimensions
+	Pixelmap(int width, int height, const ColorType * pixelValues = nullptr) noexcept; //!< Generates bitmap with specified dimensions and initializes it with the buffer (if supplied)
 	~Pixelmap() noexcept;
 	Pixelmap(const Pixelmap& rhs) noexcept;
 	Pixelmap& operator = (const Pixelmap& rhs) noexcept;
@@ -86,7 +86,7 @@ public:
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
 	int getDimensionProduct() const noexcept; //!< Gets the product of the width and height dimensions
 	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
-	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
+	void generateEmptyImage(int width, int height, bool clear = true) noexcept; //!< Creates an empty image with the given dimensions (and clears it by default)
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
 	ColorType getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
 	ColorType getFilteredPixel(float x, float y, FilterEdge edge = FilterEdge::FE_BLANK) const noexcept;
@@ -99,8 +99,9 @@ public:
 	ColorType * operator[](int row) noexcept;
 	const ColorType * operator[](int row) const noexcept;
 
+	// the output channel buffer has to be allocated by the caller (with size of the product of dimensions - width * height)
 	template<class ChannelScalar>
-	bool getChannel(std::unique_ptr<ChannelScalar[]>& channel, ColorChannel cc) const;
+	bool getChannel(ChannelScalar * channel, ColorChannel cc) const;
 
 	template<class ChannelScalar>
 	bool setChannel(const ChannelScalar * channel, ColorChannel cc);

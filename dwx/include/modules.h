@@ -285,4 +285,13 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class FFTFilter : public AsyncModule {
+public:
+	FFTFilter() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernelFFT", "5"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 #endif // __MODULES_H__

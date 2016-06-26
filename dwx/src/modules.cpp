@@ -632,8 +632,9 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 		pman->getEnumParam(channel, "channel");
 	}
 	Bitmap out(bmp.getWidth(), bmp.getHeight());
-	std::unique_ptr<uint8[]> channelData;
-	bool res = bmp.getChannel(channelData, static_cast<ColorChannel>(channel));
+	const int dimProd = bmp.getDimensionProduct();
+	std::unique_ptr<uint8[]> channelData(new uint8[dimProd]);
+	bool res = bmp.getChannel(channelData.get(), static_cast<ColorChannel>(channel));
 	if (res) {
 		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
 		if (oman) {
@@ -670,23 +671,22 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 
-	std::unique_ptr<Complex[]> inChannels[ColorChannel::CC_COUNT];
-	std::unique_ptr<Complex[]> frequencyChannels[ColorChannel::CC_COUNT];
-
 	const int dimProd = bmpComplex.getDimensionProduct();
+	std::unique_ptr<Complex[]> inChannel(new Complex[dimProd]);
+	std::unique_ptr<Complex[]> frequencyChannel(new Complex[dimProd]);
 
-	for (int i = 0; i < _countof(inChannels); ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
 		if (cb)
-			cb->setPercentDone(i, _countof(inChannels));
+			cb->setPercentDone(i, ColorChannel::CC_COUNT);
 
-		bmpComplex.getChannel(inChannels[i], static_cast<ColorChannel>(i));
-		// allocate output buffers
-		frequencyChannels[i].reset(new Complex[dimProd]);
+		// get the current channel
+		bmpComplex.getChannel(inChannel.get(), static_cast<ColorChannel>(i));
+
 		// run the forward fft
-		forward.transform(inChannels[i].get(), frequencyChannels[i].get());
+		forward.transform(inChannel.get(), frequencyChannel.get());
 
 		// set the channel to the output pixelmap
-		outComplex.setChannel(frequencyChannels[i].get(), static_cast<ColorChannel>(i));
+		outComplex.setChannel(frequencyChannel.get(), static_cast<ColorChannel>(i));
 	}
 
 	// now remap all values to their absolute value
@@ -791,23 +791,22 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
 
-	std::unique_ptr<Complex[]> fftInChannels[ColorChannel::CC_COUNT];
-	std::unique_ptr<Complex[]> fftOutChannels[ColorChannel::CC_COUNT];
-
 	const int dimProd = bmpComplex.getDimensionProduct();
+	std::unique_ptr<Complex[]> fftInChannel(new Complex[dimProd]);
+	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]);
 
-	for (int i = 0; i < _countof(fftInChannels); ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
 		if (cb)
-			cb->setPercentDone(i, 2 * _countof(fftInChannels));
+			cb->setPercentDone(i, 2 * ColorChannel::CC_COUNT);
 
-		bmpComplex.getChannel(fftInChannels[i], static_cast<ColorChannel>(i));
-		// allocate output buffers
-		fftOutChannels[i].reset(new Complex[dimProd]);
+		// get the current channel
+		bmpComplex.getChannel(fftInChannel.get(), static_cast<ColorChannel>(i));
+
 		// run the forward fft
-		forward.transform(fftInChannels[i].get(), fftOutChannels[i].get());
+		forward.transform(fftInChannel.get(), fftOutChannel.get());
 
 		// set the channel to the compressed pixelmap
-		bmpCompressed.setChannel(fftOutChannels[i].get(), static_cast<ColorChannel>(i));
+		bmpCompressed.setChannel(fftOutChannel.get(), static_cast<ColorChannel>(i));
 	}
 
 	// compute the x and y coordinates that will mark the zoroing to simulate compression
@@ -832,22 +831,125 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	}
 
 	// now after the compression is simulated - make the inverse transform over the compressed pixelmap
-	for (int i = 0; i < _countof(fftInChannels); ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
 		if (cb)
-			cb->setPercentDone(_countof(fftInChannels) + i, 2 * _countof(fftInChannels));
+			cb->setPercentDone(ColorChannel::CC_COUNT + i, 2 * ColorChannel::CC_COUNT);
 
-		bmpCompressed.getChannel(fftInChannels[i], static_cast<ColorChannel>(i));
+		// get the current channel
+		bmpCompressed.getChannel(fftInChannel.get(), static_cast<ColorChannel>(i));
+
 		// run the inverse fft - fftOutChannel is already initialized
-		inverse.transform(fftInChannels[i].get(), fftOutChannels[i].get());
+		inverse.transform(fftInChannel.get(), fftOutChannel.get());
 
 		// set the channel to the output pixelmap and use it before the actual compress
-		outComplex.setChannel(fftOutChannels[i].get(), static_cast<ColorChannel>(i));
+		outComplex.setChannel(fftOutChannel.get(), static_cast<ColorChannel>(i));
 	}
 
 	// noramlize the output since it will be with scaled values
-	const double normN = 1.0 / dimProd;
-	outComplex.remap([normN](TColor<Complex> in) {
-		return in * normN;
+	const double normFactor = 1.0 / dimProd;
+	outComplex.remap([normFactor](TColor<Complex> in) {
+		return in * normFactor;
+	});
+
+	Bitmap out(outComplex);
+
+	if (cb)
+		cb->setPercentDone(1, 1);
+
+	bool res = true;
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("FFTFilter");
+	}
+	ConvolutionKernel ck;
+	if (pman) {
+		pman->getCKernelParam(ck, "kernelFFT");
+	}
+
+	const int width = bmp.getWidth();
+	const int height = bmp.getHeight();
+
+	const int ckSide = ck.getSide();
+	Pixelmap<Complex> filterMap(ckSide, ckSide);
+	Pixelmap<Complex> filterFullMap(width, height); //!< will be as big as the image
+	Pixelmap<TColor<Complex> > bmpComplex(bmp);
+	Pixelmap<TColor<Complex> > outComplex(width, height);
+
+	std::vector<int> dims;
+	dims.push_back(width);
+	dims.push_back(height);
+
+	const int dimProd = bmpComplex.getDimensionProduct();
+	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
+	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
+
+	const int ckSquared = ckSide * ckSide;
+	const float * kernelData = ck.getDataPtr();
+	Complex * filterData = filterMap.getDataPtr();
+	// initialize the filter and transform it to the frequency domain
+	for (int i = 0; i < ckSquared; ++i) {
+		filterData[i] = Complex(kernelData[i], 0.0);
+	}
+	// now we have to map the small filter to the big filter map
+	filterFullMap.drawBitmap(filterMap, 0, 0);
+	// and finally relocate the filter in such a way that the center is in (0, 0)
+	filterFullMap.relocate(width - ckSide / 2, height - ckSide / 2);
+
+	std::unique_ptr<Complex[]> filterFreq(new Complex[dimProd]);
+	forward.transform(filterFullMap.getDataPtr(), filterFreq.get());
+
+	// allocate operating buffers for the pixelmap channels
+	std::unique_ptr<Complex[]> fftInChannel(new Complex[dimProd]); //!< the input channel for the fft
+	std::unique_ptr<Complex[]> fftIntermediate(new Complex[dimProd]); //!< intermediate channel in frequency domain (filter is applied to it)
+	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]); //!< the output channle from the inverse fft
+
+	// now run the filter over all the channels of the pixelmap
+	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+		if (cb)
+			cb->setPercentDone(i * 3, 3 * ColorChannel::CC_COUNT);
+
+		// get the current channel
+		bmpComplex.getChannel(fftInChannel.get(), static_cast<ColorChannel>(i));
+
+		// run the forward fft
+		forward.transform(fftInChannel.get(), fftIntermediate.get());
+
+		// now apply the filter
+		for (int j = 0; j < dimProd; ++j) {
+			fftIntermediate[j] = filterFreq[j] * fftIntermediate[j];
+		}
+
+		if (cb)
+			cb->setPercentDone(i * 3 + 1, 3 * ColorChannel::CC_COUNT);
+
+		// now inverse the channel back to the pixel domain
+		inverse.transform(fftIntermediate.get(), fftOutChannel.get());
+
+		// set the channel to the final output pixelmap
+		outComplex.setChannel(fftOutChannel.get(), static_cast<ColorChannel>(i));
+
+		if (cb)
+			cb->setPercentDone(i * 3 + 2, 3 * ColorChannel::CC_COUNT);
+	}
+
+	// noramlize the output since it will be with scaled values
+	const double normFactor = 1.0 / dimProd;
+	outComplex.remap([normFactor](TColor<Complex> in) {
+		return in * normFactor;
 	});
 
 	Bitmap out(outComplex);

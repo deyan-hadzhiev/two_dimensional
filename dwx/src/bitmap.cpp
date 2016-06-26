@@ -229,12 +229,17 @@ template class TColor<Complex>;
 
 template Color::Color(const TColor<uint16>&);
 
+// instantiate scalar pixel maps
+template class Pixelmap<uint32>;
+template class Pixelmap<uint64>;
+template class Pixelmap<Complex>;
+
+// instantiate color type pixel maps
 template class Pixelmap<Color>;
 template class Pixelmap<TColor<uint16> >;
 template class Pixelmap<TColor<int32> >;
 template class Pixelmap<TColor<Complex> >;
-template class Pixelmap<uint32>;
-template class Pixelmap<uint64>;
+
 
 // conversion Color <-> TColor<int32>
 template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
@@ -244,8 +249,8 @@ template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
 template Pixelmap<TColor<Complex> >::Pixelmap(const Pixelmap<Color>&);
 template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<Complex> >&);
 
-template bool Pixelmap<Color>::getChannel<uint8>(std::unique_ptr<uint8[]>&, ColorChannel) const;
-template bool Pixelmap<TColor<Complex> >::getChannel<Complex>(std::unique_ptr<Complex[]>&, ColorChannel) const;
+template bool Pixelmap<Color>::getChannel<uint8>(uint8 *, ColorChannel) const;
+template bool Pixelmap<TColor<Complex> >::getChannel<Complex>(Complex *, ColorChannel) const;
 
 template bool Pixelmap<Color>::setChannel<uint8>(const uint8 *, ColorChannel);
 template bool Pixelmap<TColor<Complex> >::setChannel<Complex>(const Complex *, ColorChannel);
@@ -263,12 +268,16 @@ Pixelmap<ColorType>::Pixelmap() noexcept
 {}
 
 template<class ColorType>
-Pixelmap<ColorType>::Pixelmap(int width, int height) noexcept
+Pixelmap<ColorType>::Pixelmap(int width, int height, const ColorType * pixelValues) noexcept
 	: width(width)
 	, height(height)
 	, data(nullptr)
 {
-	generateEmptyImage(width, height);
+	// clear the output image only if there is no input buffer specified
+	generateEmptyImage(width, height, nullptr != pixelValues);
+	if (pixelValues) {
+		memcpy(data, pixelValues, width * height * sizeof(ColorType));
+	}
 }
 
 template<class ColorType>
@@ -348,7 +357,7 @@ bool Pixelmap<ColorType>::isOK(void) const  noexcept {
 }
 
 template<class ColorType>
-void Pixelmap<ColorType>::generateEmptyImage(int w, int h) noexcept {
+void Pixelmap<ColorType>::generateEmptyImage(int w, int h, bool clear) noexcept {
 	if (w <= 0 || h <= 0)
 		return;
 	// free memory only if necessary
@@ -358,7 +367,9 @@ void Pixelmap<ColorType>::generateEmptyImage(int w, int h) noexcept {
 	}
 	width = w;
 	height = h;
-	memset(data, 0, sizeof(data[0]) * w * h);
+	if (clear) {
+		memset(data, 0, sizeof(ColorType) * w * h);
+	}
 }
 
 template<class ColorType>
@@ -413,13 +424,13 @@ ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, FilterEdge edg
 	const int ty = (int)floor(y);
 	const int tx_next = (tile ? (tx + 1) % width : std::min(tx + 1, width - 1)); // this is usually done for tiling textures, but well...
 	const int ty_next = (tile ? (ty + 1) % height : std::min(ty + 1, height - 1));
-	const float p = x - tx;
-	const float q = y - ty;
+	const double p = x - tx;
+	const double q = y - ty;
 	return
-		  data[ty      * width + tx]      * ((1.0f - p) * (1.0f - q))
-		+ data[ty      * width + tx_next] * (p          * (1.0f - q))
-		+ data[ty_next * width + tx]      * ((1.0f - p) *         q)
-		+ data[ty_next * width + tx_next] * (p          *         q);
+		  data[ty      * width + tx]      * ((1.0 - p) * (1.0 - q))
+		+ data[ty      * width + tx_next] * (p         * (1.0 - q))
+		+ data[ty_next * width + tx]      * ((1.0 - p) *         q)
+		+ data[ty_next * width + tx_next] * (p         *         q);
 }
 
 template<class ColorType>
@@ -538,13 +549,12 @@ bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx,
 
 template<class ColorType>
 template<class ScalarType>
-bool Pixelmap<ColorType>::getChannel(std::unique_ptr<ScalarType[]>& channel, ColorChannel cc) const {
-	if (!this->isOK()) {
+bool Pixelmap<ColorType>::getChannel(ScalarType * channel, ColorChannel cc) const {
+	if (!this->isOK() || !channel) {
 		return false;
 	}
 
 	const int dim = getDimensionProduct();
-	channel.reset(new ScalarType[dim]);
 	for (int i = 0; i < dim; ++i) {
 		channel[i] = data[i][cc];
 	}
