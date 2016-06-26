@@ -51,6 +51,22 @@ T clamp(T x, T xMin, T xMax) noexcept {
 		return x;
 }
 
+inline bool powerOf2(unsigned v) {
+	return v && (v & (v - 1)) == 0;
+}
+
+// taken from Stanford's bithacks
+inline unsigned upperPowerOf2(unsigned v) {
+	--v;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	++v;
+	return v;
+}
+
 std::vector<std::string> splitString(const char *str, char c = ' ');
 
 #endif // __UTIL_H__

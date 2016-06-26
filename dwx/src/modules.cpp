@@ -716,17 +716,39 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 	}
 	bool logScale = true;
 	bool centralize = true;
+	bool squareDim = false;
+	bool powerOf2Flag = false;
 	if (pman) {
 		pman->getBoolParam(logScale, "logScale");
 		pman->getBoolParam(centralize, "centralized");
+		pman->getBoolParam(squareDim, "squareDimension");
+		pman->getBoolParam(powerOf2Flag, "powerOf2");
 	}
 
+	const int width = bmp.getWidth();
+	const int height = bmp.getHeight();
+
+	const int fftWidth = static_cast<int>(powerOf2(static_cast<unsigned>(width)) ? width : upperPowerOf2(static_cast<unsigned>(width)));
+	const int fftHeight = static_cast<int>(powerOf2(static_cast<unsigned>(height)) ? height : upperPowerOf2(static_cast<unsigned>(height)));
+	// and finally take the maximum of the two as a single dimension of the fft - it needs square to apply the filter properly
+	const int fftDim = std::max((powerOf2Flag ? fftWidth : width), (powerOf2Flag ? fftHeight : height));
+	const int fftDimW = (squareDim ? fftDim : (powerOf2Flag ? fftWidth : width));
+	const int fftDimH = (squareDim ? fftDim : (powerOf2Flag ? fftHeight : height));
+
 	Pixelmap<TColor<Complex> > bmpComplex(bmp);
-	Pixelmap<TColor<Complex> > outComplex(bmp.getWidth(), bmp.getHeight());
+	// if the width and height for the fft differ - expand the bitmap
+	if (width != fftDimW || height != fftDimH) {
+		const int relocationX = (fftDimW - width) / 2;
+		const int relocationY = (fftDimH - height) / 2;
+		const int widthExpansion = fftDimW - width;
+		const int heightExpansion = fftDimH - height;
+		bmpComplex.expand(widthExpansion, heightExpansion, relocationX, relocationY, EFT_TILE);
+	}
+	Pixelmap<TColor<Complex> > outComplex(fftDimW, fftDimH);
 
 	std::vector<int> dims;
-	dims.push_back(bmp.getWidth());
-	dims.push_back(bmp.getHeight());
+	dims.push_back(fftDimH);
+	dims.push_back(fftDimW);
 
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 
@@ -796,11 +818,7 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 
 	// make relocations after it is converted to standart uint8 space to save memory
 	if (centralize) {
-		const int width = out.getWidth();
-		const int height = out.getHeight();
-		Bitmap tmp(width, height);
-		out.relocate(tmp, width / 2, height / 2);
-		out = tmp;
+		out.relocate(out.getWidth() / 2, out.getHeight() / 2);
 	}
 
 	if (cb)
@@ -844,8 +862,8 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	Pixelmap<TColor<Complex> > outComplex(width, height);
 
 	std::vector<int> dims;
-	dims.push_back(width);
 	dims.push_back(height);
+	dims.push_back(width);
 
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
@@ -949,8 +967,8 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 	Pixelmap<TColor<Complex> > outComplex(width, height);
 
 	std::vector<int> dims;
-	dims.push_back(width);
 	dims.push_back(height);
+	dims.push_back(width);
 
 	const int dimProd = bmpComplex.getDimensionProduct();
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);

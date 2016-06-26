@@ -292,8 +292,10 @@ public:
 class FFTDomainModule : public AsyncModule {
 public:
 	FFTDomainModule() {
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "logScale", "1"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "centralized", "1"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "logScale", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "centralized", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "squareDimension", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "powerOf2", "false"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;

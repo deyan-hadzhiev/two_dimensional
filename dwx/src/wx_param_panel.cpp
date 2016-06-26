@@ -323,7 +323,7 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
 	wxBoxSizer * sizer = getModuleSizer(pd.module);
 	wxCheckBox * cb = new wxCheckBox(this, id, pd.name);
-	cb->SetValue(pd.defaultValue != "false" || pd.defaultValue != "0");
+	cb->SetValue(pd.defaultValue != "false" && pd.defaultValue != "0");
 	sizer->Add(cb, 1, wxEXPAND);
 	checkBoxMap[id] = cb;
 	// also connect the event
