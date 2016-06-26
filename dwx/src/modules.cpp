@@ -646,6 +646,38 @@ ModuleBase::ProcessResult MirrorModule::moduleImplementation(unsigned flags) {
 	}
 }
 
+ModuleBase::ProcessResult ExpandModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Expand");
+	}
+	unsigned fillType = 0;
+	int ew = 0;
+	int eh = 0;
+	int ex = -1;
+	int ey = -1;
+	if (pman) {
+		pman->getEnumParam(fillType, "edgeFill");
+		pman->getIntParam(ew, "expandWidth");
+		pman->getIntParam(eh, "expandHeight");
+		pman->getIntParam(ex, "expandX");
+		pman->getIntParam(ey, "expandY");
+	}
+	Bitmap out;
+	bool res = bmp.expand(out, ew, eh, ex, ey, static_cast<EdgeFillType>(fillType));
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
 ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
@@ -994,4 +1026,3 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 		return KPR_FATAL_ERROR;
 	}
 }
-

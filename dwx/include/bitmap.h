@@ -6,6 +6,18 @@
 #include <memory>
 #include "color.h"
 
+// point in discrete 2d space
+class Point {
+public:
+	int x;
+	int y;
+	Point() = default;
+	Point(int _x, int _y)
+		: x(_x)
+		, y(_y)
+	{}
+};
+
 class FloatBitmap {
 protected:
 	int width, height;
@@ -71,6 +83,7 @@ enum PixelmapAxis {
 	PA_X_AXIS = 1 << 0,              //!< the x axis of the pixelmap
 	PA_Y_AXIS = 1 << 1,              //!< the y axis of the pixelmap
 	PA_BOTH = PA_X_AXIS | PA_Y_AXIS, //!< both the axes
+	PA_COUNT,
 };
 
 template<class ColorType = Color>
@@ -127,6 +140,12 @@ public:
 
 	// crops the rectangle with top left (x, y) and w width and h height in a specified pixelmap
 	bool crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const;
+
+	// expands the bitmap with specified width and height (and remaps the current (0, 0) -> (x, y))
+	bool expand(const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK);
+
+	// expands the bitmap with specified width and height (and remaps the current (0, 0) -> (x, y))
+	bool expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK) const;
 
 	// relocates the pixelmap (0, 0) -> (x, y) using a temporary Pixelmap
 	bool relocate(const int x, const int y);

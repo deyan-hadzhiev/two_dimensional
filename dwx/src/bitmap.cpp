@@ -562,6 +562,165 @@ bool Pixelmap<ColorType>::crop(Pixelmap<ColorType>& cropped, const int x, const 
 }
 
 template<class ColorType>
+bool Pixelmap<ColorType>::expand(const int w, const int h, const int x, const int y, EdgeFillType fillType) {
+	if (!this->isOK() || w < 0 || h < 0) {
+		return false;
+	} else if (0 == w && 0 == h) {
+		return true;
+	}
+	Pixelmap<ColorType> current(*this);
+	const int oldWidth = width;
+	const int oldHeight = height;
+	generateEmptyImage(width + w, height + h); // this will also change width and height
+	// draw the current pixelmap according to the new x and y coords
+	drawBitmap(current, x, y);
+	if (EFT_STRETCH == fillType) {
+		// fill the space left of the old image
+		const int dx = (x < 0 ? 0 : x);
+		const int dy = (y < 0 ? 0 : y);
+		const int sx = (x < 0 ? -x : 0);
+		const int sy = (y < 0 ? -y : 0);
+		const int dw = (x < 0 ? std::min(oldWidth + x, width) : std::min(width - x, oldWidth));
+		const int dh = (y < 0 ? std::min(oldHeight + y, height) : std::min(height - y, oldHeight));
+		// buffers that will be used later for the vertical stretch
+		std::unique_ptr<ColorType[]> topRow(new ColorType[width]);
+		std::unique_ptr<ColorType[]> bottomRow(new ColorType[width]);
+		const ColorType * currentData = current.getDataPtr();
+		// apparently these may go out of range
+		if (sx < oldWidth && dw > 0) {
+			// copy the first and last row to the row buffers
+			memcpy(topRow.get() + dx, currentData + sx, dw * sizeof(ColorType));
+			memcpy(bottomRow.get() + dx, currentData + (oldHeight - 1) * oldWidth + sx, dw * sizeof(ColorType));
+		}
+		// fill the left part of the image
+		if (x > 0) {
+			const int ddw = std::min(x, width);
+			// fill the top and bottom row
+			const ColorType topFillValue = current.getPixel(0, 0);
+			const ColorType bottomFillValue = current.getPixel(0, oldHeight - 1);
+			for (int xx = 0; xx < ddw; ++xx) {
+				topRow[xx] = topFillValue;
+				bottomRow[xx] = bottomFillValue;
+			}
+			// now fill the actual data
+			for (int yy = 0; yy < dh; ++yy) {
+				const ColorType fillValue = current.getPixel(0, sy + yy);
+				// fill the whole data array
+				ColorType * dest = data + (dy + yy) * width;
+				for (int xx = 0; xx < ddw; ++xx) {
+					dest[xx] = fillValue;
+				}
+			}
+		}
+		// fill the right part
+		if (x + oldWidth < width) {
+			const int ddx = (x + oldWidth > 0 ? x + oldWidth : 0);
+			const int ddw = (x + oldWidth > 0 ? width - x - oldWidth : width);
+			// fill the top and bottom row
+			const ColorType topFillValue = current.getPixel(oldWidth - 1, 0);
+			const ColorType bottomFillValue = current.getPixel(oldWidth -1, oldHeight - 1);
+			for (int xx = 0; xx < ddw; ++xx) {
+				topRow[xx + ddx] = topFillValue;
+				bottomRow[xx + ddx] = bottomFillValue;
+			}
+			// now fill the actual data
+			for (int yy = 0; yy < dh; ++yy) {
+				const ColorType fillValue = current.getPixel(oldWidth - 1, sy + yy);
+				// fill the whole data array
+				ColorType * dest = data + (dy + yy) * width + ddx;
+				for (int xx = 0; xx < ddw; ++xx) {
+					dest[xx] = fillValue;
+				}
+			}
+		}
+		// fill the top
+		if (y > 0) {
+			const int ddh = std::min(y, height);
+			for (int yy = 0; yy < ddh; ++yy) {
+				ColorType * dest = data + yy * width;
+				memcpy(dest, topRow.get(), width * sizeof(ColorType));
+			}
+		}
+		// fill the bottom
+		if (y + oldHeight < height) {
+			const int ddy = (y + oldHeight > 0 ? y + oldHeight : 0);
+			const int ddh = (y + oldHeight > 0 ? height - y - oldHeight : height);
+			for (int yy = 0; yy < ddh; ++yy) {
+				ColorType * dest = data + (ddy + yy) * width;
+				memcpy(dest, bottomRow.get(), width * sizeof(ColorType));
+			}
+		}
+	} else if (EFT_TILE == fillType || EFT_MIRROR == fillType) {
+		const int firstX = (x == 0 ? 0 : (x % oldWidth) - (x < 0 ? 0 : oldWidth));
+		const int firstY = (y == 0 ? 0 : (y % oldHeight) - (y < 0 ? 0 : oldHeight));
+
+		const int baseWidthCount = width / oldWidth;
+		const int allignWidthCount = (x % oldWidth != 0 ? 1 : 0);
+		const int endAllignWidthCount = ((firstX + (baseWidthCount + allignWidthCount) * oldWidth) < width ? 1 : 0);
+		const int fillWidthCount = baseWidthCount + allignWidthCount + endAllignWidthCount;
+		const int baseHeightCount = height / oldHeight;
+		const int allignHeightCount = (y % oldHeight != 0 ? 1 : 0);
+		const int endAllignHeightCount = ((firstY + (baseHeightCount + allignHeightCount) * oldHeight) < height ? 1 : 0);
+		const int fillHeightCount = baseHeightCount + allignHeightCount + endAllignHeightCount;
+		// will use such an array to loop it for drawing
+		using PixelmapDraw = std::pair<Point, Pixelmap<ColorType>* >;
+		const int fullCount = fillWidthCount * fillHeightCount;
+		std::unique_ptr<PixelmapDraw[]> drawArray(new PixelmapDraw[fullCount]);
+		for (int yy = 0; yy < fillHeightCount; ++yy) {
+			for (int xx = 0; xx < fillWidthCount; ++xx) {
+				drawArray[yy * fillWidthCount + xx].first = Point(firstX + xx * oldWidth, firstY + yy * oldHeight);
+			}
+		}
+		// we already have the id image so we need one less than the count
+		// note: these will be allocated only if the fill type is mirror
+		// but have to be declared here to use the RAII scope of the unique_ptr<>
+		std::unique_ptr<Pixelmap<ColorType> > mirrors[PA_COUNT - 1];
+		// this is for convenience during assignment
+		if (EFT_TILE == fillType) {
+			for (int i = 0; i < fullCount; ++i) {
+				drawArray[i].second = &current;
+			}
+		} else {
+			for (int i = 0; i < PA_COUNT - 1; ++i) {
+				mirrors[i].reset(new Pixelmap<ColorType>(current));
+				mirrors[i]->mirror(static_cast<PixelmapAxis>(i + 1));
+			}
+			Pixelmap<ColorType> * mirrorPointers[PA_COUNT] = {
+				&current,
+				mirrors[0].get(),
+				mirrors[1].get(),
+				mirrors[2].get()
+			};
+			const bool firstXOdd = (((x - firstX) / oldWidth) % 2) != 0;
+			const bool firstYOdd = (((y - firstY) / oldHeight) % 2) != 0;
+			const unsigned firstAxis = (firstYOdd ? PA_Y_AXIS : PA_NONE) | (firstXOdd ? PA_X_AXIS : PA_NONE);
+			for (int yy = 0; yy < fillHeightCount; ++yy) {
+				for (int xx = 0; xx < fillWidthCount; ++xx) {
+					const unsigned axis =
+						((xx & 1 ? ~firstAxis : firstAxis) & PA_X_AXIS) |
+						((yy & 1 ? ~firstAxis : firstAxis) & PA_Y_AXIS);
+					drawArray[yy * fillWidthCount + xx].second = mirrorPointers[axis];
+				}
+			}
+		}
+		for (int i = 0; i < fullCount; ++i) {
+			const PixelmapDraw& drawn = drawArray[i];
+			drawBitmap(*(drawn.second), drawn.first.x, drawn.first.y);
+		}
+	}
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType) const {
+	if (!this->isOK() || this == &expanded || w < 0 || h < 0) {
+		return false;
+	}
+	expanded = *this;
+	return expanded.expand(w, h, x, y, fillType);
+}
+
+template<class ColorType>
 bool Pixelmap<ColorType>::relocate(const int nx, const int ny) {
 	if (!this->isOK() || nx < 0 || nx >= width || ny < 0 || ny >= height) {
 		return false;
@@ -704,13 +863,32 @@ bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, 
 		return false;
 	const int sw = subBmp.getWidth();
 	const int sh = subBmp.getHeight();
-	if (x < 0 || y < 0 || x + sw > width || y + sh > height)
-		return false;
-	const ColorType * subData = subBmp.getDataPtr();
-	for (int sy = 0; sy < sh; ++sy) {
-		ColorType * dest = data + (y + sy) * width + x;
-		// copy the whole row with the destinations width as size
-		memcpy(dest, subData + sy * sw, sw * sizeof(ColorType));
+	if (x < 0 || y < 0 || x + sw > width || y + sh > height) {
+		// calculate the source and destination coordinates
+		const int dx = (x < 0 ? 0 : x);
+		const int dy = (y < 0 ? 0 : y);
+		const int sx = (x < 0 ? -x : 0);
+		const int sy = (y < 0 ? -y : 0);
+		// calculate the actual width and height that will be copied
+		const int dw = (x < 0 ? std::min(x + sw, width) : std::min(width - x, sw));
+		const int dh = (y < 0 ? std::min(y + sh, height) : std::min(height - y, sh));
+		// check if the submap is even within bounds
+		if (dw <= 0 || dh <= 0 || sx >= sw || sy >= sh) {
+			return false;
+		}
+		const ColorType * subData = subBmp.getDataPtr();
+		for (int yy = 0; yy < dh; ++yy) {
+			const ColorType * src = subData + (sy + yy) * sw + sx;
+			ColorType * dest = data + (dy + yy) * width + dx;
+			memcpy(dest, src, dw * sizeof(ColorType));
+		}
+	} else {
+		const ColorType * subData = subBmp.getDataPtr();
+		for (int sy = 0; sy < sh; ++sy) {
+			ColorType * dest = data + (y + sy) * width + x;
+			// copy the whole row with the destinations width as size
+			memcpy(dest, subData + sy * sw, sw * sizeof(ColorType));
+		}
 	}
 	return true;
 }

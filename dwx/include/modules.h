@@ -267,6 +267,19 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class ExpandModule : public	AsyncModule {
+public:
+	ExpandModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edgeFill", "blank;tile;stretch;mirror"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandWidth", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandHeight", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandX", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandY", "0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class ChannelModule : public AsyncModule {
 public:
 	ChannelModule() {
