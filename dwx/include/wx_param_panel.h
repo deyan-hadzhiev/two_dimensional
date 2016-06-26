@@ -82,20 +82,44 @@ private:
 	int kernelSide;
 };
 
+class CKernelCurveDlg : public CKernelDlg {
+public:
+	CKernelCurveDlg(CKernelPanel * parent, const wxString& title, int side);
+
+	ConvolutionKernel getKernel() const override final;
+
+	void OnShow(wxShowEvent& evt);
+private:
+};
+
 class CKernelPanel : public wxPanel {
 public:
 	CKernelPanel(ParamPanel * parent, wxWindowID id, const wxString& label, const wxString& defSide);
 
 	ConvolutionKernel GetValue() const;
 
+	void OnKernelDlgType(wxCommandEvent& evt);
+
 	void OnShowButton(wxCommandEvent& evt);
 	void OnHideButton(wxCommandEvent& evt);
 
 	void OnKernelChange(wxCommandEvent& evt);
 private:
+	enum DialogType {
+		DT_CURVE = 0,
+		DT_TABLE,
+		DT_COUNT,
+	};
+
+	static const wxString dialogTitles[DT_COUNT];
+
 	ParamPanel * paramPanel;
 
-	CKernelDlg * kernelDlg;
+	CKernelDlg * kernelDialogs[DT_COUNT];
+	wxWindowID kernelDlgTypeId;
+	wxRadioButton * kernelDlgRb[DT_COUNT];
+
+	CKernelDlg * currentDlg;
 	wxBoxSizer * mainSizer;
 	wxButton * showButton;
 	wxButton * hideButton;

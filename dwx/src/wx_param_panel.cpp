@@ -290,16 +290,52 @@ void CKernelTableDlg::recalculateSum() {
 	sumText->SetLabel(wxString() << sum);
 }
 
+CKernelCurveDlg::CKernelCurveDlg(CKernelPanel * parent, const wxString & title, int side)
+	: CKernelDlg(parent, title, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+{
+}
+
+ConvolutionKernel CKernelCurveDlg::getKernel() const {
+	return ConvolutionKernel();
+}
+
+void CKernelCurveDlg::OnShow(wxShowEvent & evt) {
+	// TODO
+}
+
+// CKernelPanel
+
+const wxString CKernelPanel::dialogTitles[CKernelPanel::DT_COUNT] = {
+	wxT("Curve"),
+	wxT("Table"),
+};
+
 CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
 	: wxPanel(_parent, id)
 	, paramPanel(_parent)
-	, kernelDlg(new CKernelTableDlg(this, label, wxAtoi(defSide)))
+	, kernelDialogs{nullptr}
+	, kernelDlgTypeId(0)
+	, kernelDlgRb{nullptr}
+	, currentDlg(nullptr)
 	, mainSizer(nullptr)
 	, showButton(nullptr)
 	, hideButton(nullptr)
 {
+	// allocate the kernel dialogs
+	kernelDialogs[DT_CURVE] = new CKernelCurveDlg(this, label, wxAtoi(defSide));
+	kernelDialogs[DT_TABLE] = new CKernelTableDlg(this, label, wxAtoi(defSide));
+	currentDlg = kernelDialogs[0];
+
 	mainSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL, 5);
+
+	kernelDlgTypeId = WinIDProvider::getProvider().getId(DT_COUNT);
+	for (int i = 0; i < DT_COUNT; ++i) {
+		const wxWindowID typeId = kernelDlgTypeId + i;
+		kernelDlgRb[i] = new wxRadioButton(this, typeId, dialogTitles[i], wxDefaultPosition, wxDefaultSize, (i == 0 ? wxRB_GROUP : 0L));
+		Connect(typeId, wxEVT_RADIOBUTTON, wxCommandEventHandler(CKernelPanel::OnKernelDlgType), NULL, this);
+		mainSizer->Add(kernelDlgRb[i], 1, wxEXPAND | wxALL, 5);
+	}
 
 	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
 	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnShowButton), NULL, this);
@@ -315,11 +351,25 @@ CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString &
 }
 
 ConvolutionKernel CKernelPanel::GetValue() const {
-	return kernelDlg->getKernel();
+	return currentDlg->getKernel();
+}
+
+void CKernelPanel::OnKernelDlgType(wxCommandEvent & evt) {
+	const wxWindowID evtId = evt.GetId();
+	if (evtId >= kernelDlgTypeId && evtId < kernelDlgTypeId + DT_COUNT) {
+		const bool shown = currentDlg->IsShown();
+		if (shown) {
+			currentDlg->Hide();
+		}
+		currentDlg = kernelDialogs[evtId - kernelDlgTypeId];
+		if (shown) {
+			currentDlg->Show();
+		}
+	}
 }
 
 void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
-	kernelDlg->Show();
+	currentDlg->Show();
 	hideButton->Show();
 	showButton->Hide();
 	mainSizer->Layout();
@@ -327,7 +377,7 @@ void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
 }
 
 void CKernelPanel::OnHideButton(wxCommandEvent & evt) {
-	kernelDlg->Hide();
+	currentDlg->Hide();
 	hideButton->Hide();
 	showButton->Show();
 	mainSizer->Layout();
