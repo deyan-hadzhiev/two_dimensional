@@ -128,7 +128,9 @@ void ViewFrame::OnQuit(wxCommandEvent &) {
 }
 
 void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
+	wxImage lastInputImage;
 	if (mPanel) {
+		lastInputImage = mPanel->getLastInput();
 		mPanel->Destroy();
 		mPanel = nullptr;
 		setCustomStyle(VFS_NOTHING_ENABLED);
@@ -146,6 +148,7 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 			} else if (md.inputs == 1) {
 				mPanel = new InputOutputMode(this, module);
 			}
+			mPanel->setInput(lastInputImage);
 		} else {
 			SetStatusText(wxT("[ERROR] Could not create module!"));
 		}

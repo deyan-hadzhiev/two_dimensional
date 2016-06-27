@@ -22,6 +22,12 @@ public:
 
 	virtual void onCommandMenu(wxCommandEvent& ev) {}
 
+	virtual wxImage getLastInput() const {
+		return wxImage();
+	}
+
+	virtual void setInput(const wxImage& input) {}
+
 	wxString getCbString() const;
 protected:
 	ViewFrame * viewFrame;
@@ -36,14 +42,19 @@ public:
 	InputOutputMode(ViewFrame * viewFrame, ModuleBase * _module);
 
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
+
+	virtual wxImage getLastInput() const override final {
+		return lastInput;
+	}
+
+	virtual void setInput(const wxImage& input) override final;
 protected:
 	ImagePanel * inputPanel;
 	ImagePanel * outputPanel;
 	wxPanel * compareCanvas;
 	ModuleBase * module;
+	wxImage lastInput;
 
-	//wxPanel * inputCanvas;
-	//wxPanel * outputCanvas;
 	static const wxString ioFileSelector; //!< file selection string - change if a new file type is added
 };
 

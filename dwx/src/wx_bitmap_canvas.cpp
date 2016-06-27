@@ -152,7 +152,7 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 		bmpId = id;
 	}
 	canvasState = CS_DIRTY_FULL;
-	Refresh();
+	Refresh(false);
 }
 
 void BitmapCanvas::updateStatus() const {
@@ -251,7 +251,7 @@ void BitmapCanvas::synchronize() {
 			s->zoomLvl = this->zoomLvl;
 			s->view = this->view;
 			s->canvasState = CS_DIRTY_SYNCHRONIZE;
-			s->Refresh();
+			s->Refresh(false);
 		}
 	}
 }
@@ -404,7 +404,7 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		if (curr != mousePos) {
 			if (mouseMoveDrag && (bmpClip.any != 0) && curr != updatedMousePos) {
 				canvasState |= CS_DIRTY_POS;
-				Refresh();
+				Refresh(false);
 			}
 			mousePos = curr;
 			updateStatus();
@@ -419,14 +419,14 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		if (!mouseOverCanvas) {
 			mouseOverCanvas = true;
 			updateStatus();
-			Refresh();
+			Refresh(false);
 		}
 	} else if (evType == wxEVT_LEAVE_WINDOW) {
 		if (mouseOverCanvas) {
 			mouseOverCanvas = false;
 			mouseMoveDrag = false;
 			updateStatus();
-			Refresh();
+			Refresh(false);
 		}
 	} else if (evType == wxEVT_MOUSEWHEEL) {
 		const int delta = evt.GetWheelDelta();
@@ -435,7 +435,7 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		const int newZoomLvl = clamp(zoomLvl + zoomLvlDelta, minZoom, maxZoom);
 		if (newZoomLvl != zoomLvl) {
 			canvasState |= CS_DIRTY_ZOOM;
-			Refresh();
+			Refresh(false);
 		} else {
 			zoomLvlDelta = 0;
 		}
@@ -449,6 +449,7 @@ void BitmapCanvas::OnSizeEvt(wxSizeEvent & evt) {
 	panelSize = GetSize();
 	// this makes the canvas dirty only if the new size requires resizing of the canvas
 	canvasState |= CS_DIRTY_SIZE;
+	Refresh(false);
 	evt.Skip();
 }
 

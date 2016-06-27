@@ -309,6 +309,9 @@ Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionK
 		if (cb)
 			cb->setPercentDone(y, h);
 	}
+	if (cb)
+		cb->setPercentDone(1, 1);
+
 	return Pixelmap<ColorType>(out);
 }
 

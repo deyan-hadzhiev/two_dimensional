@@ -107,6 +107,7 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 					inputPanel->setImage(inputImage);
 					viewFrame->SetStatusText(wxString(wxT("Loaded input image: ") + fdlg.GetPath()));
 					inputPanel->synchronize();
+					lastInput = inputImage;
 				} else {
 					viewFrame->SetStatusText(wxString(wxT("File is NOT a valid image: ")) + fdlg.GetPath());
 				}
@@ -161,6 +162,13 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	default:
 		break;
+	}
+}
+
+void InputOutputMode::setInput(const wxImage & input) {
+	if (input.Ok() && inputPanel) {
+		inputPanel->setImage(input);
+		lastInput = input;
 	}
 }
 
