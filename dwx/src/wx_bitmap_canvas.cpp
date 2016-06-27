@@ -157,30 +157,26 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 
 void BitmapCanvas::updateStatus() const {
 	if (mouseOverCanvas) {
-		//wxString focusStr;
-		//const wxPoint mouseBmp = convertScreenToBmp(mousePos);
-		//const wxPoint screenPos = convertBmpToScreen(mouseBmp);
-		//focusStr.Printf(wxT("bmp: ( %4d, %4d) screen: ( %4d, %4d)"), mouseBmp.x, mouseBmp.y, screenPos.x, screenPos.y);
-		//topFrame->SetStatusText(focusStr);
 		wxString posStr;
 		const Vector2 mouseBmp = convertScreenToBmp(mousePos);
 		posStr.Printf(wxT("Screen x: %4d y: %4d Bmp x: %7.2f y: %7.2f"), mousePos.x, mousePos.y, mouseBmp.x, mouseBmp.y);
 		topFrame->SetStatusText(posStr, 1);
 		wxString rectStr;
-		rectStr.Printf(wxT("view(%7.2f, %7.2f, %7.2f, %7.2f) w: %d, h: %d"),
-			view.x, view.y, view.width, view.height,
-			bmp.GetWidth(), bmp.GetHeight()
+		rectStr.Printf(wxT("width: %5d, hight: %5d zoom: %2d"),
+			bmp.GetWidth(), bmp.GetHeight(), zoomLvl
 			);
 		topFrame->SetStatusText(rectStr, 2);
-		wxString canvStr;
-		canvStr.Printf(wxT("zoom: %d canvas w: %d, h: %d"),
-			zoomLvl,
-			canvas.GetWidth(), canvas.GetHeight());
-		topFrame->SetStatusText(canvStr, 3);
-	}/* else {
-		topFrame->SetStatusText(wxT(""), 1);
-		topFrame->SetStatusText(wxT(""), 2);
-	}*/
+		// absolutely hacky, but there seems to be no easier way
+		const int x = static_cast<int>(mouseBmp.x);
+		const int y = static_cast<int>(mouseBmp.y);
+		wxBitmap temp = bmp.GetSubBitmap(wxRect(x, y, 1, 1));
+		wxImage tempImg = temp.ConvertToImage();
+		wxString rgbStr;
+		rgbStr.Printf(wxT("R: %3d G: %3d B: %3d"),
+			tempImg.GetRed(0, 0), tempImg.GetGreen(0, 0), tempImg.GetBlue(0, 0)
+			);
+		topFrame->SetStatusText(rgbStr, 3);
+	}
 }
 
 void BitmapCanvas::recalcViewSize() {
