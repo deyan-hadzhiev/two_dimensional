@@ -1,5 +1,7 @@
 #include "convolution.h"
 #include "bitmap.h"
+#include "vector2.h"
+#include "module_base.h"
 
 ConvolutionKernel::ConvolutionKernel()
 	: data(nullptr)
@@ -48,21 +50,131 @@ void ConvolutionKernel::init(const float * mat, int _side) {
 	side = _side;
 	if (mat) {
 		memcpy(data, mat, side * side * sizeof(float));
+	} else {
+		memset(data, 0, side * side * sizeof(float));
 	}
 }
 
-void ConvolutionKernel::normalize() {
+void ConvolutionKernel::setRadialSection(const float * srcData, int size) {
+	if (!srcData || size <= 0) {
+		return;
+	}
+	const int matSide = size * 2 - 1;
+	init(nullptr, matSide);
+	// this equals size - 1, but this is more readable
+	const int halfSide = side / 2;
+	// first copy the data on the positive y axis and rotate it
+	for (int i = 0; i <= halfSide; ++i) {
+		const int idx = pointToIndex(Point(0, i));
+		data[idx] = srcData[i];
+		// after the initial value is set - rotate the value
+		applyRadialSymmetry(idx);
+	}
+	// now recalculate all the values in the 1 quadrant in the matrix coord system
+	for (int y = 1; y <= halfSide; ++y) {
+		for (int x = 1; x <= halfSide; ++x) {
+			const int posIdx = pointToIndex(Point(x, y));
+			const Vector2 posVec(x, y);
+			const float length = posVec.length();
+			// determining the actual value based on the position of the sampled point
+			// and where it would it be mapped on one of the cetral axes
+			const int floorLength = static_cast<int>(floorf(length));
+			const int ceilLength = static_cast<int>(ceilf(length));
+			float value = 0.0f;
+			if (floorLength > halfSide) {
+				// the point maps outside the circle - zero value
+				value = 0.0f;
+			} else if (ceilLength > halfSide) {
+				// the point is right on the edge - so get interpolated value with the
+				// fraction that is part of the circle
+				const int centralIdx = pointToIndex(Point(0, floorLength));
+				// note that floorLength - length is in the range of (-1.0, 0.0]
+				value = data[centralIdx] * (1.0f + floorLength - length);
+			} else {
+				// otherwise interpolate over the two values that are closest on the central axis
+				const int floorIdx = pointToIndex(Point(0, floorLength));
+				const float floorValue = data[floorIdx];
+				const int ceilIdx = pointToIndex(Point(0, ceilLength));
+				const float ceilValue = data[ceilIdx];
+				// calculate the interpolation
+				const float t = (length - floorLength);
+				value = ceilValue * t + floorValue * (1.0f - t);
+			}
+			data[posIdx] = value;
+			// update the radially symmetrical spaces
+			applyRadialSymmetry(posIdx);
+		}
+	}
+}
+
+void ConvolutionKernel::normalize(const float targetSum) {
 	if (!data || side <= 0)
 		return;
-	float sum = 0.0f;
+	float negSum = 0.0f;
+	float posSum = 0.0f;
 	const int kn = side * side;
 	for (int i = 0; i < kn; ++i) {
-		sum += fabs(data[i]);
+		const float fi = data[i];
+		if (fi > 0.0f) {
+			posSum += fi;
+		} else {
+			negSum += fi;
+		}
 	}
-	if (fabs(sum - 1.0f) > Eps) {
-		const float factor = 1.0f / sum;
-		for (int i = 0; i < kn; ++i) {
-			data[i] *= factor;
+	const float sum = posSum + negSum;
+	const float absSum = posSum - negSum;
+	if (fabs(sum - targetSum) > Eps) {
+		if (fabs(targetSum) < Eps) {
+			// this is to assert for NaNs and also there is no way other than making all zero
+			if (posSum > Eps && negSum < -Eps) {
+				// normalize the positive and negative separately to 1 and -1 respectively
+				const float posFactor = 1.0 / posSum;
+				const float negFactor = -1.0 / negSum;
+				for (int i = 0; i < kn; ++i) {
+					if (data[i] > 0.0f) {
+						data[i] *= posFactor;
+					} else {
+						data[i] *= negFactor;
+					}
+				}
+			}
+		} else {
+			if (sum * targetSum > Eps) {
+				// if the current sum and target sums have equal signs - just scale the parameters
+				const float factor = targetSum / sum;
+				for (int i = 0; i < kn; ++i) {
+					data[i] *= factor;
+				}
+			} else if (posSum > Eps && negSum < -Eps) {
+				// this is only possible when both the positive and negative sums are not 0
+				// scale both to 1 and -1
+				const float posFactor = 1.0 / posSum;
+				const float negFactor = -1.0 / negSum;
+				for (int i = 0; i < kn; ++i) {
+					if (data[i] > Eps) {
+						data[i] *= posFactor;
+					} else if (data[i] < -Eps) {
+						data[i] *= negFactor;
+					}
+				}
+				// and afterfwards scale only the ones that are required
+				if (targetSum > Eps) {
+					// increase the positive sum
+					const float scaleFactor = targetSum + 1.0;
+					for (int i = 0; i < kn; ++i) {
+						if (data[i] > Eps) {
+							data[i] *= scaleFactor;
+						}
+					}
+				} else if (targetSum < Eps) {
+					const float scaleFactor = -targetSum - 1.0;
+					for (int i = 0; i < kn; ++i) {
+						if (data[i] < -Eps) {
+							data[i] *= scaleFactor;
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -85,6 +197,30 @@ float * ConvolutionKernel::operator[](int i) {
 
 const float * ConvolutionKernel::operator[](int i) const {
 	return data + i * side;
+}
+
+Point ConvolutionKernel::indexToPoint(int i) const {
+	const int c = side / 2;
+	return Point((i % side) - c, (i / side) - c);
+}
+
+int ConvolutionKernel::pointToIndex(const Point & p) const {
+	const int c = side / 2;
+	return (p.y + c) * side + p.x + c;
+}
+
+void ConvolutionKernel::applyRadialSymmetry(int idx) {
+	const float value = data[idx];
+	Point p = indexToPoint(idx);
+	// (0, 0) does not need rotation
+	if (0 != p.x || 0 != p.y) {
+		for (int i = 0; i < 3; ++i) {
+			// rotate the point by Pi / 2 around (0, 0)
+			p = Point(-p.y, p.x);
+			const int destIdx = pointToIndex(p);
+			data[destIdx] = value;
+		}
+	}
 }
 
 void ConvolutionKernel::freeMem() {
@@ -135,22 +271,22 @@ std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 	return result;
 }
 
-template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize);
+template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue, ProgressCallback * cb);
 
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize) {
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue, ProgressCallback * cb) {
 	// this may be increased to int64 if necessary, but for now even int16 is an option
 	Pixelmap<TColor<int32> > in(_in);
 	Pixelmap<TColor<int32> > out(in.getWidth(), in.getHeight());
 	ConvolutionKernel k(_k);
 	if (normalize) {
-		k.normalize();
+		k.normalize(normalizationValue);
 	}
 	const int w = in.getWidth();
 	const int h = in.getHeight();
 	const int ks = k.getSide();
 	const int hs = ks / 2;
-	for (int y = 0; y < h; ++y) {
+	for (int y = 0; y < h && (!cb || !cb->getAbortFlag()); ++y) {
 		for (int x = 0; x < w; ++x) {
 			TColor<int32> res;
 			if (y - hs >= 0 && x - hs >= 0 && y + hs < h && x + hs < w) {
@@ -170,6 +306,8 @@ Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionK
 			}
 			out[y][x] = res;
 		}
+		if (cb)
+			cb->setPercentDone(y, h);
 	}
 	return Pixelmap<ColorType>(out);
 }

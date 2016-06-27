@@ -239,6 +239,43 @@ public:
 };
 #pragma pack(pop)
 
+template<>
+inline double TColor<double>::intensity() const noexcept {
+	return (r + g + b) / 3.0;
+}
+
+template<>
+inline double TColor<double>::intensityPerceptual() const noexcept {
+	return r * 0.299 + g * 0.587 + b * 0.114;
+}
+
+template<>
+inline Complex TColor<Complex>::intensity() const noexcept {
+	return (r + g + b) / 3.0;
+}
+
+template<>
+inline Complex TColor<Complex>::intensityPerceptual() const noexcept {
+	return r * 0.299 + g * 0.587 + b * 0.114;
+}
+
+template<>
+inline TColor<Complex>& TColor<Complex>::operator*=(const double mult) noexcept {
+	r *= mult;
+	g *= mult;
+	b *= mult;
+	return *this;
+}
+
+template<>
+inline TColor<Complex>& TColor<Complex>::operator/=(const double div) noexcept {
+	const double mult = 1.0 / div;
+	r *= mult;
+	g *= mult;
+	b *= mult;
+	return *this;
+}
+
 template<class T>
 inline TColor<T> operator+(const TColor<T>& lhs, const TColor<T>& rhs) noexcept {
 	return TColor<T>(
@@ -318,8 +355,15 @@ public:
 	template<>
 	Color(const TColor<double>& _tc)
 		: r(static_cast<uint8>(clamp(_tc.r * 255.0, 0.0, 255.0)))
-		, g(static_cast<uint8>(clamp(_tc.g * 250.0, 0.0, 255.0)))
-		, b(static_cast<uint8>(clamp(_tc.b * 250.0, 0.0, 255.0)))
+		, g(static_cast<uint8>(clamp(_tc.g * 255.0, 0.0, 255.0)))
+		, b(static_cast<uint8>(clamp(_tc.b * 255.0, 0.0, 255.0)))
+	{}
+
+	template<>
+	explicit Color(const TColor<Complex>& _tc)
+		: r(static_cast<uint8>(clamp(_tc.r.real() * 255.0, 0.0, 255.0)))
+		, g(static_cast<uint8>(clamp(_tc.g.real() * 255.0, 0.0, 255.0)))
+		, b(static_cast<uint8>(clamp(_tc.b.real() * 255.0, 0.0, 255.0)))
 	{}
 
 	explicit Color(uint8 _r, uint8 _g, uint8 _b) noexcept
@@ -401,6 +445,13 @@ public:
 			);
 	}
 
+	explicit operator TColor<Complex>() const {
+		return TColor<Complex>(
+			Complex(static_cast<double>(r / 255.0), 0.0),
+			Complex(static_cast<double>(g / 255.0), 0.0),
+			Complex(static_cast<double>(b / 255.0), 0.0)
+			);
+	}
 };
 #pragma pack(pop)
 

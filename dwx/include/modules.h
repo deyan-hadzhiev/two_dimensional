@@ -182,7 +182,7 @@ class RotationModule : public AsyncModule {
 public:
 	RotationModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "angle"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch;mirror"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
@@ -218,6 +218,7 @@ public:
 	FilterModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernel", "3"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalize", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalValue", "1.0"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
@@ -229,6 +230,92 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleWidth", "128"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleHeight", "128"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "medium", "uint16;uint8;float;double"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class RelocateModule : public AsyncModule {
+public:
+	RelocateModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "relocateX", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "relocateY", "0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class CropModule : public AsyncModule {
+public:
+	CropModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropX", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropY", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropWidth", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropHeight", "0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class MirrorModule : public AsyncModule {
+public:
+	MirrorModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "mirrorX", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "mirrorY", "true"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class ExpandModule : public	AsyncModule {
+public:
+	ExpandModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edgeFill", "blank;tile;stretch;mirror"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandWidth", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandHeight", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandX", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandY", "0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class ChannelModule : public AsyncModule {
+public:
+	ChannelModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "channel", "red;green;blue"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class FFTDomainModule : public AsyncModule {
+public:
+	FFTDomainModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "logScale", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "centralized", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "squareDimension", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "powerOf2", "false"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class FFTCompressionModule : public AsyncModule {
+public:
+	FFTCompressionModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "compressPercent", "50.0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class FFTFilter : public AsyncModule {
+public:
+	FFTFilter() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernelFFT", "5"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalizeKernel", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalizationValue", "1.0"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;

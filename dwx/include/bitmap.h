@@ -3,7 +3,20 @@
 
 #include <functional>
 #include <vector>
+#include <memory>
 #include "color.h"
+
+// point in discrete 2d space
+class Point {
+public:
+	int x;
+	int y;
+	Point() = default;
+	Point(int _x, int _y)
+		: x(_x)
+		, y(_y)
+	{}
+};
 
 class FloatBitmap {
 protected:
@@ -49,10 +62,28 @@ public:
 	const FloatColor * operator[](int row) const noexcept;
 };
 
-enum FilterEdge {
-	FE_BLANK,   //!< coordinates beyond the edge will be initialized with blank color
-	FE_TILE,    //!< coordinates beyond the edge will be initialized with tiled image
-	FE_STRETCH, //!< coordinates beyond the edge will be the stretched edge
+enum ColorChannel {
+	CC_RED = 0,
+	CC_GREEN,
+	CC_BLUE,
+	CC_COUNT, //!< the count of available channels
+};
+
+// used for operations which require decision on what is to be done beyond the borders of the current pixelmap
+enum EdgeFillType {
+	EFT_BLANK = 0, //!< coordinates beyond the edge will be initialized with blank color
+	EFT_TILE,      //!< coordinates beyond the edge will be initialized with tiled image
+	EFT_STRETCH,   //!< coordinates beyond the edge will be the stretched edge
+	EFT_MIRROR,    //!< coordinates beyond the edge will start mirroring based on the edge
+};
+
+// used for operations which require axis decisions
+enum PixelmapAxis {
+	PA_NONE = 0,                     //!< none of the axes
+	PA_X_AXIS = 1 << 0,              //!< the x axis of the pixelmap
+	PA_Y_AXIS = 1 << 1,              //!< the y axis of the pixelmap
+	PA_BOTH = PA_X_AXIS | PA_Y_AXIS, //!< both the axes
+	PA_COUNT,
 };
 
 template<class ColorType = Color>
@@ -65,7 +96,7 @@ protected:
 	void copy(const Pixelmap& rhs) noexcept;
 public:
 	Pixelmap() noexcept; //!< Generates an empty bitmap
-	Pixelmap(int width, int height) noexcept; //!< Generates empty bitmap with specified dimensions
+	Pixelmap(int width, int height, const ColorType * pixelValues = nullptr) noexcept; //!< Generates bitmap with specified dimensions and initializes it with the buffer (if supplied)
 	~Pixelmap() noexcept;
 	Pixelmap(const Pixelmap& rhs) noexcept;
 	Pixelmap& operator = (const Pixelmap& rhs) noexcept;
@@ -76,11 +107,12 @@ public:
 	void freeMem(void) noexcept; //!< Deletes the memory, associated with the bitmap
 	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
+	int getDimensionProduct() const noexcept; //!< Gets the product of the width and height dimensions
 	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
-	void generateEmptyImage(int width, int height) noexcept; //!< Creates an empty image with the given dimensions
+	void generateEmptyImage(int width, int height, bool clear = true) noexcept; //!< Creates an empty image with the given dimensions (and clears it by default)
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
 	ColorType getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
-	ColorType getFilteredPixel(float x, float y, FilterEdge edge = FilterEdge::FE_BLANK) const noexcept;
+	ColorType getFilteredPixel(float x, float y, EdgeFillType edge = EdgeFillType::EFT_BLANK) const noexcept;
 	void remap(std::function<ColorType(ColorType)>) noexcept; // remap R, G, B channels by a function
 
 	void setPixel(int x, int y, const ColorType& col) noexcept; //!< Sets the pixel at coordinates (x, y)
@@ -90,10 +122,42 @@ public:
 	ColorType * operator[](int row) noexcept;
 	const ColorType * operator[](int row) const noexcept;
 
+	// the output channel buffer has to be allocated by the caller (with size of the product of dimensions - width * height)
+	template<class ChannelScalar>
+	bool getChannel(ChannelScalar * channel, ColorChannel cc) const;
+
+	template<class ChannelScalar>
+	bool setChannel(const ChannelScalar * channel, ColorChannel cc);
+
+	// mirrors the pixelmap in-place
+	bool mirror(PixelmapAxis axis);
+
+	// mirrors the pixelmap in the output pixelmap
+	bool mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis) const;
+
+	// crops the rectangle with top left (x, y) and w width and h height in place
+	bool crop(const int x, const int y, const int w, const int h);
+
+	// crops the rectangle with top left (x, y) and w width and h height in a specified pixelmap
+	bool crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const;
+
+	// expands the bitmap with specified width and height (and remaps the current (0, 0) -> (x, y))
+	bool expand(const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK);
+
+	// expands the bitmap with specified width and height (and remaps the current (0, 0) -> (x, y))
+	bool expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK) const;
+
+	// relocates the pixelmap (0, 0) -> (x, y) using a temporary Pixelmap
+	bool relocate(const int x, const int y);
+
+	// relocates the pixelmap (0, 0) -> (x, y)
+	bool relocate(Pixelmap<ColorType>& relocated, const int x, const int y) const;
+
+	// downscales the bitmap using fractions
 	template<class IntermediateColorType>
 	bool downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const;
 
-	//!< draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
+	// draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
 	bool drawBitmap(Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;
 };
 

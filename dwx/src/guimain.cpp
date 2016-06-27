@@ -71,7 +71,6 @@ ViewFrame::ViewFrame(const wxString& title)
 	, refreshTimer(this, MID_VF_TIMER)
 {
 	SetMinClientSize(vfMinSize);
-	SetDoubleBuffered(true);
 
 	Connect(wxEVT_IDLE, wxIdleEventHandler(ViewFrame::OnIdle), NULL, this);
 	Connect(wxEVT_TIMER, MID_VF_TIMER, wxTimerEventHandler(ViewFrame::OnTimer), NULL, this);

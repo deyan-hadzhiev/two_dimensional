@@ -2,18 +2,28 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <chrono>
 
 #include "modules.h"
 #include "vector2.h"
 #include "matrix2.h"
 #include "util.h"
 #include "convolution.h"
+#include "fft_butterfly.h"
 
 ModuleBase::ProcessResult SimpleModule::runModule(unsigned flags) {
 	const bool hasInput = getInput();
 	ModuleBase::ProcessResult retval;
 	if (hasInput && bmp.isOK()) {
+		if (cb)
+			cb->reset();
+		const auto start = std::chrono::steady_clock::now();
 		retval = moduleImplementation(flags);
+		const auto end = std::chrono::steady_clock::now();
+		if (cb) {
+			const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+			cb->setDuration(duration);
+		}
 		if (ModuleBase::KPR_OK == retval) {
 			setOutput();
 			if (iman)
@@ -30,11 +40,18 @@ void AsyncModule::moduleLoop(AsyncModule * k) {
 		std::unique_lock<std::mutex> lk(k->moduleMutex);
 		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
 			k->ev.wait(lk);
-			State dirty = State::AKS_DIRTY;
-			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 		}
 		if (k->state != State::AKS_TERMINATED) {
+			// if started from dirty state directly change to running
+			State dirty = State::AKS_DIRTY;
+			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
+			const auto start = std::chrono::steady_clock::now();
 			k->moduleImplementation(0);
+			const auto end = std::chrono::steady_clock::now();
+			if (k->cb) {
+				const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+				k->cb->setDuration(duration);
+			}
 			// be carefull not to change the state!!!
 			State fin = State::AKS_RUNNING; // expected state
 			k->state.compare_exchange_weak(fin, State::AKS_FINISHED);
@@ -70,6 +87,8 @@ void AsyncModule::update() {
 }
 
 ModuleBase::ProcessResult AsyncModule::runModule(unsigned flags) {
+	if (cb)
+		cb->reset();
 	update();
 	return KPR_RUNNING;
 }
@@ -363,11 +382,11 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	Color * bmpData = bmpOut.getDataPtr();
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
-	FilterEdge edge = FilterEdge::FE_BLANK;
+	EdgeFillType edge = EdgeFillType::EFT_BLANK;
 	if (pman) {
 		unsigned edgeType = 0;
 		if (pman->getEnumParam(edgeType, "edge")) {
-			edge = static_cast<FilterEdge>(edgeType);
+			edge = static_cast<EdgeFillType>(edgeType);
 		}
 	}
 	for (int y = 0; y < obh && !getAbortState(); ++y) {
@@ -512,11 +531,13 @@ ModuleBase::ProcessResult FilterModule::moduleImplementation(unsigned flags) {
 	const float blurKernel[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	ConvolutionKernel k(blurKernel, 3);
 	bool normalize = true;
+	float normalizationValue = 1.0f;
 	if (pman) {
 		pman->getCKernelParam(k, "kernel");
 		pman->getBoolParam(normalize, "normalize");
+		pman->getFloatParam(normalizationValue, "normalValue");
 	}
-	Bitmap out = convolute(bmp, k, normalize);
+	Bitmap out = convolute(bmp, k, normalize, normalizationValue, cb);
 	if (oman) {
 		oman->setOutput(out, bmpId);
 	}
@@ -553,6 +574,512 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) 
 	if (res) {
 		if (oman) {
 			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult RelocateModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Relocate");
+	}
+	int nx = 0;
+	int ny = 0;
+	if (pman) {
+		pman->getIntParam(nx, "relocateX");
+		pman->getIntParam(ny, "relocateY");
+	}
+	Bitmap out;
+	bool res = bmp.relocate(out, nx, ny);
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult CropModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Crop");
+	}
+	int nx = 0;
+	int ny = 0;
+	int nw = 0;
+	int nh = 0;
+	if (pman) {
+		pman->getIntParam(nx, "cropX");
+		pman->getIntParam(ny, "cropY");
+		pman->getIntParam(nw, "cropWidth");
+		pman->getIntParam(nh, "cropHeight");
+	}
+	Bitmap out;
+	bool res = bmp.crop(out, nx, ny, nw, nh);
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult MirrorModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Mirror");
+	}
+	bool mx = true;
+	bool my = true;
+	if (pman) {
+		pman->getBoolParam(mx, "mirrorX");
+		pman->getBoolParam(my, "mirrorY");
+	}
+	unsigned axes = (mx ? PA_X_AXIS : PA_NONE) | (my ? PA_Y_AXIS : PA_NONE);
+	Bitmap out;
+	bool res = bmp.mirror(out, static_cast<PixelmapAxis>(axes));
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult ExpandModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Expand");
+	}
+	unsigned fillType = 0;
+	int ew = 0;
+	int eh = 0;
+	int ex = -1;
+	int ey = -1;
+	if (pman) {
+		pman->getEnumParam(fillType, "edgeFill");
+		pman->getIntParam(ew, "expandWidth");
+		pman->getIntParam(eh, "expandHeight");
+		pman->getIntParam(ex, "expandX");
+		pman->getIntParam(ey, "expandY");
+	}
+	Bitmap out;
+	bool res = bmp.expand(out, ew, eh, ex, ey, static_cast<EdgeFillType>(fillType));
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Channel");
+	}
+	unsigned channel = 0;
+	if (pman) {
+		pman->getEnumParam(channel, "channel");
+	}
+	Bitmap out(bmp.getWidth(), bmp.getHeight());
+	const int dimProd = bmp.getDimensionProduct();
+	std::unique_ptr<uint8[]> channelData(new uint8[dimProd]);
+	bool res = bmp.getChannel(channelData.get(), static_cast<ColorChannel>(channel));
+	if (res) {
+		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("FFTDomain");
+		cb->setPercentDone(0, 100);
+	}
+	bool logScale = true;
+	bool centralize = true;
+	bool squareDim = false;
+	bool powerOf2Flag = false;
+	if (pman) {
+		pman->getBoolParam(logScale, "logScale");
+		pman->getBoolParam(centralize, "centralized");
+		pman->getBoolParam(squareDim, "squareDimension");
+		pman->getBoolParam(powerOf2Flag, "powerOf2");
+	}
+
+	const int width = bmp.getWidth();
+	const int height = bmp.getHeight();
+
+	const int fftWidth = static_cast<int>(powerOf2(static_cast<unsigned>(width)) ? width : upperPowerOf2(static_cast<unsigned>(width)));
+	const int fftHeight = static_cast<int>(powerOf2(static_cast<unsigned>(height)) ? height : upperPowerOf2(static_cast<unsigned>(height)));
+	// and finally take the maximum of the two as a single dimension of the fft - it needs square to apply the filter properly
+	const int fftDim = std::max((powerOf2Flag ? fftWidth : width), (powerOf2Flag ? fftHeight : height));
+	const int fftDimW = (squareDim ? fftDim : (powerOf2Flag ? fftWidth : width));
+	const int fftDimH = (squareDim ? fftDim : (powerOf2Flag ? fftHeight : height));
+
+	Pixelmap<TColor<Complex> > bmpComplex(bmp);
+	// if the width and height for the fft differ - expand the bitmap
+	if (width != fftDimW || height != fftDimH) {
+		const int relocationX = (fftDimW - width) / 2;
+		const int relocationY = (fftDimH - height) / 2;
+		const int widthExpansion = fftDimW - width;
+		const int heightExpansion = fftDimH - height;
+		bmpComplex.expand(widthExpansion, heightExpansion, relocationX, relocationY, EFT_TILE);
+	}
+	Pixelmap<TColor<Complex> > outComplex(fftDimW, fftDimH);
+
+	std::vector<int> dims;
+	dims.push_back(fftDimH);
+	dims.push_back(fftDimW);
+
+	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
+	const int dimProd = bmpComplex.getDimensionProduct();
+	std::unique_ptr<Complex[]> inChannel(new Complex[dimProd]);
+	std::unique_ptr<Complex[]> frequencyChannel(new Complex[dimProd]);
+
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
+		if (cb)
+			cb->setPercentDone(i, ColorChannel::CC_COUNT);
+
+		// get the current channel
+		bmpComplex.getChannel(inChannel.get(), static_cast<ColorChannel>(i));
+
+		// run the forward fft
+		forward.transform(inChannel.get(), frequencyChannel.get());
+
+		// set the channel to the output pixelmap
+		outComplex.setChannel(frequencyChannel.get(), static_cast<ColorChannel>(i));
+	}
+
+	// now remap all values to their absolute value
+	outComplex.remap([](TColor<Complex> in) {
+		return TColor<Complex>(
+			Complex(std::abs(in.r), 0.0),
+			Complex(std::abs(in.g), 0.0),
+			Complex(std::abs(in.b), 0.0)
+		);
+	});
+
+	if (logScale) {
+		outComplex.remap([](TColor<Complex> in) {
+			return TColor<Complex>(
+				Complex(std::log(in.r.real()), 0.0),
+				Complex(std::log(in.g.real()), 0.0),
+				Complex(std::log(in.b.real()), 0.0)
+				);
+		});
+	}
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
+	// as a final step normalize all the values
+	TColor<Complex> * outData = outComplex.getDataPtr();
+	double minValue = Inf;
+	double maxValue = 0.0;
+	for (int i = 0; i < dimProd; ++i) {
+		const TColor<Complex>& c = outData[i];
+		for (int ci = 0; ci < 3; ++ci) {
+			if (c[ci].real() > maxValue) {
+				maxValue = c[ci].real();
+			} else if(c[ci].real() < minValue) {
+				minValue = c[ci].real();
+			}
+		}
+	}
+
+	const double valRange = maxValue - minValue;
+	const double valRangeRecip = 1.0 / valRange;
+	outComplex.remap([minValue,valRangeRecip](TColor<Complex> in) {
+		return TColor<Complex>(
+			Complex((in.r.real() - minValue) * valRangeRecip, 0.0),
+			Complex((in.g.real() - minValue) * valRangeRecip, 0.0),
+			Complex((in.b.real() - minValue) * valRangeRecip, 0.0)
+			);
+	});
+
+	Bitmap out(outComplex);
+
+	// make relocations after it is converted to standart uint8 space to save memory
+	if (centralize) {
+		out.relocate(out.getWidth() / 2, out.getHeight() / 2);
+	}
+
+	if (cb)
+		cb->setPercentDone(1, 1);
+
+	bool res = true;
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("FFTCompression");
+	}
+	float percent = 100.0f;
+	if (pman) {
+		pman->getFloatParam(percent, "compressPercent");
+	}
+	if (percent < 0.0f || percent > 100.0f) {
+		return KPR_INVALID_INPUT;
+	}
+	const int width = bmp.getWidth();
+	const int height = bmp.getHeight();
+
+	const float ratio = sqrtf(percent / 100.0f);
+	const int compWidth = static_cast<int>(ceilf(width * ratio));
+	const int compHeight = static_cast<int>(ceilf(height * ratio));
+
+	Pixelmap<TColor<Complex> > bmpComplex(bmp);
+	Pixelmap<TColor<Complex> > bmpCompressed(width, height);
+	Pixelmap<TColor<Complex> > outComplex(width, height);
+
+	std::vector<int> dims;
+	dims.push_back(height);
+	dims.push_back(width);
+
+	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
+	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
+	const int dimProd = bmpComplex.getDimensionProduct();
+	std::unique_ptr<Complex[]> fftInChannel(new Complex[dimProd]);
+	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]);
+
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
+		if (cb)
+			cb->setPercentDone(i, 2 * ColorChannel::CC_COUNT);
+
+		// get the current channel
+		bmpComplex.getChannel(fftInChannel.get(), static_cast<ColorChannel>(i));
+
+		// run the forward fft
+		forward.transform(fftInChannel.get(), fftOutChannel.get());
+
+		// set the channel to the compressed pixelmap
+		bmpCompressed.setChannel(fftOutChannel.get(), static_cast<ColorChannel>(i));
+	}
+
+	// compute the x and y coordinates that will mark the zoroing to simulate compression
+	const int compWidthRemainder = width - compWidth;
+	const int compHeightRemainder = height - compHeight;
+	const int compX = (width - compWidthRemainder) / 2;
+	const int compY = (height - compHeightRemainder) / 2;
+	// now zero out all pixel which are in the two strips
+	TColor<Complex> * compData = bmpCompressed.getDataPtr();
+	for (int y = 0; y < height; ++y) {
+		// if this row is in the cropped area - zero the whole row
+		if (y > compY && y < compY + compHeightRemainder) {
+			memset(compData + y * width, 0, width * sizeof(TColor<Complex>));
+		} else {
+			// else go through the columns
+			for (int x = 0; x < width; ++x) {
+				if (x > compX && x < compX + compWidthRemainder) {
+					compData[y * width + x] = TColor<Complex>();
+				}
+			}
+		}
+	}
+
+	// now after the compression is simulated - make the inverse transform over the compressed pixelmap
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
+		if (cb)
+			cb->setPercentDone(ColorChannel::CC_COUNT + i, 2 * ColorChannel::CC_COUNT);
+
+		// get the current channel
+		bmpCompressed.getChannel(fftInChannel.get(), static_cast<ColorChannel>(i));
+
+		// run the inverse fft - fftOutChannel is already initialized
+		inverse.transform(fftInChannel.get(), fftOutChannel.get());
+
+		// set the channel to the output pixelmap and use it before the actual compress
+		outComplex.setChannel(fftOutChannel.get(), static_cast<ColorChannel>(i));
+	}
+
+	// noramlize the output since it will be with scaled values
+	const double normFactor = 1.0 / dimProd;
+	outComplex.remap([normFactor](TColor<Complex> in) {
+		return in * normFactor;
+	});
+
+	Bitmap out(outComplex);
+
+	if (cb)
+		cb->setPercentDone(1, 1);
+
+	bool res = true;
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("FFTFilter");
+	}
+	ConvolutionKernel ck;
+	bool normalizeKernel;
+	float normalizationValue = 1.0f;
+	if (pman) {
+		pman->getCKernelParam(ck, "kernelFFT");
+		pman->getBoolParam(normalizeKernel, "normalizeKernel");
+		pman->getFloatParam(normalizationValue, "normalizationValue");
+	}
+
+	if (normalizeKernel) {
+		ck.normalize(normalizationValue);
+	}
+
+	const int width = bmp.getWidth();
+	const int height = bmp.getHeight();
+
+	const int ckSide = ck.getSide();
+	Pixelmap<Complex> filterMap(ckSide, ckSide);
+	Pixelmap<Complex> filterFullMap(width, height); //!< will be as big as the image
+	Pixelmap<TColor<Complex> > bmpComplex(bmp);
+	Pixelmap<TColor<Complex> > outComplex(width, height);
+
+	std::vector<int> dims;
+	dims.push_back(height);
+	dims.push_back(width);
+
+	const int dimProd = bmpComplex.getDimensionProduct();
+	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
+	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
+	const int ckSquared = ckSide * ckSide;
+	const float * kernelData = ck.getDataPtr();
+	Complex * filterData = filterMap.getDataPtr();
+	// initialize the filter and transform it to the frequency domain
+	for (int i = 0; i < ckSquared; ++i) {
+		filterData[i] = Complex(kernelData[i], 0.0);
+	}
+	// now we have to map the small filter to the big filter map
+	filterFullMap.drawBitmap(filterMap, 0, 0);
+	// and finally relocate the filter in such a way that the center is in (0, 0)
+	filterFullMap.relocate(width - ckSide / 2, height - ckSide / 2);
+
+	std::unique_ptr<Complex[]> filterFreq(new Complex[dimProd]);
+	forward.transform(filterFullMap.getDataPtr(), filterFreq.get());
+
+	// allocate operating buffers for the pixelmap channels
+	std::unique_ptr<Complex[]> fftInChannel(new Complex[dimProd]); //!< the input channel for the fft
+	std::unique_ptr<Complex[]> fftIntermediate(new Complex[dimProd]); //!< intermediate channel in frequency domain (filter is applied to it)
+	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]); //!< the output channle from the inverse fft
+
+	// now run the filter over all the channels of the pixelmap
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
+		if (cb)
+			cb->setPercentDone(i * 3, 3 * ColorChannel::CC_COUNT);
+
+		// get the current channel
+		bmpComplex.getChannel(fftInChannel.get(), static_cast<ColorChannel>(i));
+
+		// run the forward fft
+		forward.transform(fftInChannel.get(), fftIntermediate.get());
+
+		// now apply the filter
+		for (int j = 0; j < dimProd; ++j) {
+			fftIntermediate[j] = filterFreq[j] * fftIntermediate[j];
+		}
+
+		if (cb)
+			cb->setPercentDone(i * 3 + 1, 3 * ColorChannel::CC_COUNT);
+
+		// now inverse the channel back to the pixel domain
+		inverse.transform(fftIntermediate.get(), fftOutChannel.get());
+
+		// set the channel to the final output pixelmap
+		outComplex.setChannel(fftOutChannel.get(), static_cast<ColorChannel>(i));
+
+		if (cb)
+			cb->setPercentDone(i * 3 + 2, 3 * ColorChannel::CC_COUNT);
+	}
+
+	// noramlize the output since it will be with scaled values
+	const double normFactor = 1.0 / dimProd;
+	outComplex.remap([normFactor](TColor<Complex> in) {
+		return in * normFactor;
+	});
+
+	Bitmap out(outComplex);
+
+	if (cb)
+		cb->setPercentDone(1, 1);
+
+	bool res = true;
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, bmpId);
 		}
 		return KPR_OK;
 	} else {

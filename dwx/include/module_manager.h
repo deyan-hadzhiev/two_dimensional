@@ -19,6 +19,14 @@ enum ModuleId {
 	M_THRESHOLD,
 	M_FILTER,
 	M_DOWNSCALE,
+	M_RELOCATE,
+	M_CROP,
+	M_MIRROR,
+	M_EXPAND,
+	M_CHANNEL,
+	M_FFT_DOMAIN,
+	M_FFT_COMPRESSION,
+	M_FFT_FILTER,
 	M_COUNT, //!< must remain to be used for IDs and array sizes
 };
 
