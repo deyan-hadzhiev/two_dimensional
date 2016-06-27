@@ -10,6 +10,7 @@
 #include "module_base.h"
 #include "convolution.h"
 #include "wx_modes.h"
+#include "vector2.h"
 
 class ParamPanel;
 class CKernelPanel;
@@ -82,6 +83,51 @@ private:
 	int kernelSide;
 };
 
+class CKernelCurveDlg;
+
+class CurveCanvas : public wxPanel {
+public:
+	CurveCanvas(CKernelCurveDlg * parent, int numSamples);
+
+	void setNumSamples(int n);
+private:
+	enum ColorConstants {
+		CC_BACKGROUND = 0,
+		CC_AXES,
+		CC_CURVE,
+		CC_SAMPLES,
+		CC_POLY,
+		CC_COUNT,
+	};
+	static const wxColour curveColours[CC_COUNT];
+	static const int pointRadius;
+
+	struct DiscreteSample {
+		wxPoint pos;
+		wxRect bbox;
+	};
+
+	void OnPaint(wxPaintEvent& evt);
+	void drawSamples(wxBufferedPaintDC& pdc);
+
+	void OnEraseBkg(wxEraseEvent& evt);
+
+	void OnSizeEvent(wxSizeEvent& evt);
+
+	void updateCanvasSamples();
+
+	// some coordinate conversion functions
+	Vector2 canvasToReal(const wxPoint& p) const;
+	wxPoint realToCanvas(const Vector2& p) const;
+
+	CKernelCurveDlg * parent;
+	wxSize panelSize; //!< will always hold the current canvas size
+	wxPoint axes;
+	int numSamples;
+	std::vector<Vector2> samples;
+	std::vector<DiscreteSample> canvasSamples; //!< will hold updated samples in canvas space
+};
+
 class CKernelCurveDlg : public CKernelDlg {
 public:
 	CKernelCurveDlg(CKernelPanel * parent, const wxString& title, int side);
@@ -89,7 +135,22 @@ public:
 	ConvolutionKernel getKernel() const override final;
 
 	void OnShow(wxShowEvent& evt);
+
+	void OnClose(wxCloseEvent& evt);
+
+	void OnEscape(wxKeyEvent& evt);
 private:
+	void OnSliderChange(wxScrollEvent& evt);
+
+	static const int minSamples;
+	static const int maxSamples;
+
+	CKernelPanel * paramPanel;
+	wxSlider * sliderCtrl;
+	int currentSamples;
+
+	CurveCanvas * canvas;
+	int currentSide;
 };
 
 class CKernelPanel : public wxPanel {

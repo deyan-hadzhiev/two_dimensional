@@ -121,6 +121,8 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 	, topFrame(topFrame)
 	, bmpId(0)
 {
+	SetDoubleBuffered(true);
+
 	// connect paint events
 	Connect(wxEVT_PAINT, wxPaintEventHandler(BitmapCanvas::OnPaint), NULL, this);
 	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(BitmapCanvas::OnEraseBkg), NULL, this);

@@ -31,7 +31,7 @@ set (HEADERS
 	include/matrix2.h
 	include/modules.h
 	include/module_base.h
-	inclide/module_manager.h
+	include/module_manager.h
 	include/util.h
 	include/vector2.h
 	include/wx_bitmap_canvas.h
