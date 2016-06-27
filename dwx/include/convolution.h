@@ -33,12 +33,16 @@ public:
 
 	float * operator[](int i);
 	const float * operator[](int i) const;
-private:
+
 	// conversion functions from the coordinnated system centered in the
 	// middle of the convolution matrix to index of the data array and
 	// vice versa
 	Point indexToPoint(int i) const;
+	// conversion functions from the coordinnated system centered in the
+	// middle of the convolution matrix to index of the data array and
+	// vice versa
 	int pointToIndex(const Point& p) const;
+private:
 
 	// applies radial symmetry with PI/2 angle of the value with the
 	// given index
