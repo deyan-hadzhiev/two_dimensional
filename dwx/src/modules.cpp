@@ -753,11 +753,15 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
 	const int dimProd = bmpComplex.getDimensionProduct();
 	std::unique_ptr<Complex[]> inChannel(new Complex[dimProd]);
 	std::unique_ptr<Complex[]> frequencyChannel(new Complex[dimProd]);
 
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(i, ColorChannel::CC_COUNT);
 
@@ -788,6 +792,10 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 				Complex(std::log(in.b.real()), 0.0)
 				);
 		});
+	}
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
 	}
 
 	// as a final step normalize all the values
@@ -869,11 +877,15 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
 
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
 	const int dimProd = bmpComplex.getDimensionProduct();
 	std::unique_ptr<Complex[]> fftInChannel(new Complex[dimProd]);
 	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]);
 
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(i, 2 * ColorChannel::CC_COUNT);
 
@@ -909,7 +921,7 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	}
 
 	// now after the compression is simulated - make the inverse transform over the compressed pixelmap
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(ColorChannel::CC_COUNT + i, 2 * ColorChannel::CC_COUNT);
 
@@ -983,6 +995,10 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
 
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
 	const int ckSquared = ckSide * ckSide;
 	const float * kernelData = ck.getDataPtr();
 	Complex * filterData = filterMap.getDataPtr();
@@ -1004,7 +1020,7 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]); //!< the output channle from the inverse fft
 
 	// now run the filter over all the channels of the pixelmap
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(i * 3, 3 * ColorChannel::CC_COUNT);
 
