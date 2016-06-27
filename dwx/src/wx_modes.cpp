@@ -40,6 +40,12 @@ wxString ModePanel::getCbString() const {
 	const float percentDone = cb.getPercentDone();
 	if (!moduleName.empty() && percentDone > 0.05f) {
 		statusText.Printf(wxT("%s : %6.2f %%"), moduleName.c_str(), percentDone);
+		const int64 duration = cb.getDuration();
+		if (0 != duration) {
+			wxString durationText;
+			durationText.Printf(wxT(" (%d.%03ds)"), static_cast<int>(duration / 1000), static_cast<int>(duration % 1000));
+			statusText << durationText;
+		}
 	}
 	return statusText;
 }
@@ -137,7 +143,6 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	}
 	case (ViewFrame::MID_VF_CNT_RUN) :
-		cb.reset();
 		module->runModule(0);
 		break;
 	case (ViewFrame::MID_VF_CNT_STOP) :

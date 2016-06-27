@@ -2,6 +2,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <chrono>
 
 #include "modules.h"
 #include "vector2.h"
@@ -14,7 +15,15 @@ ModuleBase::ProcessResult SimpleModule::runModule(unsigned flags) {
 	const bool hasInput = getInput();
 	ModuleBase::ProcessResult retval;
 	if (hasInput && bmp.isOK()) {
+		if (cb)
+			cb->reset();
+		const auto start = std::chrono::steady_clock::now();
 		retval = moduleImplementation(flags);
+		const auto end = std::chrono::steady_clock::now();
+		if (cb) {
+			const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+			cb->setDuration(duration);
+		}
 		if (ModuleBase::KPR_OK == retval) {
 			setOutput();
 			if (iman)
@@ -36,7 +45,13 @@ void AsyncModule::moduleLoop(AsyncModule * k) {
 			// if started from dirty state directly change to running
 			State dirty = State::AKS_DIRTY;
 			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
+			const auto start = std::chrono::steady_clock::now();
 			k->moduleImplementation(0);
+			const auto end = std::chrono::steady_clock::now();
+			if (k->cb) {
+				const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+				k->cb->setDuration(duration);
+			}
 			// be carefull not to change the state!!!
 			State fin = State::AKS_RUNNING; // expected state
 			k->state.compare_exchange_weak(fin, State::AKS_FINISHED);
@@ -72,6 +87,8 @@ void AsyncModule::update() {
 }
 
 ModuleBase::ProcessResult AsyncModule::runModule(unsigned flags) {
+	if (cb)
+		cb->reset();
 	update();
 	return KPR_RUNNING;
 }
@@ -520,7 +537,7 @@ ModuleBase::ProcessResult FilterModule::moduleImplementation(unsigned flags) {
 		pman->getBoolParam(normalize, "normalize");
 		pman->getFloatParam(normalizationValue, "normalValue");
 	}
-	Bitmap out = convolute(bmp, k, normalize, normalizationValue);
+	Bitmap out = convolute(bmp, k, normalize, normalizationValue, cb);
 	if (oman) {
 		oman->setOutput(out, bmpId);
 	}

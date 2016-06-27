@@ -16,6 +16,7 @@ class ProgressCallback {
 	std::atomic<bool> abortFlag;
 	std::atomic<int> fractionsDone;
 	std::atomic<int> fractionMax;
+	std::atomic<int64> duration;
 	mutable std::mutex nameMutex;
 	std::string moduleName;
 public:
@@ -23,24 +24,33 @@ public:
 		: abortFlag(false)
 		, fractionsDone(0)
 		, fractionMax(1)
+		, duration(0)
 		, moduleName("None")
 	{}
 
-	void setAbortFlag() {
+	void setAbortFlag() noexcept {
 		abortFlag = true;
 	}
 
-	bool getAbortFlag() const {
+	bool getAbortFlag() const noexcept {
 		return abortFlag;
 	}
 
-	void setPercentDone(int _fractionsDone, int _fractionMax) {
+	void setPercentDone(int _fractionsDone, int _fractionMax) noexcept {
 		fractionsDone = _fractionsDone;
 		fractionMax = _fractionMax;
 	}
 
-	float getPercentDone() const {
+	float getPercentDone() const noexcept {
 		return float(fractionsDone * 100) / fractionMax;
+	}
+
+	void setDuration(int64 _duration) noexcept {
+		duration = _duration;
+	}
+
+	int64 getDuration() const noexcept {
+		return duration;
 	}
 
 	void setModuleName(const std::string& _moduleName) {
@@ -57,6 +67,7 @@ public:
 		abortFlag = false;
 		fractionsDone = 0;
 		fractionMax = 1;
+		duration = 0;
 		moduleName = std::string("None");
 	}
 };

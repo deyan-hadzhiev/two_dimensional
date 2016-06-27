@@ -57,8 +57,10 @@ private:
 template<class T>
 std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec);
 
+class ProgressCallback;
+
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& in, const ConvolutionKernel& k, const bool normalize = true, const float normalizationValue = 1.0f);
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& in, const ConvolutionKernel& k, const bool normalize = true, const float normalizationValue = 1.0f, ProgressCallback * cb = nullptr);
 
 struct Extremum {
 	int start;

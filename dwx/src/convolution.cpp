@@ -1,6 +1,7 @@
 #include "convolution.h"
 #include "bitmap.h"
 #include "vector2.h"
+#include "module_base.h"
 
 ConvolutionKernel::ConvolutionKernel()
 	: data(nullptr)
@@ -270,10 +271,10 @@ std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 	return result;
 }
 
-template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue);
+template Pixelmap<Color> convolute(const Pixelmap<Color>& in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue, ProgressCallback * cb);
 
 template<class ColorType>
-Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue) {
+Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionKernel & _k, const bool normalize, const float normalizationValue, ProgressCallback * cb) {
 	// this may be increased to int64 if necessary, but for now even int16 is an option
 	Pixelmap<TColor<int32> > in(_in);
 	Pixelmap<TColor<int32> > out(in.getWidth(), in.getHeight());
@@ -285,7 +286,7 @@ Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionK
 	const int h = in.getHeight();
 	const int ks = k.getSide();
 	const int hs = ks / 2;
-	for (int y = 0; y < h; ++y) {
+	for (int y = 0; y < h && (!cb || !cb->getAbortFlag()); ++y) {
 		for (int x = 0; x < w; ++x) {
 			TColor<int32> res;
 			if (y - hs >= 0 && x - hs >= 0 && y + hs < h && x + hs < w) {
@@ -305,6 +306,8 @@ Pixelmap<ColorType> convolute(const Pixelmap<ColorType>& _in, const ConvolutionK
 			}
 			out[y][x] = res;
 		}
+		if (cb)
+			cb->setPercentDone(y, h);
 	}
 	return Pixelmap<ColorType>(out);
 }
