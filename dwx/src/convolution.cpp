@@ -1,5 +1,6 @@
 #include "convolution.h"
 #include "bitmap.h"
+#include "vector2.h"
 
 ConvolutionKernel::ConvolutionKernel()
 	: data(nullptr)
@@ -48,6 +49,60 @@ void ConvolutionKernel::init(const float * mat, int _side) {
 	side = _side;
 	if (mat) {
 		memcpy(data, mat, side * side * sizeof(float));
+	} else {
+		memset(data, 0, side * side * sizeof(float));
+	}
+}
+
+void ConvolutionKernel::setRadialSection(const float * srcData, int size) {
+	if (!srcData || size <= 0) {
+		return;
+	}
+	const int matSide = size * 2 - 1;
+	init(nullptr, matSide);
+	// this equals size - 1, but this is more readable
+	const int halfSide = side / 2;
+	// first copy the data on the positive y axis and rotate it
+	for (int i = 0; i <= halfSide; ++i) {
+		const int idx = pointToIndex(Point(0, i));
+		data[idx] = srcData[i];
+		// after the initial value is set - rotate the value
+		applyRadialSymmetry(idx);
+	}
+	// now recalculate all the values in the 1 quadrant in the matrix coord system
+	for (int y = 1; y <= halfSide; ++y) {
+		for (int x = 1; x <= halfSide; ++x) {
+			const int posIdx = pointToIndex(Point(x, y));
+			const Vector2 posVec(x, y);
+			const float length = posVec.length();
+			// determining the actual value based on the position of the sampled point
+			// and where it would it be mapped on one of the cetral axes
+			const int floorLength = static_cast<int>(floorf(length));
+			const int ceilLength = static_cast<int>(ceilf(length));
+			float value = 0.0f;
+			if (floorLength > halfSide) {
+				// the point maps outside the circle - zero value
+				value = 0.0f;
+			} else if (ceilLength > halfSide) {
+				// the point is right on the edge - so get interpolated value with the
+				// fraction that is part of the circle
+				const int centralIdx = pointToIndex(Point(0, floorLength));
+				// note that floorLength - length is in the range of (-1.0, 0.0]
+				value = data[centralIdx] * (1.0f + floorLength - length);
+			} else {
+				// otherwise interpolate over the two values that are closest on the central axis
+				const int floorIdx = pointToIndex(Point(0, floorLength));
+				const float floorValue = data[floorIdx];
+				const int ceilIdx = pointToIndex(Point(0, ceilLength));
+				const float ceilValue = data[ceilIdx];
+				// calculate the interpolation
+				const float t = (length - floorLength);
+				value = ceilValue * t + floorValue * (1.0f - t);
+			}
+			data[posIdx] = value;
+			// update the radially symmetrical spaces
+			applyRadialSymmetry(posIdx);
+		}
 	}
 }
 
@@ -141,6 +196,30 @@ float * ConvolutionKernel::operator[](int i) {
 
 const float * ConvolutionKernel::operator[](int i) const {
 	return data + i * side;
+}
+
+Point ConvolutionKernel::indexToPoint(int i) const {
+	const int c = side / 2;
+	return Point((i % side) - c, (i / side) - c);
+}
+
+int ConvolutionKernel::pointToIndex(const Point & p) const {
+	const int c = side / 2;
+	return (p.y + c) * side + p.x + c;
+}
+
+void ConvolutionKernel::applyRadialSymmetry(int idx) {
+	const float value = data[idx];
+	Point p = indexToPoint(idx);
+	// (0, 0) does not need rotation
+	if (0 != p.x || 0 != p.y) {
+		for (int i = 0; i < 3; ++i) {
+			// rotate the point by Pi / 2 around (0, 0)
+			p = Point(-p.y, p.x);
+			const int destIdx = pointToIndex(p);
+			data[destIdx] = value;
+		}
+	}
 }
 
 void ConvolutionKernel::freeMem() {
