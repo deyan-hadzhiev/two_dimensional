@@ -220,7 +220,7 @@ void CKernelTableDlg::updateRadial(int index) {
 	if (op.x != 0 || op.y != 0) {
 		// update the other central points too
 		updateCentral(index);
-		// now recalculate the whole bottom right part along with the central symmetry
+		// now recalculate the whole top right part along with the central symmetry
 		const int c = kernelSide / 2;
 		for (int y = 1; y <= c; ++y) {
 			for (int x = 1; x <= c; ++x) {
@@ -354,6 +354,13 @@ void CurveCanvas::setNumSamples(int n) {
 	// update the canvas samples
 	updateCanvasSamples();
 	Refresh(false);
+}
+
+void CurveCanvas::getSamples(std::vector<float>& output) const {
+	output.resize(numSamples);
+	for (int i = 0; i < numSamples; ++i) {
+		output[i] = samples[i].y;
+	}
 }
 
 void CurveCanvas::OnMouseEvent(wxMouseEvent & evt) {
@@ -584,7 +591,12 @@ CKernelCurveDlg::CKernelCurveDlg(CKernelPanel * parent, const wxString & title, 
 }
 
 ConvolutionKernel CKernelCurveDlg::getKernel() const {
-	return ConvolutionKernel();
+	std::vector<float> curveSamples;
+	canvas->getSamples(curveSamples);
+	ConvolutionKernel kernel;
+	// set the data as a radial section
+	kernel.setRadialSection(curveSamples.data(), curveSamples.size());
+	return kernel;
 }
 
 void CKernelCurveDlg::OnShow(wxShowEvent & evt) {

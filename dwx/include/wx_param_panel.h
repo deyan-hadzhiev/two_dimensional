@@ -90,6 +90,9 @@ public:
 	CurveCanvas(CKernelCurveDlg * parent, int numSamples);
 
 	void setNumSamples(int n);
+
+	// saves all the samples in the supplied vector
+	void getSamples(std::vector<float>& output) const;
 private:
 	enum ColorConstants {
 		CC_BACKGROUND = 0,
