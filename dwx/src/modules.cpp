@@ -31,10 +31,11 @@ void AsyncModule::moduleLoop(AsyncModule * k) {
 		std::unique_lock<std::mutex> lk(k->moduleMutex);
 		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
 			k->ev.wait(lk);
-			State dirty = State::AKS_DIRTY;
-			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 		}
 		if (k->state != State::AKS_TERMINATED) {
+			// if started from dirty state directly change to running
+			State dirty = State::AKS_DIRTY;
+			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 			k->moduleImplementation(0);
 			// be carefull not to change the state!!!
 			State fin = State::AKS_RUNNING; // expected state
@@ -953,8 +954,16 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 		cb->setModuleName("FFTFilter");
 	}
 	ConvolutionKernel ck;
+	bool normalizeKernel;
+	float normalizationValue = 1.0f;
 	if (pman) {
 		pman->getCKernelParam(ck, "kernelFFT");
+		pman->getBoolParam(normalizeKernel, "normalizeKernel");
+		pman->getFloatParam(normalizationValue, "normalizationValue");
+	}
+
+	if (normalizeKernel) {
+		ck.normalize(normalizationValue);
 	}
 
 	const int width = bmp.getWidth();

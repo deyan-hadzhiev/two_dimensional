@@ -650,7 +650,7 @@ CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString &
 	currentDlg = kernelDialogs[0];
 
 	mainSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL, 5);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALL | wxCENTER, 5);
 
 	kernelDlgTypeId = WinIDProvider::getProvider().getId(DT_COUNT);
 	for (int i = 0; i < DT_COUNT; ++i) {
@@ -671,6 +671,8 @@ CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString &
 	mainSizer->AddStretchSpacer(1);
 
 	SetSizerAndFit(mainSizer);
+	Layout();
+	SendSizeEvent();
 }
 
 ConvolutionKernel CKernelPanel::GetValue() const {
