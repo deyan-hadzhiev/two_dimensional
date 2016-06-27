@@ -97,15 +97,29 @@ private:
 		CC_CURVE,
 		CC_SAMPLES,
 		CC_POLY,
+		CC_POLY_HOVER,
+		CC_POLY_DRAG,
 		CC_COUNT,
 	};
 	static const wxColour curveColours[CC_COUNT];
 	static const int pointRadius;
 
+	enum SampleState {
+		SS_NORMAL = 0,
+		SS_HOVER,
+		SS_DRAG,
+		SS_COUNT,
+	};
+
 	struct DiscreteSample {
 		wxPoint pos;
 		wxRect bbox;
+		unsigned state;
 	};
+
+	void OnMouseEvent(wxMouseEvent& evt);
+
+	void updateCanvasSample(int nSample, unsigned state, const wxPoint& dpos);
 
 	void OnPaint(wxPaintEvent& evt);
 	void drawSamples(wxBufferedPaintDC& pdc);
@@ -114,6 +128,11 @@ private:
 
 	void OnSizeEvent(wxSizeEvent& evt);
 
+	// udpates the canonic samples from the canvas (only specified positions)
+	// TODO: Make an array if bulk changes are implemented
+	void updateSamples(int sampleN);
+
+	// updates the canvas samples from the canonic samples
 	void updateCanvasSamples();
 
 	// some coordinate conversion functions
@@ -126,6 +145,12 @@ private:
 	int numSamples;
 	std::vector<Vector2> samples;
 	std::vector<DiscreteSample> canvasSamples; //!< will hold updated samples in canvas space
+
+	// some mouse specific variables
+	bool mouseOverCanvas;
+	bool mouseDrag; //!< left down
+	int hoveredPoint;
+	wxPoint mousePos;
 };
 
 class CKernelCurveDlg : public CKernelDlg {

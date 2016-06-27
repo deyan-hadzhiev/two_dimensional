@@ -298,6 +298,8 @@ const wxColour CurveCanvas::curveColours[CC_COUNT] = {
 	wxColour(0xa4c64d), // CC_CURVE
 	wxColour(0xc261ba), // CC_SAMPLES
 	wxColour(0x3239dd), // CC_POLY
+	wxColour(0x859dd6), // CC_POLY_HOVER
+	wxColour(0xa3d7b8), // CC_POLY_DRAG
 };
 const int CurveCanvas::pointRadius = 5;
 
@@ -307,6 +309,10 @@ CurveCanvas::CurveCanvas(CKernelCurveDlg * _parent, int _numSamples)
 	, panelSize(0, 0)
 	, axes(10, 0)
 	, numSamples(_numSamples)
+	, mouseOverCanvas(false)
+	, mouseDrag(false)
+	, hoveredPoint(-1)
+	, mousePos(0, 0)
 {
 	SetDoubleBuffered(true);
 	SetMinClientSize(wxSize(256, 256));
@@ -314,6 +320,13 @@ CurveCanvas::CurveCanvas(CKernelCurveDlg * _parent, int _numSamples)
 	// connect paint events
 	Connect(wxEVT_PAINT, wxPaintEventHandler(CurveCanvas::OnPaint), NULL, this);
 	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(CurveCanvas::OnEraseBkg), NULL, this);
+
+	// connect the mouse events
+	Connect(wxEVT_ENTER_WINDOW, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEAVE_WINDOW, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_MOTION, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEFT_DOWN, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEFT_UP, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
 
 	// connect the siziing event
 	Connect(wxEVT_SIZE, wxSizeEventHandler(CurveCanvas::OnSizeEvent), NULL, this);
@@ -341,6 +354,90 @@ void CurveCanvas::setNumSamples(int n) {
 	// update the canvas samples
 	updateCanvasSamples();
 	Refresh(false);
+}
+
+void CurveCanvas::OnMouseEvent(wxMouseEvent & evt) {
+	const wxEventType evType = evt.GetEventType();
+	if (evType == wxEVT_MOTION && mouseOverCanvas) {
+		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		const wxPoint mouseDelta = currentMousePos - mousePos;
+		mousePos = currentMousePos;
+		if (-1 != hoveredPoint) {
+			if (mouseDrag) {
+				// directly update the point position
+				updateCanvasSample(hoveredPoint, SS_DRAG, mouseDelta);
+			} else {
+				// check if the point is still under the mouse
+				if (!canvasSamples[hoveredPoint].bbox.Contains(mousePos)) {
+					updateCanvasSample(hoveredPoint, SS_NORMAL, wxPoint(0, 0));
+					hoveredPoint = -1;
+				}
+			}
+		} else {
+			// check if the current position of the mouse intersect with any sample
+			// note: this may be improved with some Quad tree, but I'm not for performance ATM
+			const int sampleCount = canvasSamples.size();
+			for (int i = 0; i < sampleCount; ++i) {
+				if (canvasSamples[i].bbox.Contains(mousePos)) {
+					hoveredPoint = i;
+					updateCanvasSample(i, SS_HOVER, wxPoint(0, 0));
+					break;
+				}
+			}
+		}
+	} else if (evType == wxEVT_ENTER_WINDOW) {
+		mouseOverCanvas = true;
+	} else if (evType == wxEVT_LEAVE_WINDOW) {
+		mouseOverCanvas = false;
+		mouseDrag = false;
+		if (-1 != hoveredPoint) {
+			updateCanvasSample(hoveredPoint, SS_NORMAL, wxPoint(0, 0));
+			hoveredPoint = -1;
+		}
+	} else if (evType == wxEVT_LEFT_DOWN) {
+		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		const wxPoint mouseDelta = currentMousePos - mousePos;
+		mousePos = currentMousePos;
+		if (-1 != hoveredPoint) {
+			updateCanvasSample(hoveredPoint, SS_DRAG, wxPoint(0, 0));
+		}
+		mouseDrag = true;
+	} else if (evType == wxEVT_LEFT_UP) {
+		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		const wxPoint mouseDelta = currentMousePos - mousePos;
+		mousePos = currentMousePos;
+		if (-1 != hoveredPoint) {
+			// fist update the drag
+			updateCanvasSample(hoveredPoint, SS_DRAG, mouseDelta);
+			// update the cananonic samples
+			updateSamples(hoveredPoint);
+			// then check if the mouse point is still over the sample
+			if (canvasSamples[hoveredPoint].bbox.Contains(mousePos)) {
+				updateCanvasSample(hoveredPoint, SS_HOVER, wxPoint(0, 0));
+			} else {
+				updateCanvasSample(hoveredPoint, SS_NORMAL, wxPoint(0, 0));
+				hoveredPoint = -1;
+			}
+		}
+		mouseDrag = false;
+	}
+}
+
+void CurveCanvas::updateCanvasSample(int nSample, unsigned state, const wxPoint& dpos) {
+	DiscreteSample& csi = canvasSamples[nSample];
+	bool refresh = false;
+	if (SS_DRAG == state) {
+		// update only the y coordinate for now
+		const int clampedPos = clamp(csi.pos.y + dpos.y, pointRadius, panelSize.GetHeight() - pointRadius);
+		refresh = csi.pos.y != clampedPos;
+		csi.bbox.Offset(0, clampedPos - csi.pos.y);
+		csi.pos.y = clampedPos;
+	}
+	refresh = refresh || csi.state != state;
+	csi.state = state;
+	if (refresh) {
+		Refresh(false);
+	}
 }
 
 void CurveCanvas::OnPaint(wxPaintEvent & evt) {
@@ -379,9 +476,20 @@ void CurveCanvas::drawSamples(wxBufferedPaintDC & pdc) {
 			prev = current;
 		}
 
-		pdc.SetPen(wxPen(curveColours[CC_POLY], 2));
+		const wxPen polyPen[SS_COUNT] = {
+			wxPen(curveColours[CC_POLY], 2),
+			wxPen(curveColours[CC_POLY_HOVER], 2),
+			wxPen(curveColours[CC_POLY_DRAG], 2),
+		};
+		unsigned lastPenUsed = canvasSamples[0].state;
+		pdc.SetPen(polyPen[lastPenUsed]);
 		for (int i = 0; i < sampleCount; ++i) {
-			pdc.DrawCircle(canvasSamples[i].pos, pointRadius);
+			const DiscreteSample& csi = canvasSamples[i];
+			if (csi.state != lastPenUsed) {
+				lastPenUsed = csi.state;
+				pdc.SetPen(polyPen[lastPenUsed]);
+			}
+			pdc.DrawCircle(csi.pos, pointRadius);
 		}
 	}
 }
@@ -398,6 +506,11 @@ void CurveCanvas::OnSizeEvent(wxSizeEvent & evt) {
 	evt.Skip();
 }
 
+void CurveCanvas::updateSamples(int sampleN) {
+	const Vector2& updatedPos = canvasToReal(canvasSamples[sampleN].pos);
+	samples[sampleN].y = updatedPos.y;
+}
+
 void CurveCanvas::updateCanvasSamples() {
 	const int sampleCount = samples.size();
 	if (sampleCount != canvasSamples.size()) {
@@ -407,8 +520,9 @@ void CurveCanvas::updateCanvasSamples() {
 	for (int i = 0; i < sampleCount; ++i) {
 		DiscreteSample& ds = canvasSamples[i];
 		ds.pos = realToCanvas(samples[i]);
-		ds.bbox.SetTopLeft(ds.pos + bboxOffset);
-		ds.bbox.SetBottomRight(ds.pos - bboxOffset);
+		ds.bbox.SetTopLeft(ds.pos - bboxOffset);
+		ds.bbox.SetBottomRight(ds.pos + bboxOffset);
+		ds.state = 0;
 	}
 }
 
@@ -446,9 +560,7 @@ CKernelCurveDlg::CKernelCurveDlg(CKernelPanel * parent, const wxString & title, 
 
 	wxBoxSizer * mainSizer = new wxBoxSizer(wxVERTICAL);
 	wxBoxSizer * topSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxBoxSizer * textCenter = new wxBoxSizer(wxVERTICAL);
-	textCenter->Add(new wxStaticText(this, wxID_ANY, wxT("Samples")), 1, wxEXPAND | wxALL, 5);
-	topSizer->Add(textCenter, 0, wxALL);
+	topSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Samples")), 0, wxALL | wxCENTER, 5);
 	const wxWindowID sliderId = WinIDProvider::getProvider().getId();
 	sliderCtrl = new wxSlider(
 		this,
