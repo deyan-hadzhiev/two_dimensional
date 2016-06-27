@@ -314,6 +314,8 @@ class FFTFilter : public AsyncModule {
 public:
 	FFTFilter() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernelFFT", "5"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalizeKernel", "true"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalizationValue", "1.0"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;

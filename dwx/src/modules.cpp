@@ -31,10 +31,11 @@ void AsyncModule::moduleLoop(AsyncModule * k) {
 		std::unique_lock<std::mutex> lk(k->moduleMutex);
 		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
 			k->ev.wait(lk);
-			State dirty = State::AKS_DIRTY;
-			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 		}
 		if (k->state != State::AKS_TERMINATED) {
+			// if started from dirty state directly change to running
+			State dirty = State::AKS_DIRTY;
+			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 			k->moduleImplementation(0);
 			// be carefull not to change the state!!!
 			State fin = State::AKS_RUNNING; // expected state
@@ -752,11 +753,15 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
 	const int dimProd = bmpComplex.getDimensionProduct();
 	std::unique_ptr<Complex[]> inChannel(new Complex[dimProd]);
 	std::unique_ptr<Complex[]> frequencyChannel(new Complex[dimProd]);
 
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(i, ColorChannel::CC_COUNT);
 
@@ -787,6 +792,10 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 				Complex(std::log(in.b.real()), 0.0)
 				);
 		});
+	}
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
 	}
 
 	// as a final step normalize all the values
@@ -868,11 +877,15 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
 
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
+
 	const int dimProd = bmpComplex.getDimensionProduct();
 	std::unique_ptr<Complex[]> fftInChannel(new Complex[dimProd]);
 	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]);
 
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(i, 2 * ColorChannel::CC_COUNT);
 
@@ -908,7 +921,7 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 	}
 
 	// now after the compression is simulated - make the inverse transform over the compressed pixelmap
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(ColorChannel::CC_COUNT + i, 2 * ColorChannel::CC_COUNT);
 
@@ -953,8 +966,16 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 		cb->setModuleName("FFTFilter");
 	}
 	ConvolutionKernel ck;
+	bool normalizeKernel;
+	float normalizationValue = 1.0f;
 	if (pman) {
 		pman->getCKernelParam(ck, "kernelFFT");
+		pman->getBoolParam(normalizeKernel, "normalizeKernel");
+		pman->getFloatParam(normalizationValue, "normalizationValue");
+	}
+
+	if (normalizeKernel) {
+		ck.normalize(normalizationValue);
 	}
 
 	const int width = bmp.getWidth();
@@ -973,6 +994,10 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 	const int dimProd = bmpComplex.getDimensionProduct();
 	const FFT2D& forward = FFTCache<2>::get().getFFT(dims, false);
 	const FFT2D& inverse = FFTCache<2>::get().getFFT(dims, true);
+
+	if (getAbortState()) {
+		return KPR_ABORTED;
+	}
 
 	const int ckSquared = ckSide * ckSide;
 	const float * kernelData = ck.getDataPtr();
@@ -995,7 +1020,7 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 	std::unique_ptr<Complex[]> fftOutChannel(new Complex[dimProd]); //!< the output channle from the inverse fft
 
 	// now run the filter over all the channels of the pixelmap
-	for (int i = 0; i < ColorChannel::CC_COUNT; ++i) {
+	for (int i = 0; i < ColorChannel::CC_COUNT && !getAbortState(); ++i) {
 		if (cb)
 			cb->setPercentDone(i * 3, 3 * ColorChannel::CC_COUNT);
 

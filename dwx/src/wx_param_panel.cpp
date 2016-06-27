@@ -62,13 +62,12 @@ CKernelTableDlg::CKernelTableDlg(CKernelPanel * parent, const wxString& title, i
 	Connect(wxID_ANY, wxEVT_CHAR_HOOK, wxKeyEventHandler(CKernelTableDlg::OnEscape), NULL, this);
 }
 
-ConvolutionKernel CKernelTableDlg::getKernel() const {
-	ConvolutionKernel retval(kernelSide);
-	float * ckData = retval.getDataPtr();
+void CKernelTableDlg::getKernel(ConvolutionKernel& out) const {
+	out.init(nullptr, kernelSide);
+	float * ckData = out.getDataPtr();
 	for (int i = 0; i < kernelParams.size(); ++i) {
 		ckData[i] = wxAtof(kernelParams[i]->GetValue());
 	}
-	return retval;
 }
 
 void CKernelTableDlg::setKernel(const ConvolutionKernel & kernel) {
@@ -80,6 +79,11 @@ void CKernelTableDlg::setKernel(const ConvolutionKernel & kernel) {
 	const float * kernelData = kernel.getDataPtr();
 	for (int i = 0; i < sqSide; ++i) {
 		kernelParams[i]->ChangeValue(wxString() << kernelData[i]);
+	}
+	// update the cached kernel if necessary
+	if (paramPanel->previewShown()) {
+		cachedKernel = kernel;
+		paramPanel->updatePreview(cachedKernel);
 	}
 }
 
@@ -101,6 +105,8 @@ void CKernelTableDlg::setKernelSide(int s) {
 		}
 
 		kernelSide = s;
+		cachedKernel.init(nullptr, s);
+
 		wxBoxSizer * dlgSizer = new wxBoxSizer(wxVERTICAL);
 		wxBoxSizer * topSizer = new wxBoxSizer(wxHORIZONTAL);
 		topSizer->Add(sideButton, 0, wxALL, 5);
@@ -174,6 +180,10 @@ void CKernelTableDlg::OnParamChange(wxCommandEvent & evt) {
 			updateRadial(index);
 		}
 		recalculateSum();
+		if (paramPanel->previewShown()) {
+			getKernel(cachedKernel);
+			paramPanel->updatePreview(cachedKernel);
+		}
 	}
 }
 
@@ -186,7 +196,8 @@ void CKernelTableDlg::OnSymmetryChange(wxCommandEvent & evt) {
 }
 
 void CKernelTableDlg::OnNormalize(wxCommandEvent& evt) {
-	ConvolutionKernel current = getKernel();
+	ConvolutionKernel current(kernelSide);
+	getKernel(current);
 	const float targetValue = wxAtof(normalizationValue->GetValue());
 	current.normalize(targetValue);
 	setKernel(current);
@@ -197,6 +208,10 @@ void CKernelTableDlg::OnReset(wxCommandEvent & evt) {
 	const int squareSide = kernelSide * kernelSide;
 	for (int i = 0; i < squareSide; ++i) {
 		kernelParams[i]->ChangeValue(wxString() << 0.0);
+	}
+	if (paramPanel->previewShown()) {
+		cachedKernel.init(nullptr, kernelSide);
+		paramPanel->updatePreview(cachedKernel);
 	}
 }
 
@@ -220,7 +235,7 @@ void CKernelTableDlg::updateRadial(int index) {
 	if (op.x != 0 || op.y != 0) {
 		// update the other central points too
 		updateCentral(index);
-		// now recalculate the whole bottom right part along with the central symmetry
+		// now recalculate the whole top right part along with the central symmetry
 		const int c = kernelSide / 2;
 		for (int y = 1; y <= c; ++y) {
 			for (int x = 1; x <= c; ++x) {
@@ -290,16 +305,507 @@ void CKernelTableDlg::recalculateSum() {
 	sumText->SetLabel(wxString() << sum);
 }
 
+// Curve Kernel dialog
+
+const wxColour CurveCanvas::curveColours[CC_COUNT] = {
+	wxColour(0x302d2d), // CC_BACKGROUND
+	wxColour(0xc48f40), // CC_AXES
+	wxColour(0xa4c64d), // CC_CURVE
+	wxColour(0xc261ba), // CC_SAMPLES
+	wxColour(0x3239dd), // CC_POLY
+	wxColour(0x859dd6), // CC_POLY_HOVER
+	wxColour(0xa3d7b8), // CC_POLY_DRAG
+};
+const int CurveCanvas::pointRadius = 5;
+
+CurveCanvas::CurveCanvas(CKernelCurveDlg * _parent, int _numSamples)
+	: wxPanel(_parent)
+	, parent(_parent)
+	, panelSize(0, 0)
+	, axes(10, 0)
+	, numSamples(_numSamples)
+	, mouseOverCanvas(false)
+	, mouseDrag(false)
+	, hoveredPoint(-1)
+	, mousePos(0, 0)
+{
+	SetDoubleBuffered(true);
+	SetMinClientSize(wxSize(256 + 128, 256));
+
+	// connect paint events
+	Connect(wxEVT_PAINT, wxPaintEventHandler(CurveCanvas::OnPaint), NULL, this);
+	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(CurveCanvas::OnEraseBkg), NULL, this);
+
+	// connect the mouse events
+	Connect(wxEVT_ENTER_WINDOW, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEAVE_WINDOW, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_MOTION, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEFT_DOWN, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEFT_UP, wxMouseEventHandler(CurveCanvas::OnMouseEvent), NULL, this);
+
+	// connect the siziing event
+	Connect(wxEVT_SIZE, wxSizeEventHandler(CurveCanvas::OnSizeEvent), NULL, this);
+
+	setNumSamples(numSamples);
+	Update();
+}
+
+void CurveCanvas::setNumSamples(int n) {
+	numSamples = n;
+	std::vector<Vector2> newSamples;
+	newSamples.resize(n);
+	const int commonSize = std::min(n, static_cast<int>(samples.size()));
+	for (int i = 0; i < commonSize; ++i) {
+		// retain the y coordinate and change with the new x
+		newSamples[i].x = float(i);
+		newSamples[i].y = samples[i].y;
+	}
+	// now add new points if not full
+	for (int i = commonSize; i < numSamples; ++i) {
+		newSamples[i].x = float(i);
+		newSamples[i].y = 0.0f;
+	}
+	samples = newSamples;
+	// update the canvas samples
+	updateCanvasSamples();
+	// update the preview if necessary
+	if (parent->paramPanel->previewShown()) {
+		std::vector<float> currentSamples;
+		getSamples(currentSamples);
+		cachedKernel.setRadialSection(currentSamples.data(), currentSamples.size());
+		parent->paramPanel->updatePreview(cachedKernel);
+	}
+	Refresh(false);
+}
+
+void CurveCanvas::getSamples(std::vector<float>& output) const {
+	output.resize(numSamples);
+	for (int i = 0; i < numSamples; ++i) {
+		output[i] = samples[i].y;
+	}
+}
+
+void CurveCanvas::resetSamples() {
+	for (int i = 0; i < numSamples; ++i) {
+		samples[i].y = 0.0f;
+	}
+	updateCanvasSamples();
+	if (parent->paramPanel->previewShown()) {
+		// since this is a reset - just reset the cached kernel
+		cachedKernel.init(nullptr, cachedKernel.getSide());
+		parent->paramPanel->updatePreview(cachedKernel);
+	}
+	Refresh(false);
+}
+
+void CurveCanvas::OnMouseEvent(wxMouseEvent & evt) {
+	const wxEventType evType = evt.GetEventType();
+	if (evType == wxEVT_MOTION && mouseOverCanvas) {
+		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		const wxPoint mouseDelta = currentMousePos - mousePos;
+		mousePos = currentMousePos;
+		if (-1 != hoveredPoint) {
+			if (mouseDrag) {
+				// directly update the point position
+				updateCanvasSample(hoveredPoint, SS_DRAG, mouseDelta);
+			} else {
+				// check if the point is still under the mouse
+				if (!canvasSamples[hoveredPoint].bbox.Contains(mousePos)) {
+					updateCanvasSample(hoveredPoint, SS_NORMAL, wxPoint(0, 0));
+					hoveredPoint = -1;
+				}
+			}
+		} else {
+			// check if the current position of the mouse intersect with any sample
+			// note: this may be improved with some Quad tree, but I'm not for performance ATM
+			const int sampleCount = canvasSamples.size();
+			for (int i = 0; i < sampleCount; ++i) {
+				if (canvasSamples[i].bbox.Contains(mousePos)) {
+					hoveredPoint = i;
+					updateCanvasSample(i, SS_HOVER, wxPoint(0, 0));
+					break;
+				}
+			}
+		}
+	} else if (evType == wxEVT_ENTER_WINDOW) {
+		mouseOverCanvas = true;
+	} else if (evType == wxEVT_LEAVE_WINDOW) {
+		mouseOverCanvas = false;
+		mouseDrag = false;
+		if (-1 != hoveredPoint) {
+			updateCanvasSample(hoveredPoint, SS_NORMAL, wxPoint(0, 0));
+			hoveredPoint = -1;
+		}
+	} else if (evType == wxEVT_LEFT_DOWN) {
+		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		const wxPoint mouseDelta = currentMousePos - mousePos;
+		mousePos = currentMousePos;
+		if (-1 != hoveredPoint) {
+			updateCanvasSample(hoveredPoint, SS_DRAG, wxPoint(0, 0));
+		}
+		mouseDrag = true;
+	} else if (evType == wxEVT_LEFT_UP) {
+		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		const wxPoint mouseDelta = currentMousePos - mousePos;
+		mousePos = currentMousePos;
+		if (-1 != hoveredPoint) {
+			// fist update the drag
+			updateCanvasSample(hoveredPoint, SS_DRAG, mouseDelta);
+			// then check if the mouse point is still over the sample
+			if (canvasSamples[hoveredPoint].bbox.Contains(mousePos)) {
+				updateCanvasSample(hoveredPoint, SS_HOVER, wxPoint(0, 0));
+			} else {
+				updateCanvasSample(hoveredPoint, SS_NORMAL, wxPoint(0, 0));
+				hoveredPoint = -1;
+			}
+		}
+		mouseDrag = false;
+	}
+}
+
+void CurveCanvas::updateCanvasSample(int nSample, unsigned state, const wxPoint& dpos) {
+	DiscreteSample& csi = canvasSamples[nSample];
+	bool refresh = false;
+	if (SS_DRAG == state && dpos != wxPoint(0, 0)) {
+		// update only the y coordinate for now
+		const int clampedPos = clamp(csi.pos.y + dpos.y, pointRadius, panelSize.GetHeight() - pointRadius);
+		refresh = csi.pos.y != clampedPos;
+		csi.bbox.Offset(0, clampedPos - csi.pos.y);
+		csi.pos.y = clampedPos;
+		updateSamples(nSample);
+	}
+	refresh = refresh || csi.state != state;
+	csi.state = state;
+	if (refresh) {
+		Refresh(false);
+	}
+}
+
+void CurveCanvas::OnPaint(wxPaintEvent & evt) {
+	wxBufferedPaintDC dc(this);
+	panelSize = GetSize();
+	const int panelWidth = panelSize.GetWidth();
+	const int panelHeight = panelSize.GetHeight();
+	// draw the background
+	dc.SetBrush(wxBrush(curveColours[CC_BACKGROUND]));
+	dc.SetPen(wxPen(curveColours[CC_BACKGROUND]));
+	dc.DrawRectangle(wxPoint(0, 0), panelSize);
+	// now draw the axes
+	dc.SetPen(wxPen(curveColours[CC_AXES]));
+	// draw only the y axis, x will be sampled always
+	dc.DrawLine(wxPoint(0, axes.y), wxPoint(panelWidth, axes.y));
+	// now draw the actual samples
+	drawSamples(dc);
+}
+
+void CurveCanvas::drawSamples(wxBufferedPaintDC & pdc) {
+	const int sampleCount = canvasSamples.size();
+	if (sampleCount > 0) {
+		const int panelHeight = panelSize.GetHeight();
+		// now draw all the sampled parts
+		pdc.SetPen(wxPen(curveColours[CC_SAMPLES]));
+		for (int i = 0; i < sampleCount; ++i) {
+			const int x = canvasSamples[i].pos.x;
+			pdc.DrawLine(wxPoint(x, 0), wxPoint(x, panelHeight));
+		}
+		// first draw the curve so the point will overlap it later
+		pdc.SetPen(wxPen(curveColours[CC_CURVE]));
+		wxPoint prev = canvasSamples[0].pos;
+		for (int i = 1; i < sampleCount; ++i) {
+			const wxPoint current = canvasSamples[i].pos;
+			pdc.DrawLine(prev, current);
+			prev = current;
+		}
+
+		const wxPen polyPen[SS_COUNT] = {
+			wxPen(curveColours[CC_POLY], 2),
+			wxPen(curveColours[CC_POLY_HOVER], 2),
+			wxPen(curveColours[CC_POLY_DRAG], 2),
+		};
+		unsigned lastPenUsed = canvasSamples[0].state;
+		pdc.SetPen(polyPen[lastPenUsed]);
+		for (int i = 0; i < sampleCount; ++i) {
+			const DiscreteSample& csi = canvasSamples[i];
+			if (csi.state != lastPenUsed) {
+				lastPenUsed = csi.state;
+				pdc.SetPen(polyPen[lastPenUsed]);
+			}
+			pdc.DrawCircle(csi.pos, pointRadius);
+		}
+	}
+}
+
+void CurveCanvas::OnEraseBkg(wxEraseEvent & evt) {
+	// nop - just override event
+}
+
+void CurveCanvas::OnSizeEvent(wxSizeEvent & evt) {
+	if (GetAutoLayout()) {
+		Layout();
+	}
+	panelSize = GetSize();
+	axes.y = panelSize.GetHeight() / 2;
+	updateCanvasSamples();
+	Refresh(false);
+	evt.Skip();
+}
+
+void CurveCanvas::updateSamples(int sampleN) {
+	const Vector2& updatedPos = canvasToReal(canvasSamples[sampleN].pos);
+	samples[sampleN].y = updatedPos.y;
+	if (parent->paramPanel->previewShown()) {
+		std::vector<float> currentSamples;
+		getSamples(currentSamples);
+		cachedKernel.setRadialSection(currentSamples.data(), currentSamples.size());
+		parent->paramPanel->updatePreview(cachedKernel);
+	}
+}
+
+void CurveCanvas::updateCanvasSamples() {
+	const int sampleCount = samples.size();
+	if (sampleCount != canvasSamples.size()) {
+		canvasSamples.resize(sampleCount);
+	}
+	const wxPoint bboxOffset = wxPoint(pointRadius, pointRadius);
+	for (int i = 0; i < sampleCount; ++i) {
+		DiscreteSample& ds = canvasSamples[i];
+		ds.pos = realToCanvas(samples[i]);
+		ds.bbox.SetTopLeft(ds.pos - bboxOffset);
+		ds.bbox.SetBottomRight(ds.pos + bboxOffset);
+		ds.state = 0;
+	}
+}
+
+Vector2 CurveCanvas::canvasToReal(const wxPoint & p) const {
+	const int panelWidth = panelSize.GetWidth();
+	const int panelHalfHeight = panelSize.GetHeight() / 2;
+	const float sampleSize = (numSamples > 1 ? (panelWidth - axes.x * 2) / float(numSamples - 1) : 1.0f);
+	const float x = static_cast<float>((p.x - axes.x) / sampleSize);
+	const float y = -(static_cast<float>(p.y) / panelHalfHeight - 1.0f);
+	return Vector2(x, y);
+}
+
+wxPoint CurveCanvas::realToCanvas(const Vector2 & p) const {
+	const int panelWidth = panelSize.GetWidth();
+	const int panelHalfHeight = panelSize.GetHeight() / 2;
+	const float sampleSize = (numSamples > 1 ? (panelWidth - axes.x * 2) / float(numSamples - 1) : 1.0f);
+	const int x = static_cast<int>(p.x * sampleSize + axes.x);
+	const int y = static_cast<int>((-p.y + 1.0f) * panelHalfHeight);
+	return wxPoint(x, y);
+}
+
+const int CKernelCurveDlg::minSamples = 2;
+const int CKernelCurveDlg::maxSamples = 64;
+
+CKernelCurveDlg::CKernelCurveDlg(CKernelPanel * parent, const wxString & title, int side)
+	: CKernelDlg(parent, title, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, paramPanel(parent)
+	, sliderCtrl(nullptr)
+	, applyButton(nullptr)
+	, resetButton(nullptr)
+	, currentSamples(clamp(side / 2 + 1, minSamples, maxSamples))
+	, canvas(new CurveCanvas(this, currentSamples))
+	, currentSide(side)
+{
+	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(CKernelCurveDlg::OnClose), NULL, this);
+	Connect(wxID_ANY, wxEVT_CHAR_HOOK, wxKeyEventHandler(CKernelCurveDlg::OnEscape), NULL, this);
+
+	wxBoxSizer * mainSizer = new wxBoxSizer(wxVERTICAL);
+	wxBoxSizer * topSizer = new wxBoxSizer(wxHORIZONTAL);
+	topSizer->Add(new wxStaticText(this, wxID_ANY, wxT("Samples")), 0, wxALL | wxCENTER, 5);
+	const wxWindowID sliderId = WinIDProvider::getProvider().getId();
+	sliderCtrl = new wxSlider(
+		this,
+		sliderId,
+		currentSamples,
+		minSamples,
+		maxSamples,
+		wxDefaultPosition,
+		wxDefaultSize,
+		wxSL_HORIZONTAL | wxSL_MIN_MAX_LABELS | wxSL_AUTOTICKS);
+	Connect(sliderId, wxEVT_SCROLL_THUMBTRACK, wxScrollEventHandler(CKernelCurveDlg::OnSliderChange), NULL, this);
+	topSizer->Add(sliderCtrl, 1, wxEXPAND | wxALL, 5);
+
+	const wxWindowID applyBtnId = WinIDProvider::getProvider().getId();
+	applyButton = new wxButton(this, applyBtnId, wxT("Apply"));
+	Connect(applyBtnId, wxEVT_BUTTON, wxCommandEventHandler(CKernelCurveDlg::OnApplyButton), NULL, this);
+	topSizer->Add(applyButton, 0, wxALL, 5);
+
+	const wxWindowID resetBtnId = WinIDProvider::getProvider().getId();
+	resetButton = new wxButton(this, resetBtnId, wxT("Reset"));
+	Connect(resetBtnId, wxEVT_BUTTON, wxCommandEventHandler(CKernelCurveDlg::OnResetButton), NULL, this);
+	topSizer->Add(resetButton, 0, wxALL, 5);
+
+	mainSizer->Add(topSizer, 0, wxEXPAND | wxALL);
+	mainSizer->Add(canvas, 1, wxEXPAND | wxALL, 5);
+
+	SetInitialSize(wxSize(400, 400));
+
+	mainSizer->FitInside(this);
+	SetSizerAndFit(mainSizer);
+}
+
+void CKernelCurveDlg::getKernel(ConvolutionKernel& out) const {
+	std::vector<float> curveSamples;
+	canvas->getSamples(curveSamples);
+	// set the data as a radial section
+	out.setRadialSection(curveSamples.data(), curveSamples.size());
+}
+
+void CKernelCurveDlg::OnShow(wxShowEvent & evt) {
+	Layout();
+	SendSizeEvent();
+}
+
+void CKernelCurveDlg::OnClose(wxCloseEvent & evt) {
+	wxCommandEvent dummy;
+	paramPanel->OnHideButton(dummy);
+}
+
+void CKernelCurveDlg::OnEscape(wxKeyEvent & evt) {
+	if (evt.GetKeyCode() == WXK_ESCAPE) {
+		wxCommandEvent dummy;
+		paramPanel->OnHideButton(dummy);
+	} else if (evt.GetKeyCode() == WXK_F5) {
+		wxCommandEvent dummy;
+		paramPanel->OnKernelChange(dummy);
+	} else {
+		evt.Skip();
+	}
+}
+
+void CKernelCurveDlg::OnSliderChange(wxScrollEvent & evt) {
+	const int sliderValue = sliderCtrl->GetValue();
+	canvas->setNumSamples(sliderValue);
+}
+
+void CKernelCurveDlg::OnApplyButton(wxCommandEvent & evt) {
+	wxCommandEvent dummy;
+	paramPanel->OnKernelChange(dummy);
+}
+
+void CKernelCurveDlg::OnResetButton(wxCommandEvent & evt) {
+	canvas->resetSamples();
+}
+
+// CKernelPreviewDlg
+
+CKernelPreviewDlg::CKernelPreviewDlg(CKernelPanel * parent)
+	: wxDialog(parent, wxID_ANY, wxT("Kernel preview"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, paramPanel(parent)
+	, canvas(nullptr)
+{
+	SetMinSize(wxSize(128, 128));
+
+	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(CKernelPreviewDlg::OnClose), NULL, this);
+	Connect(wxEVT_SIZE, wxSizeEventHandler(CKernelPreviewDlg::OnSize), NULL, this);
+
+	canvas = new wxPanel(this);
+	canvas->SetMinSize(wxSize(128, 128));
+	canvas->Connect(wxEVT_PAINT, wxPaintEventHandler(CKernelPreviewDlg::OnPaint), NULL, this);
+	canvas->Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(CKernelPreviewDlg::OnErase), NULL, this);
+	canvas->SetDoubleBuffered(true);
+
+	wxBoxSizer * mainSizer = new wxBoxSizer(wxVERTICAL);
+	mainSizer->Add(canvas, 1, wxEXPAND | wxALL);
+	mainSizer->FitInside(this);
+	SetSizerAndFit(mainSizer);
+}
+
+void CKernelPreviewDlg::updatePreview(const ConvolutionKernel & kernel) {
+	currentKernel = kernel;
+	Refresh(false);
+}
+
+void CKernelPreviewDlg::OnPaint(wxPaintEvent & evt) {
+	wxBufferedPaintDC dc(canvas);
+	const wxSize panelSize = canvas->GetSize();
+	const int neutralColourValue = 0x8f;
+	const wxColour neutralColour(static_cast<uint8>(neutralColourValue), static_cast<uint8>(neutralColourValue), static_cast<uint8>(neutralColourValue));
+	dc.SetPen(wxPen(neutralColour));
+	dc.SetBrush(wxBrush(neutralColour));
+	const float * kernelData = currentKernel.getDataPtr();
+	if (kernelData) {
+		const int side = currentKernel.getSide();
+		const float rectWidth = static_cast<float>(panelSize.GetWidth()) / side;
+		const float rectHeight = static_cast<float>(panelSize.GetHeight()) / side;
+		for (int y = 0; y < side; ++y) {
+			for (int x = 0; x < side; ++x) {
+				const int dataIdx = y * side + x;
+				const int scaledColour = static_cast<int>(kernelData[dataIdx] * neutralColourValue + neutralColourValue);
+				const uint8 clampedColour = static_cast<uint8>(clamp(scaledColour, 0, 255));
+				const wxColour actualColour(clampedColour, clampedColour, clampedColour);
+				const wxRect drawRect( // use points to negate rounding errors
+					wxPoint(static_cast<int>(x * rectWidth), static_cast<int>(y * rectHeight)),
+					wxPoint(static_cast<int>((x + 1) * rectWidth), static_cast<int>((y + 1) * rectHeight))
+				);
+				// set brush and pen ...
+				dc.SetPen(wxPen(actualColour));
+				dc.SetBrush(wxBrush(actualColour));
+				// ... and draw
+				dc.DrawRectangle(drawRect);
+			}
+		}
+	} else {
+		dc.DrawRectangle(wxRect(wxPoint(0, 0), panelSize));
+	}
+}
+
+void CKernelPreviewDlg::OnErase(wxEraseEvent & evt) {
+	// nop
+}
+
+void CKernelPreviewDlg::OnClose(wxCloseEvent & evt) {
+	wxCommandEvent dummy;
+	paramPanel->OnHidePreviewButton(dummy);
+}
+
+void CKernelPreviewDlg::OnSize(wxSizeEvent & evt) {
+	if (GetAutoLayout()) {
+		Layout();
+	}
+	Refresh(false);
+}
+
+// CKernelPanel
+
+const wxString CKernelPanel::dialogTitles[CKernelPanel::DT_COUNT] = {
+	wxT("Curve"),
+	wxT("Table"),
+};
+
 CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
 	: wxPanel(_parent, id)
 	, paramPanel(_parent)
-	, kernelDlg(new CKernelTableDlg(this, label, wxAtoi(defSide)))
+	, kernelDialogs{nullptr}
+	, kernelDlgTypeId(0)
+	, kernelDlgRb{nullptr}
+	, currentDlg(nullptr)
 	, mainSizer(nullptr)
 	, showButton(nullptr)
 	, hideButton(nullptr)
+	, previewDlg(nullptr)
+	, showPreviewButton(nullptr)
+	, hidePreviewButton(nullptr)
 {
+	// allocate the kernel dialogs
+	kernelDialogs[DT_CURVE] = new CKernelCurveDlg(this, label, wxAtoi(defSide));
+	kernelDialogs[DT_TABLE] = new CKernelTableDlg(this, label, wxAtoi(defSide));
+	currentDlg = kernelDialogs[0];
+
+	// allocate the preview dialog
+	previewDlg = new CKernelPreviewDlg(this);
+
 	mainSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxEXPAND | wxALL);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALL | wxCENTER, 5);
+
+	kernelDlgTypeId = WinIDProvider::getProvider().getId(DT_COUNT);
+	for (int i = 0; i < DT_COUNT; ++i) {
+		const wxWindowID typeId = kernelDlgTypeId + i;
+		kernelDlgRb[i] = new wxRadioButton(this, typeId, dialogTitles[i], wxDefaultPosition, wxDefaultSize, (i == 0 ? wxRB_GROUP : 0L));
+		Connect(typeId, wxEVT_RADIOBUTTON, wxCommandEventHandler(CKernelPanel::OnKernelDlgType), NULL, this);
+		mainSizer->Add(kernelDlgRb[i], 1, wxEXPAND | wxALL, 5);
+	}
 
 	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
 	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnShowButton), NULL, this);
@@ -309,17 +815,45 @@ CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString &
 	hideButton->Hide();
 	hideButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnHideButton), NULL, this);
 	mainSizer->Add(hideButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	showPreviewButton = new wxButton(this, wxID_ANY, wxT("Show Preview"));
+	showPreviewButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnShowPreviewButton), NULL, this);
+	mainSizer->Add(showPreviewButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	hidePreviewButton = new wxButton(this, wxID_ANY, wxT("Hide Preview"));
+	hidePreviewButton->Hide();
+	hidePreviewButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnHidePreviewButton), NULL, this);
+	mainSizer->Add(hidePreviewButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
 	mainSizer->AddStretchSpacer(1);
 
 	SetSizerAndFit(mainSizer);
+	Layout();
+	SendSizeEvent();
 }
 
 ConvolutionKernel CKernelPanel::GetValue() const {
-	return kernelDlg->getKernel();
+	ConvolutionKernel retval;
+	currentDlg->getKernel(retval);
+	return retval;
+}
+
+void CKernelPanel::OnKernelDlgType(wxCommandEvent & evt) {
+	const wxWindowID evtId = evt.GetId();
+	if (evtId >= kernelDlgTypeId && evtId < kernelDlgTypeId + DT_COUNT) {
+		const bool shown = currentDlg->IsShown();
+		if (shown) {
+			currentDlg->Hide();
+		}
+		currentDlg = kernelDialogs[evtId - kernelDlgTypeId];
+		if (shown) {
+			currentDlg->Show();
+		}
+	}
 }
 
 void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
-	kernelDlg->Show();
+	currentDlg->Show();
 	hideButton->Show();
 	showButton->Hide();
 	mainSizer->Layout();
@@ -327,9 +861,29 @@ void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
 }
 
 void CKernelPanel::OnHideButton(wxCommandEvent & evt) {
-	kernelDlg->Hide();
+	currentDlg->Hide();
 	hideButton->Hide();
 	showButton->Show();
+	mainSizer->Layout();
+	Fit();
+}
+
+void CKernelPanel::OnShowPreviewButton(wxCommandEvent & evt) {
+	previewDlg->Show();
+	hidePreviewButton->Show();
+	showPreviewButton->Hide();
+	mainSizer->Layout();
+	Fit();
+	// explicitly get the current kernel and update the preview one
+	ConvolutionKernel currentKernel;
+	currentDlg->getKernel(currentKernel);
+	previewDlg->updatePreview(currentKernel);
+}
+
+void CKernelPanel::OnHidePreviewButton(wxCommandEvent & evt) {
+	previewDlg->Hide();
+	hidePreviewButton->Hide();
+	showPreviewButton->Show();
 	mainSizer->Layout();
 	Fit();
 }
@@ -337,6 +891,14 @@ void CKernelPanel::OnHideButton(wxCommandEvent & evt) {
 void CKernelPanel::OnKernelChange(wxCommandEvent & evt) {
 	wxCommandEvent changeEvt(wxEVT_NULL, this->GetId());
 	wxPostEvent(this->GetParent(), changeEvt);
+}
+
+bool CKernelPanel::previewShown() const {
+	return (previewDlg && previewDlg->IsShown());
+}
+
+void CKernelPanel::updatePreview(const ConvolutionKernel & ck) {
+	previewDlg->updatePreview(ck);
 }
 
 void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {

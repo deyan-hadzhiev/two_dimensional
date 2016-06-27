@@ -100,6 +100,7 @@ public:
 		KPR_INVALID_INPUT,
 		KPR_NO_IMPLEMENTATION,
 		KPR_FATAL_ERROR,
+		KPR_ABORTED,
 	};
 
 	// starts the module process (still havent thought of decent flags, but multithreaded is a candidate :)
