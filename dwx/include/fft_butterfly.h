@@ -1,11 +1,11 @@
 #ifndef __FFT_BUTTERFLY_H__
 #define __FFT_BUTTERFLY_H__
 
-#include <complex>
 #include <vector>
 #include <memory>
 
 #include "util.h"
+#include "dcomplex.h"
 
 class ButterflyFFT {
 public:

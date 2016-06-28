@@ -27,11 +27,11 @@ void Sinosoid<CType>::setParams(float _k, float _q, float _offset, bool _sine) {
 template<class CType>
 void Sinosoid<CType>::setParam(const std::string & p, const std::string & value) {
 	if (p == "k") {
-		k = atof(value.c_str());
+		k = static_cast<float>(atof(value.c_str()));
 	} else if (p == "q") {
-		q = atof(value.c_str());
+		q = static_cast<float>(atof(value.c_str()));
 	} else if (p == "offset") {
-		offset = atof(value.c_str());
+		offset = static_cast<float>(atof(value.c_str()));
 	} else if (p == "function") {
 		sine = (value == "sine" || value == "sin");
 	}

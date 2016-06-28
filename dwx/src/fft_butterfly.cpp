@@ -1,4 +1,5 @@
 #include "fft_butterfly.h"
+#include "dcomplex.h"
 
 ButterflyFFT::ButterflyFFT(const int _nfft, bool _inverse)
 	: nfft(_nfft)
@@ -20,7 +21,7 @@ void ButterflyFFT::prepare() {
 	twiddles.resize(nfft);
 	const double phinc = ((inverse ? 2 : -2) * acos(double(-1.0))) / nfft;
 	for (int i = 0; i < nfft; ++i) {
-		twiddles[i] = std::exp(Complex(0.0, i * phinc));
+		twiddles[i] = exp(Complex(0.0, i * phinc));
 	}
 
 	// now prepare the radixes and remainders

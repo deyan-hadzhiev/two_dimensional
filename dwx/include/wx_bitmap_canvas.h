@@ -192,6 +192,8 @@ public:
 
 	void OnEraseBkg(wxEraseEvent& evt);
 
+	void OnSizeEvent(wxSizeEvent& evt);
+
 private:
 	static const Color histFgColor;
 	static const Color histBkgColor;

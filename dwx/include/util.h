@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
-#include <complex>
 #include "constants.h"
 
 #ifdef DDEBUG
@@ -16,11 +15,6 @@
 #else
 #define DASSERT(expr)
 #endif // DDEBUG
-
-static const float FEPS = 1e-8f;
-static const double PI = 3.141592653589793238462643383279502884197169399375105820974944;
-
-using Complex = std::complex<double>;
 
 using uint64 = uint64_t;
 using uint32 = uint32_t;

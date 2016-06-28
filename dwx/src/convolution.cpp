@@ -74,7 +74,7 @@ void ConvolutionKernel::setRadialSection(const float * srcData, int size) {
 	for (int y = 1; y <= halfSide; ++y) {
 		for (int x = 1; x <= halfSide; ++x) {
 			const int posIdx = pointToIndex(Point(x, y));
-			const Vector2 posVec(x, y);
+			const Vector2 posVec(static_cast<float>(x), static_cast<float>(y));
 			const float length = posVec.length();
 			// determining the actual value based on the position of the sampled point
 			// and where it would it be mapped on one of the cetral axes
@@ -128,8 +128,8 @@ void ConvolutionKernel::normalize(const float targetSum) {
 			// this is to assert for NaNs and also there is no way other than making all zero
 			if (posSum > Eps && negSum < -Eps) {
 				// normalize the positive and negative separately to 1 and -1 respectively
-				const float posFactor = 1.0 / posSum;
-				const float negFactor = -1.0 / negSum;
+				const float posFactor = 1.0f / posSum;
+				const float negFactor = -1.0f / negSum;
 				for (int i = 0; i < kn; ++i) {
 					if (data[i] > 0.0f) {
 						data[i] *= posFactor;
@@ -148,8 +148,8 @@ void ConvolutionKernel::normalize(const float targetSum) {
 			} else if (posSum > Eps && negSum < -Eps) {
 				// this is only possible when both the positive and negative sums are not 0
 				// scale both to 1 and -1
-				const float posFactor = 1.0 / posSum;
-				const float negFactor = -1.0 / negSum;
+				const float posFactor = 1.0f / posSum;
+				const float negFactor = -1.0f / negSum;
 				for (int i = 0; i < kn; ++i) {
 					if (data[i] > Eps) {
 						data[i] *= posFactor;
@@ -160,14 +160,14 @@ void ConvolutionKernel::normalize(const float targetSum) {
 				// and afterfwards scale only the ones that are required
 				if (targetSum > Eps) {
 					// increase the positive sum
-					const float scaleFactor = targetSum + 1.0;
+					const float scaleFactor = targetSum + 1.0f;
 					for (int i = 0; i < kn; ++i) {
 						if (data[i] > Eps) {
 							data[i] *= scaleFactor;
 						}
 					}
 				} else if (targetSum < Eps) {
-					const float scaleFactor = -targetSum - 1.0;
+					const float scaleFactor = -targetSum - 1.0f;
 					for (int i = 0; i < kn; ++i) {
 						if (data[i] < -Eps) {
 							data[i] *= scaleFactor;
@@ -236,7 +236,7 @@ template std::vector<float> convolute(const std::vector<float>& input, std::vect
 template<class T>
 std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 	float vecSum = 0.0f;
-	const int k = vec.size();
+	const int k = static_cast<int>(vec.size());
 	const float eps = Eps;
 	for (int i = 0; i < k; ++i) {
 		vecSum += vec[i];
@@ -248,7 +248,7 @@ std::vector<T> convolute(const std::vector<T>& input, std::vector<float> vec) {
 		}
 	}
 	// now to the actual convolution
-	const int inCount = input.size();
+	const int inCount = static_cast<int>(input.size());
 	std::vector<T> result(inCount);
 	const int hk = k / 2;
 	const int hke = k & 1;
@@ -323,7 +323,7 @@ std::vector<Extremum> findExtremums(const std::vector<T>& input) {
 	//typedef std::conditional<std::is_floating_point<T>::value, T, std::make_signed<T>::type >::type ST;
 	typedef int ST;
 	std::vector<Extremum> result;
-	const int inCount = input.size();
+	const int inCount = static_cast<int>(input.size());
 	int lastExtStart = 0;
 	ST lastDx = 0;
 	for (int x = 0; x < inCount - 1; ++x) {

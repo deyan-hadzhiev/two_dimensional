@@ -469,6 +469,7 @@ HistogramPanel::HistogramPanel(wxWindow * parent)
 	// connect paint events
 	Connect(wxEVT_PAINT, wxPaintEventHandler(HistogramPanel::OnPaint), NULL, this);
 	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(HistogramPanel::OnEraseBkg), NULL, this);
+	Connect(wxEVT_SIZE, wxSizeEventHandler(HistogramPanel::OnSizeEvent), NULL, this);
 }
 
 void HistogramPanel::setImage(const Bitmap & bmp) {
@@ -493,9 +494,9 @@ void HistogramPanel::OnPaint(wxPaintEvent & evt) {
 		for (int x = 0; x < chw; ++x) {
 			const int xh = int(x * widthRatioRecip);
 			const HistogramChunk& chunk = hist[xh];
-			chData[(y * chw + x) * 3 + 0] = (chh - y <= chunk.r * chh / maxColor ? histFgColor.r : histBkgColor.r);
-			chData[(y * chw + x) * 3 + 1] = (chh - y <= chunk.g * chh / maxColor ? histFgColor.g : histBkgColor.g);
-			chData[(y * chw + x) * 3 + 2] = (chh - y <= chunk.b * chh / maxColor ? histFgColor.b : histBkgColor.b);
+			chData[(y * chw + x) * 3 + 0] = (chh - y <= static_cast<int>(chunk.r) * chh / maxColor ? histFgColor.r : histBkgColor.r);
+			chData[(y * chw + x) * 3 + 1] = (chh - y <= static_cast<int>(chunk.g) * chh / maxColor ? histFgColor.g : histBkgColor.g);
+			chData[(y * chw + x) * 3 + 2] = (chh - y <= static_cast<int>(chunk.b) * chh / maxColor ? histFgColor.b : histBkgColor.b);
 		}
 	}
 	pdc.DrawBitmap(wxBitmap(chist), wxPoint(0, 0));
@@ -510,7 +511,7 @@ void HistogramPanel::OnPaint(wxPaintEvent & evt) {
 	for (int y = 0; y < ihh; ++y) {
 		for (int x = 0; x < ihw; ++x) {
 			const int xh = int(x * widthRatioRecipInt);
-			const bool t = (ihh - y <= hist[xh].i * ihh / maxIntensity);
+			const bool t = (ihh - y <= static_cast<int>(hist[xh].i) * ihh / maxIntensity);
 			ihData[(y * ihw + x) * 3 + 0] = ( t ? histFgIntensity.r : histBkgIntensity.r);
 			ihData[(y * ihw + x) * 3 + 1] = ( t ? histFgIntensity.g : histBkgIntensity.g);
 			ihData[(y * ihw + x) * 3 + 2] = ( t ? histFgIntensity.b : histBkgIntensity.b);
@@ -521,6 +522,13 @@ void HistogramPanel::OnPaint(wxPaintEvent & evt) {
 
 void HistogramPanel::OnEraseBkg(wxEraseEvent & evt) {}
 
+void HistogramPanel::OnSizeEvent(wxSizeEvent & evt) {
+	if (GetAutoLayout()) {
+		Layout();
+	}
+	Refresh(false);
+}
+
 ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
 	, canvas(new BitmapCanvas(this, topFrame))
@@ -528,7 +536,7 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 	, panelSizer(new wxBoxSizer(wxVERTICAL))
 {
 	panelSizer->Add(canvas, 1, wxEXPAND | wxSHRINK);
-	histPanel->SetBestFittingSize(wxSize(-1, 256));
+	histPanel->SetInitialSize(wxSize(-1, 256));
 	panelSizer->Add(histPanel, 0, wxEXPAND | wxSHRINK);
 	histPanel->Hide();
 	SetSizerAndFit(panelSizer);

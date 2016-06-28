@@ -8,6 +8,7 @@
 #include "vector2.h"
 #include "matrix2.h"
 #include "util.h"
+#include "dcomplex.h"
 #include "convolution.h"
 #include "fft_butterfly.h"
 
@@ -436,7 +437,7 @@ ModuleBase::ProcessResult HistogramModule::moduleImplementation(unsigned flags) 
 	std::vector<std::string> convVecStr = splitString(vecStr.c_str(), ';');
 	std::vector<float> convVec(convVecStr.size());
 	for (int i = 0; i < convVecStr.size(); ++i) {
-		convVec[i] = atof(convVecStr[i].c_str());
+		convVec[i] = static_cast<float>(atof(convVecStr[i].c_str()));
 	}
 	const int subHeight = outHeight / histCount - 1;
 	Histogram<HDL_CHANNEL> hist(bmp);
@@ -465,7 +466,7 @@ void HistogramModule::drawIntensityHisto(Bitmap & histBmp, const std::vector<uin
 	const Color minColor = Color(0x0f, 0x0f, 0xa0);
 	const std::vector<Extremum> extremums = findExtremums(data);
 	auto getColor = [=](int x, const std::vector<Extremum>& ext) -> Color {
-		const int extSize = ext.size();
+		const int extSize = static_cast<int>(ext.size());
 		Color retval = fillColor;
 		for (int i = 0; i < extSize; ++i) {
 			if (ext[i].start > x) {
@@ -484,7 +485,7 @@ void HistogramModule::drawIntensityHisto(Bitmap & histBmp, const std::vector<uin
 	for (int y = 0; y < ihh; ++y) {
 		for (int x = 0; x < ihw; ++x) {
 			const int xh = int(x * widthRatioRecip);
-			const bool t = (ihh - y <= data[xh] * ihh / maxIntensity);
+			const bool t = (ihh - y <= static_cast<int>(data[xh]) * ihh / static_cast<int>(maxIntensity));
 			ihData[y * ihw + x] = (t ? getColor(xh, extremums) : bkgColor);
 		}
 	}
@@ -795,9 +796,9 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 	// now remap all values to their absolute value
 	outComplex.remap([](TColor<Complex> in) {
 		return TColor<Complex>(
-			Complex(std::abs(in.r), 0.0),
-			Complex(std::abs(in.g), 0.0),
-			Complex(std::abs(in.b), 0.0)
+			Complex(abs(in.r), 0.0),
+			Complex(abs(in.g), 0.0),
+			Complex(abs(in.b), 0.0)
 		);
 	});
 

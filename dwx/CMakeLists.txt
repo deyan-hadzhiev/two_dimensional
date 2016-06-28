@@ -24,6 +24,7 @@ set (HEADERS
 	include/color.h
 	include/constants.h
 	include/convolution.h
+	include/dcomplex.h
 	include/drect.h
 	include/fft_butterfly.h
 	include/geom_primitive.h

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <algorithm>
 #include "util.h"
+#include "dcomplex.h"
 
 inline unsigned convertTo8bit(float x) noexcept {
 	if (x < 0)
@@ -183,7 +184,7 @@ public:
 
 	/// make black
 	void makeZero() noexcept {
-		r = g = b = 0;
+		r = g = b = static_cast<T>(0);
 	}
 	/// set the color explicitly
 	void setColor(T _r, T _g, T _b) noexcept {
@@ -230,7 +231,7 @@ public:
 	}
 
 	TColor& operator /= (const double div) noexcept {
-		const float mult = 1.0f / div;
+		const double mult = 1.0 / div;
 		r = static_cast<T>(static_cast<double>(r) * mult);
 		g = static_cast<T>(static_cast<double>(g) * mult);
 		b = static_cast<T>(static_cast<double>(b) * mult);

@@ -446,11 +446,11 @@ ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, EdgeFillType e
 	const int ty_next = (tile ? (ty + 1) % height : std::min(ty + 1, height - 1));
 	const double p = x - tx;
 	const double q = y - ty;
-	return
+	return static_cast<ColorType>(
 		  data[ty      * width + tx]      * ((1.0 - p) * (1.0 - q))
 		+ data[ty      * width + tx_next] * (p         * (1.0 - q))
 		+ data[ty_next * width + tx]      * ((1.0 - p) *         q)
-		+ data[ty_next * width + tx_next] * (p         *         q);
+		+ data[ty_next * width + tx_next] * (p         *         q));
 }
 
 template<class ColorType>
