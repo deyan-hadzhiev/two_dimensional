@@ -417,6 +417,7 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		mouseMoveDrag = false;
 	} else if (evType == wxEVT_ENTER_WINDOW) {
 		if (!mouseOverCanvas) {
+			SetFocus();
 			mouseOverCanvas = true;
 			updateStatus();
 			Refresh(false);
