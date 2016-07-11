@@ -7,6 +7,38 @@
 #include <algorithm>
 #include <memory>
 
+#pragma pack(push, 4)
+
+struct BinaryEvaluationChunk {
+	enum BinaryEvaluationType : uint8 {
+		BET_ERROR = 0,
+		BET_CONSTANT,
+		BET_IDENTIFIER_X,
+		BET_IDENTIFIER_Y,
+		BET_IDENTIFIER_Z,
+		BET_OPERAND_ADD,
+		BET_OPERAND_SUBTRACT,
+		BET_OPERAND_MULTIPLY,
+		BET_OPERAND_DIVIDE,
+		BET_OPERAND_POWER,
+		BET_FUNCTION_SIN,
+		BET_FUNCTION_COS,
+		BET_FUNCTION_TAN,
+		BET_FUNCTION_ABS,
+		BET_FUNCTION_SQRT,
+		BET_FUNCTION_LOG,
+		BET_FUNCTION_MIN,
+		BET_FUNCTION_MAX,
+	} type;
+	double data;
+	BinaryEvaluationChunk(BinaryEvaluationType _type = BET_ERROR, double _data = 0.0)
+		: type(_type)
+		, data(_data)
+	{}
+};
+
+#pragma pack(pop)
+
 struct ExpressionParseError {
 	int position;
 	enum ErrorType {
@@ -53,6 +85,7 @@ public:
 
 	virtual NodeType getType() const = 0;
 	virtual double eval(const EvaluationContext& values) const = 0;
+	virtual std::vector<BinaryEvaluationChunk> buildBinary() const = 0;
 };
 
 class ConstantNode : public ExpressionNode {
@@ -65,6 +98,8 @@ public:
 	NodeType getType() const override { return EXP_CONSTANT; }
 
 	double eval(const EvaluationContext& values) const override { return value; }
+
+	std::vector<BinaryEvaluationChunk> buildBinary() const override;
 };
 
 class IdentifierNode : public ExpressionNode {
@@ -92,12 +127,14 @@ public:
 		}
 	}
 
+	std::vector<BinaryEvaluationChunk> buildBinary() const override;
+
 private:
 	Variable var;
 };
 
 enum FunctionType {
-	F_ERR,
+	F_ERR = 0,
 	F_SIN,
 	F_COS,
 	F_TAN,
@@ -136,6 +173,8 @@ public:
 		}
 	}
 
+	std::vector<BinaryEvaluationChunk> buildBinary() const override;
+
 private:
 	std::shared_ptr<ExpressionNode> expression;
 	FunctionType type;
@@ -161,6 +200,8 @@ public:
 			return 0.0;
 		}
 	}
+
+	std::vector<BinaryEvaluationChunk> buildBinary() const override;
 
 private:
 	std::shared_ptr<ExpressionNode> left;
@@ -195,10 +236,29 @@ public:
 		}
 	}
 
+	std::vector<BinaryEvaluationChunk> buildBinary() const override;
+
 private:
 	std::shared_ptr<ExpressionNode> left;
 	std::shared_ptr<ExpressionNode> right;
 	char operand;
+};
+
+class BinaryExpressionEvaluator {
+public:
+	BinaryExpressionEvaluator();
+	~BinaryExpressionEvaluator();
+
+	BinaryExpressionEvaluator(const BinaryExpressionEvaluator& copy);
+	BinaryExpressionEvaluator& operator=(const BinaryExpressionEvaluator& assign);
+
+	void buildFromTree(const ExpressionNode * root);
+
+	double eval(const EvaluationContext& context) const noexcept;
+private:
+	int expressionSize;
+	BinaryEvaluationChunk * binaryExpression;
+	double * valueStack;
 };
 
 class ExpressionTree {
@@ -253,6 +313,12 @@ public:
 
 	inline double eval(const EvaluationContext& values) const {
 		return root->eval(values);
+	}
+
+	BinaryExpressionEvaluator getBinaryEvaluator() const {
+		BinaryExpressionEvaluator bee;
+		bee.buildFromTree(root.get());
+		return bee;
 	}
 };
 

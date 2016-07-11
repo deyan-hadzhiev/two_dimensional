@@ -2,6 +2,91 @@
 #include <stack>
 #include <algorithm>
 
+
+std::vector<BinaryEvaluationChunk> ConstantNode::buildBinary() const {
+	std::vector<BinaryEvaluationChunk> retval;
+	retval.push_back(BinaryEvaluationChunk(BinaryEvaluationChunk::BET_CONSTANT, value));
+	return retval;
+}
+
+std::vector<BinaryEvaluationChunk> IdentifierNode::buildBinary() const {
+	std::vector<BinaryEvaluationChunk> retval;
+	const BinaryEvaluationChunk::BinaryEvaluationType type = static_cast<BinaryEvaluationChunk::BinaryEvaluationType>(BinaryEvaluationChunk::BET_IDENTIFIER_X + var);
+	retval.push_back(BinaryEvaluationChunk(type));
+	return retval;
+}
+
+std::vector<BinaryEvaluationChunk> OneFunctionNode::buildBinary() const {
+	std::vector<BinaryEvaluationChunk> retval;
+	const BinaryEvaluationChunk::BinaryEvaluationType binaryType = static_cast<BinaryEvaluationChunk::BinaryEvaluationType>(BinaryEvaluationChunk::BET_FUNCTION_SIN + type - 1);
+	retval.push_back(BinaryEvaluationChunk(binaryType));
+	std::vector<BinaryEvaluationChunk> expressionBinary = expression->buildBinary();
+	retval.insert(
+		retval.end(),
+		std::make_move_iterator(expressionBinary.begin()),
+		std::make_move_iterator(expressionBinary.end())
+	);
+	return retval;
+}
+
+std::vector<BinaryEvaluationChunk> TwoFunctionNode::buildBinary() const {
+	std::vector<BinaryEvaluationChunk> retval;
+	const BinaryEvaluationChunk::BinaryEvaluationType binaryType = static_cast<BinaryEvaluationChunk::BinaryEvaluationType>(BinaryEvaluationChunk::BET_FUNCTION_MIN + type);
+	retval.push_back(BinaryEvaluationChunk(binaryType));
+	std::vector<BinaryEvaluationChunk> leftExpressionBinary = left->buildBinary();
+	retval.insert(
+		retval.end(),
+		std::make_move_iterator(leftExpressionBinary.begin()),
+		std::make_move_iterator(leftExpressionBinary.end())
+	);
+	std::vector<BinaryEvaluationChunk> rightExpressionBinary = right->buildBinary();
+	retval.insert(
+		retval.end(),
+		std::make_move_iterator(rightExpressionBinary.begin()),
+		std::make_move_iterator(rightExpressionBinary.end())
+	);
+	return retval;
+}
+
+std::vector<BinaryEvaluationChunk> CompoundNode::buildBinary() const {
+	std::vector<BinaryEvaluationChunk> retval;
+	BinaryEvaluationChunk::BinaryEvaluationType binaryType;
+	switch(operand) {
+	case '+':
+		binaryType = BinaryEvaluationChunk::BET_OPERAND_ADD;
+		break;
+	case '-':
+		binaryType = BinaryEvaluationChunk::BET_OPERAND_SUBTRACT;
+		break;
+	case '*':
+		binaryType = BinaryEvaluationChunk::BET_OPERAND_MULTIPLY;
+		break;
+	case '/':
+		binaryType = BinaryEvaluationChunk::BET_OPERAND_DIVIDE;
+		break;
+	case '^':
+		binaryType = BinaryEvaluationChunk::BET_OPERAND_POWER;
+		break;
+	default:
+		binaryType = BinaryEvaluationChunk::BET_ERROR;
+		break;
+	}
+	retval.push_back(BinaryEvaluationChunk(binaryType));
+	std::vector<BinaryEvaluationChunk> leftExpressionBinary = left->buildBinary();
+	retval.insert(
+		retval.end(),
+		std::make_move_iterator(leftExpressionBinary.begin()),
+		std::make_move_iterator(leftExpressionBinary.end())
+	);
+	std::vector<BinaryEvaluationChunk> rightExpressionBinary = right->buildBinary();
+	retval.insert(
+		retval.end(),
+		std::make_move_iterator(rightExpressionBinary.begin()),
+		std::make_move_iterator(rightExpressionBinary.end())
+	);
+	return retval;
+}
+
 static FunctionType getFunctionType(const std::string& func) {
 	if (func.compare(0, 3, "sin") == 0) {
 		return F_SIN;
@@ -241,8 +326,8 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildExpression(const std::vecto
 		bool error = false;
 		std::stack<std::shared_ptr<ExpressionNode> > nodeStack;
 		std::stack<char> opStack;
-		const int tokenSize = tokens.size();
-		for (int i = 0; i < tokens.size() && !error; ++i) {
+		const int tokenSize = static_cast<int>(tokens.size());
+		for (int i = 0; i < tokenSize && !error; ++i) {
 			if ( (i & 1) == 0 && tokens[i].type != TT_OPERAND) {
 				std::shared_ptr<ExpressionNode> tokenTree = buildToken(tokens[i]);
 				if (!tokenTree) {
@@ -388,4 +473,152 @@ bool ExpressionTree::buildTree(const std::string& expr) {
 		return false;
 
 	return true;
+}
+
+BinaryExpressionEvaluator::BinaryExpressionEvaluator()
+	: expressionSize(0)
+	, binaryExpression(nullptr)
+	, valueStack(nullptr)
+{}
+
+BinaryExpressionEvaluator::~BinaryExpressionEvaluator() {
+	delete[] valueStack;
+	delete[] binaryExpression;
+}
+
+BinaryExpressionEvaluator::BinaryExpressionEvaluator(const BinaryExpressionEvaluator & copy)
+	: expressionSize(copy.expressionSize)
+	, binaryExpression(new BinaryEvaluationChunk[copy.expressionSize])
+	, valueStack(new double[copy.expressionSize])
+{
+	memcpy(binaryExpression, copy.binaryExpression, copy.expressionSize * sizeof(BinaryEvaluationChunk));
+}
+
+BinaryExpressionEvaluator& BinaryExpressionEvaluator::operator=(const BinaryExpressionEvaluator & assign) {
+	if (this != &assign) {
+		delete[] valueStack;
+		delete[] binaryExpression;
+		expressionSize = assign.expressionSize;
+		binaryExpression = new BinaryEvaluationChunk[expressionSize];
+		memcpy(binaryExpression, assign.binaryExpression, assign.expressionSize * sizeof(BinaryEvaluationChunk));
+		valueStack = new double[expressionSize];
+	}
+	return *this;
+}
+
+void BinaryExpressionEvaluator::buildFromTree(const ExpressionNode * root) {
+	if (root) {
+		std::vector<BinaryEvaluationChunk> expressionVec = root->buildBinary();
+		// reverse the expression to be ready for evaluation in postfix polish notation
+		std::reverse(expressionVec.begin(), expressionVec.end());
+		const int newSize = static_cast<int>(expressionVec.size());
+		if (expressionSize != newSize) {
+			expressionSize = newSize;
+			delete[] binaryExpression;
+			binaryExpression = new BinaryEvaluationChunk[expressionSize];
+			delete[] valueStack;
+			valueStack = new double[expressionSize];
+		}
+		for (int i = 0; i < expressionSize; ++i) {
+			binaryExpression[i] = expressionVec[i];
+		}
+	}
+}
+
+double BinaryExpressionEvaluator::eval(const EvaluationContext & context) const noexcept {
+	//std::stack<double> valueStack;
+	int stackTop = 0;
+	const int evalSize = expressionSize;
+	for (int i = 0; i < evalSize; ++i) {
+		const BinaryEvaluationChunk& symbol = binaryExpression[i];
+		switch (symbol.type) {
+		case (BinaryEvaluationChunk::BET_CONSTANT):
+			valueStack[stackTop++] = symbol.data;
+			break;
+		case (BinaryEvaluationChunk::BET_IDENTIFIER_X):
+			valueStack[stackTop++] = context.x;
+			break;
+		case (BinaryEvaluationChunk::BET_IDENTIFIER_Y):
+			valueStack[stackTop++] = context.y;
+			break;
+		case (BinaryEvaluationChunk::BET_IDENTIFIER_Z):
+			valueStack[stackTop++] = context.z;
+			break;
+		case (BinaryEvaluationChunk::BET_OPERAND_ADD): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = lhs + rhs;
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_OPERAND_SUBTRACT): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = lhs - rhs;
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_OPERAND_MULTIPLY): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = lhs * rhs;
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_OPERAND_DIVIDE): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = lhs / rhs;
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_OPERAND_POWER): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = pow(lhs, rhs);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_SIN): {
+			const double expr = valueStack[--stackTop];
+			valueStack[stackTop++] = sin(expr);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_COS): {
+			const double expr = valueStack[--stackTop];
+			valueStack[stackTop++] = cos(expr);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_TAN): {
+			const double expr = valueStack[--stackTop];
+			valueStack[stackTop++] = tan(expr);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_ABS): {
+			const double expr = valueStack[--stackTop];
+			valueStack[stackTop++] = abs(expr);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_SQRT): {
+			const double expr = valueStack[--stackTop];
+			valueStack[stackTop++] = sqrt(expr);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_LOG): {
+			const double expr = valueStack[--stackTop];
+			valueStack[stackTop++] = log(expr);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_MIN): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = std::min(lhs, rhs);
+			break;
+		}
+		case (BinaryEvaluationChunk::BET_FUNCTION_MAX): {
+			const double lhs = valueStack[--stackTop];
+			const double rhs = valueStack[--stackTop];
+			valueStack[stackTop++] = std::max(lhs, rhs);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+	return valueStack[0];
 }
