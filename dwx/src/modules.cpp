@@ -74,6 +74,7 @@ AsyncModule::AsyncModule()
 {}
 
 AsyncModule::~AsyncModule() {
+	cb->setAbortFlag();
 	state = State::AKS_TERMINATED;
 	ev.notify_one();
 	loopThread.join();
@@ -291,6 +292,68 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
+	if (cb) {
+		cb->setPercentDone(0, 1);
+	}
+	const int pWidth = width;
+	const int pHeight = height;
+	pman->getIntParam(width, "width");
+	pman->getIntParam(height, "height");
+	bool dirtySize = (width != pWidth || height != pHeight);
+	if (dirtySize || !bmp.isOK()) {
+		raster->resize(width, height);
+		dirtySize = false;
+	}
+	bool additive, clear, axis;
+	pman->getBoolParam(additive, "additive");
+	pman->getBoolParam(clear, "clear");
+	pman->getBoolParam(axis, "axis");
+	unsigned dflags =
+		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
+		(clear ? DrawFlags::DF_CLEAR : 0) |
+		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
+
+	std::string color;
+	pman->getStringParam(color, "color");
+	const uint32 colValue = strtoul(color.c_str(), NULL, 16);
+	const Color penColor = Color(colValue);
+	float penWidth = 1.0;
+	pman->getFloatParam(penWidth, "penWidth");
+	float penStrenth = 0.5;
+	pman->getFloatParam(penStrenth, "penStrength");
+	const DrawPen<Color> pen(penColor, penWidth, penStrenth);
+	raster->setPen(pen);
+
+	std::string function;
+	pman->getStringParam(function, "function");
+
+	ExpressionTree functionTree;
+	if (!functionTree.buildTree(function)) {
+		return KPR_INVALID_INPUT;
+	}
+	const BinaryExpressionEvaluator bee = functionTree.getBinaryEvaluator();
+	auto evalFunction = [&bee](double x, double y) -> double {
+		return bee.eval(EvaluationContext(x, y, 0));
+	};
+	raster->setProgressCallback(cb);
+
+	raster->setFunction(evalFunction);
+
+	raster->draw(dflags);
+	bmp = raster->getBitmap();
+	SimpleModule::setOutput();
+	if (iman)
+		iman->moduleDone(KPR_OK);
+	return KPR_OK;
+}
+
+ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigned flags) {
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setPercentDone(0, 1);
+	}
 	const int pWidth = width;
 	const int pHeight = height;
 	pman->getIntParam(width, "width");
@@ -332,6 +395,12 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 		return bee.eval(EvaluationContext(x, y, 0));
 	};
 	raster->setFunction(evalFunction);
+
+	bool treeOutput = false;
+	pman->getBoolParam(treeOutput, "outputTree");
+	raster->setTreeOutput(treeOutput);
+
+	raster->setProgressCallback(cb);
 
 	raster->draw(dflags);
 	bmp = raster->getBitmap();

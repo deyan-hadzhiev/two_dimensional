@@ -1,4 +1,7 @@
 #include "geom_primitive.h"
+#include "quad_tree.h"
+#include "drect.h"
+#include "module_base.h"
 
 const Color GeometricPrimitive<Color>::axisCol = Color(127, 127, 127);
 const uint32 GeometricPrimitive<uint32>::axisCol = ~0 >> 1;
@@ -244,8 +247,8 @@ void FunctionRaster<CType>::draw(unsigned flags) {
 			rasterData[y * bw + cx] = axisCol;
 		}
 	}
-	const double halfPenWidth = pen.getWidth() / 2.0;
-	const double fullColorRange = pen.getStrength() * halfPenWidth;
+	const double halfPenWidth = pen.getWidth() / 2.0 + 1.0;
+	const double fullColorRange = clamp(pen.getStrength(), 0.0, 1.0) * halfPenWidth;
 	const double halfToneRange = halfPenWidth - fullColorRange;
 	const CType penColor = pen.getColor();
 	for (int y = 0; y < bh; ++y) {
@@ -258,7 +261,7 @@ void FunctionRaster<CType>::draw(unsigned flags) {
 				if (error <= fullColorRange) {
 					rasterData[y * bw + x] = (additive ? currentColor + penColor : penColor);
 				} else {
-					double amount = 1.0 - (error - fullColorRange) / halfToneRange;
+					double amount = clamp(1.0 - (error - fullColorRange) / halfToneRange, 0.0, 1.0);
 					if (additive) {
 						rasterData[y * bw + x] += static_cast<CType>(penColor * amount);
 					} else {
@@ -266,6 +269,217 @@ void FunctionRaster<CType>::draw(unsigned flags) {
 					}
 				}
 			}
+		}
+		if (cb) {
+			if (cb->getAbortFlag()) {
+				break;
+			} else {
+				cb->setPercentDone(y + 1, bh);
+			}
+		}
+	}
+}
+
+template class FineFunctionRaster<Color>;
+
+template<class CType>
+FineFunctionRaster<CType>::FineFunctionRaster(int width, int height)
+	: GeometricPrimitive<CType>(width, height)
+{}
+
+template<class CType>
+void FineFunctionRaster<CType>::setFunction(std::function<double(double, double)> _fxy) {
+	fxy = _fxy;
+}
+
+template<class CType>
+void FineFunctionRaster<CType>::draw(unsigned flags) {
+	if ((flags & DF_CLEAR) != 0) {
+		clear();
+	}
+	const bool additive = ((flags & DF_ACCUMULATE) != 0);
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const int cx = bw / 2;
+	const int cy = bh / 2;
+	CType * rasterData = bmp.getDataPtr();
+	if ((flags & DF_SHOW_AXIS) != 0) {
+		// draw coord system
+		for (int x = 0; x < bw; ++x) {
+			rasterData[cy * bw + x] = axisCol;
+		}
+		for (int y = 0; y < bh; ++y) {
+			rasterData[y * bw + cx] = axisCol;
+		}
+	}
+
+	const float topQtDimension = static_cast<float>(std::max(bw, bh));
+	// get the proper number of levels in order to have small number of points in the tree
+	const int qtLevels = QuadTree<Vector2>::getLevels(5.0f, static_cast<float>(topQtDimension)) - 1;
+	// quad tree containing all intersections
+	QuadTree<Vector2> plotQt(qtLevels, topQtDimension / 2);
+
+	const float epsIntersection = 1.0e-6f;
+	// find all intersections
+	for (int y = 0; y < bh - 1; ++y) {
+		for (int x = 0; x < bw - 1; ++x) {
+			const double baseX = x - cx + 0.5;
+			const double baseY = y - cy + 0.5;
+			const double evalBase = fxy(baseX, baseY);
+			// if the base evaluation is close to 0 it is a direct intersection
+			if (std::abs(evalBase) < epsIntersection) {
+				const Vector2 intersection(static_cast<float>(baseX), static_cast<float>(baseY));
+				plotQt.addElement(intersection, intersection);
+			} else {
+				// otherwise check for horizontal and vertical intersection
+				const double nextX = baseX + 1.0;
+				const double evalHoriz = fxy(nextX, baseY);
+				// there is an intersection if the signs of the two evaluations differ
+				const bool ix = (evalBase * evalHoriz) < 0.0;
+				// if there is intersection - perform binary search to find the exact point
+				if (ix) {
+					double x0 = baseX;
+					double x1 = nextX;
+					double evalX0 = evalBase;
+					double evalX1 = evalHoriz;
+					double dx = (x0 + x1) * 0.5;
+					double evalDx = fxy(dx, baseY);
+					while (x1 - x0 > epsIntersection) {
+						if (std::abs(evalDx) < epsIntersection) {
+							// if there is a direct intersection - just break
+							break;
+						} else if (evalDx * evalX0 > 0.0) {
+							// then if the new evaluation has the same sign as the lower bound - increase the lower bound
+							x0 = dx;
+							evalX0 = evalDx;
+						} else {
+							// otherwise the upper bound must be lowered
+							x1 = dx;
+							evalX1 = evalDx;
+						}
+						dx = (x0 + x1) * 0.5;
+						evalDx = fxy(dx, baseY);
+					}
+					// now dx contains the midPoint of two close evaluations - use it directly
+					const Vector2 intersection(static_cast<float>(dx), static_cast<float>(baseY));
+					plotQt.addElement(intersection, intersection);
+				}
+				const double nextY = baseY + 1.0;
+				const double evalVert = fxy(baseX, nextY);
+				// there is an intersection if the signs of the two evaluations differ
+				const bool iy = (evalBase * evalVert) < 0.0;
+				if (iy) {
+					double y0 = baseY;
+					double y1 = nextY;
+					double evalY0 = evalBase;
+					double evalY1 = evalVert;
+					double dy = (y0 + y1) * 0.5;
+					double evalDy = fxy(baseX, dy);
+					while (y1 - y0 > epsIntersection) {
+						if (std::abs(evalDy) < epsIntersection) {
+							// if there is a direct intersection - just break
+							break;
+						} else if (evalDy * evalY0 > 0.0) {
+							// then if the new evaluation has the same sign as the lower bound - increase the lower bound
+							y0 = dy;
+							evalY0 = evalDy;
+						} else {
+							// otherwise the upper bound must be lowered
+							y1 = dy;
+							evalY1 = evalDy;
+						}
+						dy = (y0 + y1) * 0.5;
+						evalDy = fxy(baseX, dy);
+					}
+					// now dy contains the midPoint of two close evaluations - use it directly
+					const Vector2 intersection(static_cast<float>(baseX), static_cast<float>(dy));
+					plotQt.addElement(intersection, intersection);
+				}
+			}
+		}
+		if (cb) {
+			if (cb->getAbortFlag()) {
+				break;
+			} else {
+				cb->setPercentDone(y, bh * 2);
+			}
+		}
+	}
+
+	if (cb && cb->getAbortFlag()) {
+		return;
+	}
+
+	const CType penColor = pen.getColor();
+	if (treeOutput) {
+		std::vector<const QuadTree<Vector2>*> intersections;
+		plotQt.getBottomTrees(intersections);
+		for (const auto& iqt : intersections) {
+			for (const auto& qte : *(iqt->getTreeElements())) {
+				const int dx = static_cast<int>(std::floor(qte.position.x)) + cx;
+				const int dy = static_cast<int>(std::floor(-qte.position.y)) + cy;
+				if (dx >= 0 && dy >= 0 && dx < bw && dy < bh) {
+					rasterData[dy * bw + dx] = (additive ? rasterData[dy * bw + dx] + penColor : penColor);
+				}
+			}
+			if (cb && cb->getAbortFlag()) {
+				break;
+			}
+		}
+		if (cb && !cb->getAbortFlag()) {
+			cb->setPercentDone(1, 1);
+		}
+	} else {
+		// now extract the neighbouring intersection point for each pixel in the raster based on the pen width
+		const float halfPenWidth = static_cast<float>(pen.getWidth() / 2.0) + 1.0f; // add one to properly color edging pixels
+		const float fullColorRange = static_cast<float>(clamp(pen.getStrength(), 0.0, 1.0) * halfPenWidth);
+		const float halfToneRange = halfPenWidth - fullColorRange;
+		std::vector<QuadTree<Vector2>::QuadTreeElement> intersections;
+		const Vector2 penHalfSize(halfPenWidth + 1.0f, halfPenWidth + 1.0f); // add one to have correct results for small pens
+		for (int y = 0; y < bh; ++y) {
+			for (int x = 0; x < bw; ++x) {
+				const Vector2 samplePos(x - cx + 0.5f, y - cy + 0.5f);
+				const Rect pixelBBox(samplePos - penHalfSize, samplePos + penHalfSize);
+				intersections.clear();
+				plotQt.getElements(intersections, pixelBBox);
+				// now find the point closest to the current pixel
+				bool found = false; // may remain false if the elements are empty
+				float closestSquareDist = penHalfSize.lengthSqr(); // use square distance, it is enough for finding the closest
+				for (const auto& qte : intersections) {
+					const Vector2 vecToIntersect = qte.position - samplePos;
+					const float ptSquareDist = vecToIntersect.lengthSqr();
+					if (ptSquareDist <= closestSquareDist) {
+						found = true;
+						closestSquareDist = ptSquareDist;
+					}
+				}
+				// now if a point was found calculate the actual distance and the coloring of the pixel
+				if (found) {
+					const int ay = bh - y - 1; // recalculate y, because the coordinate system is mirrored
+					CType& rdata = rasterData[ay * bw + x];
+					const float dist = sqrtf(closestSquareDist);
+					if (dist <= fullColorRange) {
+						rdata = (additive ? rdata + penColor : penColor);
+					} else {
+						double amount = clamp(1.0 - (dist - fullColorRange) / halfToneRange, 0.0, 1.0);
+						if (additive) {
+							rdata += static_cast<CType>(penColor * amount);
+						} else {
+							rdata = static_cast<CType>(penColor * amount + rdata * (1.0 - amount));
+						}
+					}
+				}
+			}
+			if (cb) {
+				if (cb->getAbortFlag()) {
+					break;
+				} else {
+					cb->setPercentDone(y + bh, bh * 2);
+				}
+			}
+		}
+		if (cb && !cb->getAbortFlag()) {
+			cb->setPercentDone(1, 1);
 		}
 	}
 }

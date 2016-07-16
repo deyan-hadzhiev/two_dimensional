@@ -3,6 +3,7 @@
 
 #include "bitmap.h"
 #include "vector2.h"
+#include "module_base.h"
 
 #include <string>
 #include <vector>
@@ -59,6 +60,7 @@ protected:
 	Pixelmap<CType> bmp;
 	static const CType axisCol;
 	DrawPen<CType> pen;
+	ProgressCallback * cb;
 public:
 	GeometricPrimitive()
 		: pen(CType())
@@ -66,6 +68,7 @@ public:
 	GeometricPrimitive(int width, int height)
 		: bmp(width, height)
 		, pen(CType())
+		, cb(nullptr)
 	{}
 
 	virtual ~GeometricPrimitive() {}
@@ -96,6 +99,10 @@ public:
 
 	DrawPen<CType>& getPen() noexcept {
 		return pen;
+	}
+
+	void setProgressCallback(ProgressCallback * pcb) {
+		cb = pcb;
 	}
 
 	// parametric setters and getters
@@ -148,6 +155,22 @@ public:
 	FunctionRaster(int width = -1, int height = -1);
 
 	virtual void setFunction(std::function<double(double, double)>);
+
+	virtual void draw(unsigned flags = DF_OVER) override final;
+};
+
+template<class CType>
+class FineFunctionRaster : public GeometricPrimitive<CType> {
+	std::function<double(double, double)> fxy;
+	bool treeOutput;
+public:
+	FineFunctionRaster(int width = -1, int height = -1);
+
+	virtual void setFunction(std::function<double(double, double)>);
+
+	virtual void setTreeOutput(bool _treeOutput) {
+		treeOutput = _treeOutput;
+	}
 
 	virtual void draw(unsigned flags = DF_OVER) override final;
 };
