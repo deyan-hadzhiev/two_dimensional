@@ -108,7 +108,7 @@ public:
 		: x(std::min(p0.x, p1.x))
 		, y(std::min(p0.y, p1.y))
 		, width(std::fabs(p0.x - p1.x))
-		, height(std::fabs(p0.x - p1.y))
+		, height(std::fabs(p0.y - p1.y))
 	{}
 
 	Rect(const Size2d& sz) noexcept

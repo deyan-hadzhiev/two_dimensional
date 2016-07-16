@@ -38,6 +38,7 @@ set (HEADERS
 	include/modules.h
 	include/module_base.h
 	include/module_manager.h
+	include/quad_tree.h
 	include/util.h
 	include/vector2.h
 	include/wx_bitmap_canvas.h
