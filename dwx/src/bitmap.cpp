@@ -374,20 +374,29 @@ void Pixelmap<ColorType>::generateEmptyImage(int w, int h, bool clear) noexcept 
 
 template<class ColorType>
 void Pixelmap<ColorType>::fill(ColorType c, int x, int y, int _width, int _height) {
-	if (!data || x < 0 || y < 0 || x >= width || y >= height)
+	// check if the filled area is completely outside this bitmap
+	if (!this->isOK() || (_width != -1 && x + _width < 0) || (_height != -1 && y + _height < 0) || x >= width || y >= height)
 		return;
-	const int x2 = (_width == -1 || x + _width > width ? width : x + _width);
-	const int y2 = (_height == -1 || y + _height > height ? height : y + _height);
-	ColorType * rowDest = (data + y * width + x);
-	const int dw = x2 - x;
+	// TODO - maybe move this sub rect calculations to separate function?
+	const int dx = (x < 0 ? 0 : x);
+	const int dy = (y < 0 ? 0 : y);
+	const int dw = (_width == -1 ?
+		(x < 0 ? width : width - x) :
+		(x < 0 ? std::min(x + _width, width) : std::min(width - x, _width)));
+	const int dh = (_height == -1 ?
+		(y < 0 ? height : height - y) :
+		(y < 0 ? std::min(y + _height, height) : std::min(height - y, _height)));
+
+	ColorType * firstRow = (data + dy * width + dx);
 	// fill the first row
-	for (int dx = 0; dx < dw; ++dx) {
-		rowDest[dx] = c;
+	for (int xx = 0; xx < dw; ++xx) {
+		firstRow[xx] = c;
 	}
-	// now copy the row to the rest (Notice y + 1)
-	const int rowSize = (x2 - x) * sizeof(ColorType);
-	for (int dy = y + 1; dy < y2; ++dy) {
-		memcpy(data + dy * width + x, rowDest, rowSize);
+	const int rowSize = dw * sizeof(ColorType);
+	// start the copy from the next row
+	for (int yy = 1; yy < dh; ++yy) {
+		ColorType * destRow = data + (dy + yy) * width + dx;
+		memcpy(destRow, firstRow, rowSize);
 	}
 }
 
@@ -863,6 +872,10 @@ bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, 
 		return false;
 	const int sw = subBmp.getWidth();
 	const int sh = subBmp.getHeight();
+	// check if the drawn subbitmap is completely outside this
+	if (x + sw < 0 || y + sh < 0 || x >= width || y >= height) {
+		return false;
+	}
 	if (x < 0 || y < 0 || x + sw > width || y + sh > height) {
 		// calculate the source and destination coordinates
 		const int dx = (x < 0 ? 0 : x);

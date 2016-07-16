@@ -199,6 +199,32 @@ private:
 	int height;
 };
 
+class FineFunctionRasterModule : public AsyncModule {
+public:
+	FineFunctionRasterModule()
+		: raster(new FineFunctionRaster<Color>)
+		, width(1024)
+		, height(1024)
+	{
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "function", "x + y"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penWidth", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", std::to_string(height)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "color", std::string("ffffff")));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "additive", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "clear", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "axis", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "outputTree", "false"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+private:
+	std::unique_ptr<FineFunctionRaster<Color> > raster;
+	int width;
+	int height;
+};
+
 class HoughModule : public AsyncModule {
 public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
