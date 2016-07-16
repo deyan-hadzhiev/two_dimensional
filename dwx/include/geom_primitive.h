@@ -2,6 +2,8 @@
 #define __GEOM_PRIMITIVE_H__
 
 #include "bitmap.h"
+#include "vector2.h"
+
 #include <string>
 #include <vector>
 
@@ -13,32 +15,87 @@ enum DrawFlags {
 };
 
 template<class CType>
+class DrawPen {
+public:
+	DrawPen(const CType& _color, double _width = 1.0, double _strength = 0.5)
+		: color(_color)
+		, width(_width)
+		, strength(_strength)
+	{}
+
+	inline void setColor(const CType& _color) noexcept {
+		color = _color;
+	}
+
+	inline CType getColor() const noexcept {
+		return color;
+	}
+
+	inline void setWidth(const double _width) noexcept {
+		width = _width;
+	}
+
+	inline double getWidth() const noexcept {
+		return width;
+	}
+
+	inline void setStrength(const double _strength) noexcept {
+		strength = _strength;
+	}
+
+	inline double getStrength() const noexcept {
+		return strength;
+	}
+
+private:
+	CType color;
+	double width;
+	double strength;
+};
+
+template<class CType>
 class GeometricPrimitive {
 protected:
 	Pixelmap<CType> bmp;
 	static const CType axisCol;
+	DrawPen<CType> pen;
 public:
-	GeometricPrimitive() {}
+	GeometricPrimitive()
+		: pen(CType())
+	{}
 	GeometricPrimitive(int width, int height)
 		: bmp(width, height)
+		, pen(CType())
 	{}
 
 	virtual ~GeometricPrimitive() {}
 
-	const Pixelmap<CType>& getBitmap() const {
+	const Pixelmap<CType>& getBitmap() const noexcept {
 		return bmp;
 	}
 
-	Pixelmap<CType>& getBitmap() {
+	Pixelmap<CType>& getBitmap() noexcept {
 		return bmp;
 	}
 
-	void resize(int width, int height) {
+	void resize(int width, int height) noexcept {
 		bmp.generateEmptyImage(width, height);
 	}
 
-	void clear() {
+	void clear() noexcept {
 		bmp.generateEmptyImage(bmp.getWidth(), bmp.getHeight());
+	}
+
+	void setPen(const DrawPen<CType>& _pen) noexcept {
+		pen = _pen;
+	}
+
+	DrawPen<CType> getPen() const noexcept {
+		return pen;
+	}
+
+	DrawPen<CType>& getPen() noexcept {
+		return pen;
 	}
 
 	// parametric setters and getters
@@ -51,7 +108,7 @@ public:
 	}
 
 	// the virtual function for drawing
-	virtual void draw(CType col = CType(), unsigned flags = DF_OVER) = 0;
+	virtual void draw(unsigned flags = DF_OVER) = 0;
 };
 
 template<class CType>
@@ -69,7 +126,7 @@ public:
 
 	virtual std::vector<std::string> getParamList() const override;
 
-	virtual void draw(CType pen = CType(), unsigned flags = DF_OVER) override final;
+	virtual void draw(unsigned flags = DF_OVER) override final;
 };
 
 template<class CType>
@@ -81,7 +138,18 @@ public:
 
 	virtual void setFunction(std::function<float(int)>, std::function<float(float)>);
 
-	virtual void draw(CType pen = CType(), unsigned flags = DF_OVER) override final;
+	virtual void draw(unsigned flags = DF_OVER) override final;
+};
+
+template<class CType>
+class FunctionRaster : public GeometricPrimitive<CType> {
+	std::function<double(double, double)> fxy;
+public:
+	FunctionRaster(int width = -1, int height = -1);
+
+	virtual void setFunction(std::function<double(double, double)>);
+
+	virtual void draw(unsigned flags = DF_OVER) override final;
 };
 
 #endif // __GEOM_PRIMITIVE_H__

@@ -50,7 +50,7 @@ std::vector<std::string> Sinosoid<CType>::getParamList() const
 }
 
 template<class CType>
-void Sinosoid<CType>::draw(CType col, unsigned flags) {
+void Sinosoid<CType>::draw(unsigned flags) {
 	if ((flags & DF_CLEAR) != 0) {
 		clear();
 	}
@@ -69,7 +69,7 @@ void Sinosoid<CType>::draw(CType col, unsigned flags) {
 			bmpData[y * bw + cx] = axisCol;
 		}
 	}
-	const CType scol = col;
+	const CType scol = pen.getColor();
 	auto xToRad = [cx](int x) -> float {
 		const int xdeg = (x - cx);
 		return toRadians(float(xdeg) + 0.5f);
@@ -143,7 +143,7 @@ void Function<CType>::setFunction(std::function<float(int)> _mapX, std::function
 }
 
 template<class CType>
-void Function<CType>::draw(CType pen, unsigned flags) {
+void Function<CType>::draw(unsigned flags) {
 	if ((flags & DF_CLEAR) != 0) {
 		clear();
 	}
@@ -162,7 +162,7 @@ void Function<CType>::draw(CType pen, unsigned flags) {
 			bmpData[y * bw + cx] = axisCol;
 		}
 	}
-	const CType scol = pen;
+	const CType scol = pen.getColor();
 	float x0f = mapX(-cx);
 	float y0f = fx(x0f);
 	int y0 = int(floor(y0f - 0.5f) + cy);
@@ -209,5 +209,63 @@ void Function<CType>::draw(CType pen, unsigned flags) {
 		x0f = xf;
 		y0f = yf;
 		y0 = y;
+	}
+}
+
+template class FunctionRaster<Color>;
+
+template<class CType>
+FunctionRaster<CType>::FunctionRaster(int width, int height)
+	: GeometricPrimitive<CType>(width, height)
+{}
+
+template<class CType>
+void FunctionRaster<CType>::setFunction(std::function<double(double, double)> _fxy) {
+	fxy = _fxy;
+}
+
+template<class CType>
+void FunctionRaster<CType>::draw(unsigned flags) {
+	if ((flags & DF_CLEAR) != 0) {
+		clear();
+	}
+	const bool additive = ((flags & DF_ACCUMULATE) != 0);
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const int cx = bw / 2;
+	const int cy = bh / 2;
+	CType * rasterData = bmp.getDataPtr();
+	if ((flags & DF_SHOW_AXIS) != 0) {
+		// draw coord system
+		for (int x = 0; x < bw; ++x) {
+			rasterData[cy * bw + x] = axisCol;
+		}
+		for (int y = 0; y < bh; ++y) {
+			rasterData[y * bw + cx] = axisCol;
+		}
+	}
+	const double halfPenWidth = pen.getWidth() / 2.0;
+	const double fullColorRange = pen.getStrength() * halfPenWidth;
+	const double halfToneRange = halfPenWidth - fullColorRange;
+	const CType penColor = pen.getColor();
+	for (int y = 0; y < bh; ++y) {
+		for (int x = 0; x < bw; ++x) {
+			const double sampleX = x - cx + 0.5;
+			const double sampleY = -y + cy - 0.5;
+			const double error = abs(fxy(sampleX, sampleY));
+			if (error <= halfPenWidth) {
+				const CType currentColor = rasterData[y * bw + x];
+				if (error <= fullColorRange) {
+					rasterData[y * bw + x] = (additive ? currentColor + penColor : penColor);
+				} else {
+					double amount = 1.0 - (error - fullColorRange) / halfToneRange;
+					if (additive) {
+						rasterData[y * bw + x] += static_cast<CType>(penColor * amount);
+					} else {
+						rasterData[y * bw + x] = static_cast<CType>(penColor * amount + currentColor * (1.0 - amount));
+					}
+				}
+			}
+		}
 	}
 }

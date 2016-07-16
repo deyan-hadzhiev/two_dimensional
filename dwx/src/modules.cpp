@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 
+#include "arithmetic.h"
 #include "modules.h"
 #include "vector2.h"
 #include "matrix2.h"
@@ -240,9 +241,10 @@ void GeometricModule::setSize(int _width, int _height) {
 
 void GeometricModule::setColor(Color rgb) {
 	col = rgb;
+	primitive->getPen().setColor(col);
 }
 
-ModuleBase::ProcessResult GeometricModule::runModule(unsigned flags) {
+ModuleBase::ProcessResult GeometricModule::moduleImplementation(unsigned flags) {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
@@ -258,6 +260,10 @@ ModuleBase::ProcessResult GeometricModule::runModule(unsigned flags) {
 	pman->getBoolParam(additive, "additive");
 	pman->getBoolParam(clear, "clear");
 	pman->getBoolParam(axis, "axis");
+	std::string color;
+	pman->getStringParam(color, "color");
+	const uint32 colValue = strtoul(color.c_str(), NULL, 16);
+	setColor(Color(colValue));
 	unsigned dflags =
 		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
 		(clear ? DrawFlags::DF_CLEAR : 0) |
@@ -269,9 +275,9 @@ ModuleBase::ProcessResult GeometricModule::runModule(unsigned flags) {
 		pman->getStringParam(value, pd.name);
 		primitive->setParam(pd.name, value);
 	}
-	primitive->draw(col, dflags);
+	primitive->draw(dflags);
 	bmp = primitive->getBitmap();
-	setOutput();
+	SimpleModule::setOutput();
 	if (iman)
 		iman->moduleDone(KPR_OK);
 	return KPR_OK;
@@ -280,6 +286,60 @@ ModuleBase::ProcessResult GeometricModule::runModule(unsigned flags) {
 SinosoidModule::SinosoidModule()
 	: GeometricModule(new Sinosoid<Color>)
 {}
+
+ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned flags) {
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
+	const int pWidth = width;
+	const int pHeight = height;
+	pman->getIntParam(width, "width");
+	pman->getIntParam(height, "height");
+	bool dirtySize = (width != pWidth || height != pHeight);
+	if (dirtySize || !bmp.isOK()) {
+		raster->resize(width, height);
+		dirtySize = false;
+	}
+	bool additive, clear, axis;
+	pman->getBoolParam(additive, "additive");
+	pman->getBoolParam(clear, "clear");
+	pman->getBoolParam(axis, "axis");
+	unsigned dflags =
+		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
+		(clear ? DrawFlags::DF_CLEAR : 0) |
+		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
+
+	std::string color;
+	pman->getStringParam(color, "color");
+	const uint32 colValue = strtoul(color.c_str(), NULL, 16);
+	const Color penColor = Color(colValue);
+	float penWidth = 1.0;
+	pman->getFloatParam(penWidth, "penWidth");
+	float penStrenth = 0.5;
+	pman->getFloatParam(penStrenth, "penStrength");
+	const DrawPen<Color> pen(penColor, penWidth, penStrenth);
+	raster->setPen(pen);
+
+	std::string function;
+	pman->getStringParam(function, "function");
+
+	ExpressionTree functionTree;
+	if (!functionTree.buildTree(function)) {
+		return KPR_INVALID_INPUT;
+	}
+	const BinaryExpressionEvaluator bee = functionTree.getBinaryEvaluator();
+	auto evalFunction = [&bee](double x, double y) -> double {
+		return bee.eval(EvaluationContext(x, y, 0));
+	};
+	raster->setFunction(evalFunction);
+
+	raster->draw(dflags);
+	bmp = raster->getBitmap();
+	SimpleModule::setOutput();
+	if (iman)
+		iman->moduleDone(KPR_OK);
+	return KPR_OK;
+}
 
 ModuleBase::ProcessResult HoughModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
@@ -304,6 +364,7 @@ ModuleBase::ProcessResult HoughModule::moduleImplementation(unsigned flags) {
 		[&ro, &thetaRad](float x) -> float { return ro * cos(thetaRad - x); } // directly from the Hough Rho-Theta definition
 		);
 	const uint64 pc = 1; // we'll use it for addition - so it has to be one
+	aps.setPen(pc);
 	const Vector2 center(bw / 2 + .5f, bh / 2 + .5f);
 	const Color * bmpData = bmp.getDataPtr();
 	const int maxDim = bh * bw;
@@ -315,7 +376,7 @@ ModuleBase::ProcessResult HoughModule::moduleImplementation(unsigned flags) {
 				Vector2 roVec = p - center;
 				ro = roVec.length() / hs; // this is the length to the segment - ro
 				thetaRad = atan2(roVec.y, roVec.x);
-				aps.draw(pc, DrawFlags::DF_ACCUMULATE);
+				aps.draw(DrawFlags::DF_ACCUMULATE);
 			}
 			if (cb) {
 				cb->setPercentDone(y * bw + x, maxDim);
