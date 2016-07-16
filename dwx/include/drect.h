@@ -3,6 +3,9 @@
 
 #include "vector2.h"
 
+#include <algorithm>
+#include <cmath>
+
 // for representing size of a 2d object
 class Size2d {
 	float w;
@@ -81,19 +84,38 @@ public:
 	float height;
 
 	Rect() noexcept
-		: x(0.0f), y(0.0f), width(0.0f), height(0.0f)
+		: x(0.0f)
+		, y(0.0f)
+		, width(0.0f)
+		, height(0.0f)
 	{}
 
 	Rect(float _x, float _y, float _width, float _height) noexcept
-		: x(_x), y(_y), width(_width), height(_height)
+		: x(_x)
+		, y(_y)
+		, width(_width)
+		, height(_height)
 	{}
 
 	Rect(const Vector2& p, const Size2d& sz) noexcept
-		: x(p.x), y(p.y), width(sz.getWidth()), height(sz.getHeight())
+		: x(p.x)
+		, y(p.y)
+		, width(sz.getWidth())
+		, height(sz.getHeight())
+	{}
+
+	Rect(const Vector2& p0, const Vector2& p1) noexcept
+		: x(std::min(p0.x, p1.x))
+		, y(std::min(p0.y, p1.y))
+		, width(std::fabs(p0.x - p1.x))
+		, height(std::fabs(p0.x - p1.y))
 	{}
 
 	Rect(const Size2d& sz) noexcept
-		: x(0.0f), y(0.0f), width(sz.getWidth()), height(sz.getHeight())
+		: x(0.0f)
+		, y(0.0f)
+		, width(sz.getWidth())
+		, height(sz.getHeight())
 	{}
 
 	Rect(const Rect&) noexcept = default;
@@ -141,7 +163,7 @@ public:
 	inline void setBottomLeft(const Vector2& p) noexcept { setLeft(p.x); setBottom(p.y); }
 	inline void setLeftBottom(const Vector2& p) noexcept { setBottomLeft(p); }
 
-	inline Rect& intersect(const Rect& r) {
+	inline Rect& intersect(const Rect& r) noexcept {
 		float x2 = getRight();
 		float y2 = getBottom();
 		if (x < r.x)
@@ -157,6 +179,21 @@ public:
 			width = height = 0.0f;
 		}
 		return *this;
+	}
+
+	inline bool intersects(const Rect& r) const noexcept {
+		return !(
+			(  x +   width  < r.x) ||
+			(r.x + r.width  <   x) ||
+			(  y +   height < r.y) ||
+			(r.y + r.height <   y));
+	}
+
+	inline bool inside(const Vector2& p) const noexcept {
+		return (
+			p.x >= x && p.x <= x + width &&
+			p.y >= y && p.y <= y + height
+		);
 	}
 };
 
