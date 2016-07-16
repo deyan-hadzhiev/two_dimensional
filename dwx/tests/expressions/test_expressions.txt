@@ -1,0 +1,11 @@
+Elipse generic:
+(((x - h) * cos (alpha) + (y - k) * sin(alpha)) / a ) ^ 2 + (((x - h) * sin (alpha) - (y - k) * cos(alpha)) / b ) ^ 2 - 1
+
+Elipse specific:
+(((x - 20) * cos (sqrt(2) / 2) + (y - 10) * sin(sqrt(2) / 2)) / 15 ) ^ 2 + (((x - 20) * sin (sqrt(2) / 2) - (y - 10) * cos(sqrt(2) / 2)) / 35 ) ^ 2 - 1
+
+Elipse distance - (x0, y0) and (x1, y1) are foci
+sqrt((x - x0) ^ 2 + (y - y0) ^ 2) + sqrt((x - x1) ^ 2 + (y - y2) ^ 2) - C
+
+sqrt((x + 15) ^ 2 + (y + 30) ^ 2) + sqrt((x - 15) ^ 2 + (y - 30) ^ 2) - 100
+sqrt((x + 150) ^ 2 + (y + 30) ^ 2) + sqrt((x - 15) ^ 2 + (y - 30) ^ 2) - 300
