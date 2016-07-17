@@ -266,6 +266,7 @@ class ParamPanel : public wxPanel, public ParamManager {
 	std::unordered_map<std::string, int> paramMap;
 	std::unordered_map<int, ParamDescriptor> paramIdMap;
 	std::unordered_map<int, wxTextCtrl*> textCtrlMap;
+	std::unordered_map<int, std::pair<wxTextCtrl*, wxTextCtrl*> > pairTextCtrlMap;
 	std::unordered_map<int, wxCheckBox*> checkBoxMap;
 	std::unordered_map<int, CKernelPanel*> kernelMap;
 	std::unordered_map<int, wxChoice*> choiceMap;
@@ -297,6 +298,8 @@ public:
 	virtual bool getCKernelParam(ConvolutionKernel& value, const std::string& paramName) const override;
 
 	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const override;
+
+	virtual bool getVectorParam(Vector2& value, const std::string& paramName) const override;
 
 	virtual void resizeParent();
 

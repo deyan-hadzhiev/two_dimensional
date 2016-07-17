@@ -8,6 +8,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <mutex>
+
 #include "bitmap.h"
 #include "module_base.h"
 #include "geom_primitive.h"
@@ -124,7 +125,7 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
-class GeometricModule : public SimpleModule {
+class GeometricModule : public AsyncModule {
 protected:
 	GeometricPrimitive<Color> * primitive;
 	int width;
@@ -165,12 +166,67 @@ public:
 
 	virtual void setColor(Color rgb);
 
-	virtual ModuleBase::ProcessResult runModule(unsigned flags) override;
+	virtual ModuleBase::ProcessResult moduleImplementation(unsigned flags) override;
 };
 
 class SinosoidModule : public GeometricModule {
 public:
 	SinosoidModule();
+};
+
+class FunctionRasterModule : public AsyncModule {
+public:
+	FunctionRasterModule()
+		: raster(new FunctionRaster<Color>)
+		, width(1024)
+		, height(1024)
+	{
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "function", "x + y"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penWidth", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", std::to_string(height)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "scale", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "offset", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "color", std::string("ffffff")));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "additive", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "clear", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "axis", "false"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+private:
+	std::unique_ptr<FunctionRaster<Color> > raster;
+	int width;
+	int height;
+};
+
+class FineFunctionRasterModule : public AsyncModule {
+public:
+	FineFunctionRasterModule()
+		: raster(new FineFunctionRaster<Color>)
+		, width(1024)
+		, height(1024)
+	{
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "function", "x + y"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penWidth", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", std::to_string(height)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "scale", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "offset", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "color", std::string("ffffff")));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "additive", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "clear", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "axis", "false"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "outputTree", "false"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+private:
+	std::unique_ptr<FineFunctionRaster<Color> > raster;
+	int width;
+	int height;
 };
 
 class HoughModule : public AsyncModule {

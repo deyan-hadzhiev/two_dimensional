@@ -5,6 +5,10 @@ elseif (NOT EXISTS ${WX_WIDGETS_PATH})
 	message(FATAL_ERROR "Path to wxWidgets external location is required and must exist! ${WX_WIDGETS_PATH}")
 endif()
 
+if (WITH_TESTS)
+	add_subdirectory(tests)
+endif()
+
 set(PROJECT_NAME dwx)
 project(${PROJECT_NAME})
 
@@ -20,6 +24,8 @@ set (PUBLIC_HEADERS
 )
 
 set (HEADERS
+	include/arithmetic.h
+	include/ascii_table.h
 	include/bitmap.h
 	include/color.h
 	include/constants.h
@@ -33,6 +39,7 @@ set (HEADERS
 	include/modules.h
 	include/module_base.h
 	include/module_manager.h
+	include/quad_tree.h
 	include/util.h
 	include/vector2.h
 	include/wx_bitmap_canvas.h
@@ -41,6 +48,7 @@ set (HEADERS
 )
 
 set (SOURCES
+	src/arithmetic.cpp
 	src/bitmap.cpp
 	src/color.cpp
 	src/convolution.cpp

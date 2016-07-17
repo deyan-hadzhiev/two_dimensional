@@ -108,6 +108,7 @@ public:
 	int getWidth(void) const noexcept; //!< Gets the width of the image (X-dimension)
 	int getHeight(void) const noexcept; //!< Gets the height of the image (Y-dimension)
 	int getDimensionProduct() const noexcept; //!< Gets the product of the width and height dimensions
+	bool validPixelPosition(int x, int y) const noexcept; //!< Checks if the pixel position is valid (inside the pixelmap)
 	bool isOK(void) const noexcept; //!< Returns true if the bitmap is valid
 	void generateEmptyImage(int width, int height, bool clear = true) noexcept; //!< Creates an empty image with the given dimensions (and clears it by default)
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
@@ -159,6 +160,18 @@ public:
 
 	// draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
 	bool drawBitmap(Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;
+
+	// draws a line colinear with the supplied axis, with coord offset and from start to end
+	bool drawAxisAlignedLine(int start, int end, int coord, PixelmapAxis axis, const ColorType& color);
+
+	// draw a single ASCII character on the bitmap
+	bool drawCharacter(char ch, int x, int y, const ColorType& color) noexcept;
+
+	// draw a string of ASCII characters on the bitmap
+	bool drawString(const char * str, int x, int y, const ColorType& color) noexcept;
+
+	// returns the text extent considering new lines
+	static void getTextExtent(const char * str, int& w, int& h) noexcept;
 };
 
 using Bitmap = Pixelmap<>;

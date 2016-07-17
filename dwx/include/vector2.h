@@ -19,6 +19,11 @@ public:
 		, y(_y)
 	{}
 
+	explicit Vector2(int _x, int _y) noexcept
+		: x(static_cast<float>(_x))
+		, y(static_cast<float>(_y))
+	{}
+
 	void set(float _x, float _y) noexcept {
 		x = _x;
 		y = _y;

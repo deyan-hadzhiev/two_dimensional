@@ -1,0 +1,39 @@
+Elipse generic:
+(((x - h) * cos (alpha) + (y - k) * sin(alpha)) / a ) ^ 2 + (((x - h) * sin (alpha) - (y - k) * cos(alpha)) / b ) ^ 2 - 1
+
+Elipse specific:
+(((x - 20) * cos (sqrt(2) / 2) + (y - 10) * sin(sqrt(2) / 2)) / 15 ) ^ 2 + (((x - 20) * sin (sqrt(2) / 2) - (y - 10) * cos(sqrt(2) / 2)) / 35 ) ^ 2 - 1
+
+Elipse distance - (x0, y0) and (x1, y1) are foci
+sqrt((x - x0) ^ 2 + (y - y0) ^ 2) + sqrt((x - x1) ^ 2 + (y - y2) ^ 2) - C
+
+sqrt((x + 15) ^ 2 + (y + 30) ^ 2) + sqrt((x - 15) ^ 2 + (y - 30) ^ 2) - 100
+sqrt((x + 150) ^ 2 + (y + 30) ^ 2) + sqrt((x - 15) ^ 2 + (y - 30) ^ 2) - 300
+
+Sinusoid:
+100 * sin(x / 50) - y
+
+Some cool stuff:
+// pseudo checker (scale...)
+e ^ (sin(x) + cos(y)) - sin(e ^ (x + y))
+
+// some pseudo circles
+sin(sin(x) + cos(y)) - cos(sin(x * y) + cos(x))
+
+// some interesting pseudo rects
+abs(sin(x) + 1) ^ (abs(cos(x)) + abs(sin(x)) + e ^ sin(x)) - sin(x + y + x * y) ^ 2
+
+// intersecting elipsioids <3 - scale x100
+sin(x ^ 2 + y ^ 2) - cos(x * y)
+
+// ?
+sin(x^2+y^2)-sin((x/y)^2)
+
+// oscilating pattern
+abs(sin(x ^ 2 - y ^ 2)) - sin(x + y) - cos(y * x)
+
+// another oscilating
+abs(sin(x ^ 2 + 2 * x * y)) - sin(x - 2 * y)
+
+// d0d0
+(x-2)^2+((y+(1/2)x-5)^2+abs(x-2)+abs(x-4)-2)^2((y-(1/2)x-1)^2+abs(x-2)+abs(x-4)-2)^2((x-6)^2+(y-3)^2-1)^2(x-8)^2+((y+(1/2)x-8)^2+abs(x-8)+abs(x-10)-2)^2((y-(1/2)x+2)^2+abs(x-8)+abs(x-10)-2)^2((x-12)^2+(y-3)^2-1)^2+(y^2-6y+8+sqrt(y^4-12y^3+52y^2-96y+64))^2

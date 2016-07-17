@@ -909,9 +909,17 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 	wxTextCtrl * ctrl = new wxTextCtrl(this, id, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 	ctrl->SetValue(pd.defaultValue);
 	sizer->Add(ctrl, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
-	textCtrlMap[id] = ctrl;
 	// also connect the event
 	Connect(id, wxEVT_TEXT_ENTER, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	if (pd.type != ParamDescriptor::ParamType::PT_VECTOR) {
+		textCtrlMap[id] = ctrl;
+	} else {
+		// create a new text control for the y value
+		wxTextCtrl * ctrl2 = new wxTextCtrl(this, id, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+		ctrl2->SetValue(pd.defaultValue);
+		sizer->Add(ctrl2, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+		pairTextCtrlMap[id] = std::pair<wxTextCtrl*, wxTextCtrl*>(ctrl, ctrl2);
+	}
 }
 
 void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
@@ -984,6 +992,7 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 	case(ParamDescriptor::ParamType::PT_INT) :
 	case(ParamDescriptor::ParamType::PT_FLOAT) :
 	case(ParamDescriptor::ParamType::PT_STRING) :
+	case(ParamDescriptor::ParamType::PT_VECTOR) :
 		createTextCtrl(id, pd);
 		break;
 	case(ParamDescriptor::ParamType::PT_CKERNEL) :
@@ -1072,6 +1081,19 @@ bool ParamPanel::getEnumParam(unsigned & value, const std::string & paramName) c
 				value = static_cast<int>(selection);
 				return true;
 			}
+		}
+	}
+	return false;
+}
+
+bool ParamPanel::getVectorParam(Vector2 & value, const std::string & paramName) const {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = pairTextCtrlMap.find(paramIt->second);
+		if (ctrlIt != pairTextCtrlMap.end()) {
+			value.x = atof(ctrlIt->second.first->GetValue().c_str());
+			value.y = atof(ctrlIt->second.second->GetValue().c_str());
+			return true;
 		}
 	}
 	return false;

@@ -51,6 +51,7 @@ bool ViewApp::OnInit() {
 	// initialize some image handlers
 	wxImage::AddHandler(new wxPNGHandler);
 	wxImage::AddHandler(new wxJPEGHandler);
+	wxImage::AddHandler(new wxBMPHandler);
 
 	ViewFrame * frame = new ViewFrame(wxT("2d graphics"));
 	SetTopWindow(frame);

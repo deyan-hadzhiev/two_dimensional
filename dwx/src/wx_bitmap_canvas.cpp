@@ -411,13 +411,14 @@ void BitmapCanvas::OnMouseEvt(wxMouseEvent & evt) {
 		}
 	} else if (evType == wxEVT_LEFT_DOWN) {
 		mousePos = wxPoint(evt.GetX(), evt.GetY());
+		SetFocus();
 		mouseMoveDrag = true;
 		updatedMousePos = mousePos;
+		Refresh(false);
 	} else if (evType == wxEVT_LEFT_UP) {
 		mouseMoveDrag = false;
 	} else if (evType == wxEVT_ENTER_WINDOW) {
 		if (!mouseOverCanvas) {
-			SetFocus();
 			mouseOverCanvas = true;
 			updateStatus();
 			Refresh(false);

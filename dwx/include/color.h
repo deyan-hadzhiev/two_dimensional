@@ -183,21 +183,21 @@ public:
 	{}
 
 	/// make black
-	void makeZero() noexcept {
+	inline void makeZero() noexcept {
 		r = g = b = static_cast<T>(0);
 	}
 	/// set the color explicitly
-	void setColor(T _r, T _g, T _b) noexcept {
+	inline void setColor(T _r, T _g, T _b) noexcept {
 		r = _r;
 		g = _g;
 		b = _b;
 	}
 	/// get the intensity of the color (direct)
-	T intensity() const noexcept {
+	inline T intensity() const noexcept {
 		return static_cast<T>((int64(r) + int64(g) + int64(b)) / 3);
 	}
 	/// get the perceptual intensity of the color
-	T intensityPerceptual() const noexcept {
+	inline T intensityPerceptual() const noexcept {
 		return static_cast<T>(int64(r) * 0.299f + int64(g) * 0.587f + int64(b) * 0.114f);
 	}
 
@@ -209,33 +209,43 @@ public:
 		return components[index];
 	}
 
-	TColor& operator += (const TColor& rhs) noexcept {
+	inline TColor& operator += (const TColor& rhs) noexcept {
 		r = r + rhs.r;
 		g = g + rhs.g;
 		b = b + rhs.b;
 		return *this;
 	}
 
-	TColor& operator -= (const TColor& rhs) noexcept {
+	inline TColor& operator -= (const TColor& rhs) noexcept {
 		r = r - rhs.r;
 		g = g - rhs.g;
 		b = b - rhs.b;
 		return *this;
 	}
 
-	TColor& operator *= (const double mult) noexcept {
+	inline TColor& operator *= (const double mult) noexcept {
 		r = static_cast<T>(static_cast<double>(r) * mult);
 		g = static_cast<T>(static_cast<double>(g) * mult);
 		b = static_cast<T>(static_cast<double>(b) * mult);
 		return *this;
 	}
 
-	TColor& operator /= (const double div) noexcept {
+	inline TColor& operator /= (const double div) noexcept {
 		const double mult = 1.0 / div;
 		r = static_cast<T>(static_cast<double>(r) * mult);
 		g = static_cast<T>(static_cast<double>(g) * mult);
 		b = static_cast<T>(static_cast<double>(b) * mult);
 		return *this;
+	}
+
+	template<class T> friend TColor<T> operator+(const TColor<T>& lhs, const TColor<T>& rhs) noexcept;
+	template<class T> friend TColor<T> operator-(const TColor<T>& lhs, const TColor<T>& rhs) noexcept;
+	template<class T> friend TColor<T> operator*(const TColor<T>& lhs, const double mult) noexcept;
+	template<class T> friend TColor<T> operator*(const double mult, const TColor<T>& rhs) noexcept;
+	template<class T> friend TColor<T> operator/(const TColor<T>& lhs, const double div) noexcept;
+
+	inline TColor gradient(const double amount, const TColor& rhs) const noexcept {
+		return (*this) * amount + rhs * (1.0 - amount);
 	}
 };
 #pragma pack(pop)
@@ -374,21 +384,21 @@ public:
 	{}
 
 	/// make black
-	void makeZero(void) noexcept {
+	inline void makeZero(void) noexcept {
 		r = g = b = 0;
 	}
 	/// set the color explicitly
-	void setColor(uint8 _r, uint8 _g, uint8 _b) noexcept {
+	inline void setColor(uint8 _r, uint8 _g, uint8 _b) noexcept {
 		r = _r;
 		g = _g;
 		b = _b;
 	}
 	/// get the intensity of the color (direct)
-	uint8 intensity(void) const noexcept {
+	inline uint8 intensity(void) const noexcept {
 		return static_cast<uint8>((uint16(r) + uint16(g) + uint16(b)) / 3) ;
 	}
 	/// get the perceptual intensity of the color
-	uint8 intensityPerceptual(void) const noexcept {
+	inline uint8 intensityPerceptual(void) const noexcept {
 		return static_cast<unsigned char>(int(r) * 0.299f + int(g) * 0.587f + int(b) * 0.114f);
 	}
 
@@ -400,28 +410,28 @@ public:
 		return components[index];
 	}
 
-	Color& operator += (const Color& rhs) noexcept {
+	inline Color& operator += (const Color& rhs) noexcept {
 		r = static_cast<uint8>(std::min(static_cast<uint16>(r) + static_cast<uint16>(rhs.r), 0xff));
 		g = static_cast<uint8>(std::min(static_cast<uint16>(g) + static_cast<uint16>(rhs.g), 0xff));
 		b = static_cast<uint8>(std::min(static_cast<uint16>(b) + static_cast<uint16>(rhs.b), 0xff));
 		return *this;
 	}
 
-	Color& operator -= (const Color& rhs) noexcept {
+	inline Color& operator -= (const Color& rhs) noexcept {
 		r = static_cast<uint8>(std::max(static_cast<int16>(r) - static_cast<int16>(rhs.r), 0));
 		g = static_cast<uint8>(std::max(static_cast<int16>(g) - static_cast<int16>(rhs.g), 0));
 		b = static_cast<uint8>(std::max(static_cast<int16>(b) - static_cast<int16>(rhs.b), 0));
 		return *this;
 	}
 
-	Color& operator *= (const double mult) noexcept {
+	inline Color& operator *= (const double mult) noexcept {
 		r = static_cast<uint8>(clamp(r * mult, 0.0, 255.0));
 		g = static_cast<uint8>(clamp(g * mult, 0.0, 255.0));
 		b = static_cast<uint8>(clamp(b * mult, 0.0, 255.0));
 		return *this;
 	}
 
-	Color& operator /= (const double div) noexcept {
+	inline Color& operator /= (const double div) noexcept {
 		const double mult = 1.0f / div;
 		r = static_cast<uint8>(clamp(r * mult, 0.0, 255.0));
 		g = static_cast<uint8>(clamp(g * mult, 0.0, 255.0));
@@ -452,6 +462,16 @@ public:
 			Complex(static_cast<double>(g / 255.0), 0.0),
 			Complex(static_cast<double>(b / 255.0), 0.0)
 			);
+	}
+
+	friend Color operator+(const Color& lhs, const Color& rhs) noexcept;
+	friend Color operator-(const Color& lhs, const Color& rhs) noexcept;
+	friend Color operator*(const Color& lhs, const double mult) noexcept;
+	friend Color operator*(const double mult, const Color& rhs) noexcept;
+	friend Color operator/(const Color& lhs, const double div) noexcept;
+
+	inline Color gradient(const double amount, const Color& rhs) const noexcept {
+		return (*this) * amount + rhs * (1.0 - amount);
 	}
 };
 #pragma pack(pop)
