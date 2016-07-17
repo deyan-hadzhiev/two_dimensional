@@ -23,7 +23,7 @@ sin(sin(x) + cos(y)) - cos(sin(x * y) + cos(x))
 // some interesting pseudo rects
 abs(sin(x) + 1) ^ (abs(cos(x)) + abs(sin(x)) + e ^ sin(x)) - sin(x + y + x * y) ^ 2
 
-// intersecting elipsioids <3
+// intersecting elipsioids <3 - scale x100
 sin(x ^ 2 + y ^ 2) - cos(x * y)
 
 // ?

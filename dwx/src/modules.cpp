@@ -304,6 +304,15 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 		raster->resize(width, height);
 		dirtySize = false;
 	}
+
+	Vector2 scale(1.0f, 1.0f);
+	pman->getVectorParam(scale, "scale");
+	raster->setScale(scale);
+
+	Vector2 offset(0.0f, 0.0f);
+	pman->getVectorParam(offset, "offset");
+	raster->setOffset(offset);
+
 	bool additive, clear, axis;
 	pman->getBoolParam(additive, "additive");
 	pman->getBoolParam(clear, "clear");
@@ -363,6 +372,15 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 		raster->resize(width, height);
 		dirtySize = false;
 	}
+
+	Vector2 scale(1.0f, 1.0f);
+	pman->getVectorParam(scale, "scale");
+	raster->setScale(scale);
+
+	Vector2 offset(0.0f, 0.0f);
+	pman->getVectorParam(offset, "offset");
+	raster->setOffset(offset);
+
 	bool additive, clear, axis;
 	pman->getBoolParam(additive, "additive");
 	pman->getBoolParam(clear, "clear");

@@ -15,9 +15,9 @@ Vector2 GeometricPrimitive<CType>::rasterToReal(const Vector2 & r) const noexcep
 	const int bh = bmp.getHeight();
 	const Vector2 center(bw * 0.5f, bh * 0.5f);
 	// apply center and offset and flip y
-	const Vector2 realUnscaled(r.x - center.x + offset.x, -(r.y - center.y + offset.y));
+	const Vector2 realUnscaled(r.x - center.x, -(r.y - center.y));
 	// finally scale the result
-	return Vector2(realUnscaled.x / scale.x, realUnscaled.y / scale.y);
+	return Vector2(realUnscaled.x / scale.x + offset.x, realUnscaled.y / scale.y + offset.y);
 }
 
 template<class CType>
@@ -26,9 +26,9 @@ Vector2 GeometricPrimitive<CType>::realToRaster(const Vector2 & r) const noexcep
 	const int bh = bmp.getHeight();
 	const Vector2 center(bw * 0.5f, bh * 0.5f);
 	// first scale the coordinates
-	const Vector2 realScaled(r.x * scale.x, r.y * scale.y);
+	const Vector2 realScaled((r.x - offset.x )* scale.x, (r.y - offset.y) * scale.y);
 	// then apply the offset and center and flip Y
-	return Vector2(realScaled.x + center.x - offset.x, -realScaled.y + center.y - offset.y);
+	return Vector2(realScaled.x + center.x, -realScaled.y + center.y);
 }
 
 template<class CType>
@@ -366,21 +366,18 @@ void FunctionRaster<CType>::draw(unsigned flags) {
 	const bool additive = ((flags & DF_ACCUMULATE) != 0);
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
-	const int cx = bw / 2;
-	const int cy = bh / 2;
 	CType * rasterData = bmp.getDataPtr();
 	if ((flags & DF_SHOW_AXIS) != 0) {
 		drawAxes();
 	}
-	const double halfPenWidth = pen.getWidth() / 2.0 + 1.0;
+	const double halfPenWidth = (pen.getWidth() / 2.0 + 1.0) * (1.0 / ((scale.x + scale.y) * 0.5));
 	const double fullColorRange = clamp(pen.getStrength(), 0.0, 1.0) * halfPenWidth;
 	const double halfToneRange = halfPenWidth - fullColorRange;
 	const CType penColor = pen.getColor();
 	for (int y = 0; y < bh; ++y) {
 		for (int x = 0; x < bw; ++x) {
-			const double sampleX = x - cx + 0.5;
-			const double sampleY = -y + cy - 0.5;
-			const double error = abs(fxy(sampleX, sampleY));
+			const Vector2 sample = rasterToReal(Vector2(x, y) + Vector2(0.5f, 0.5f));
+			const double error = abs(fxy(sample.x, sample.y));
 			if (error <= halfPenWidth) {
 				const CType currentColor = rasterData[y * bw + x];
 				if (error <= fullColorRange) {
@@ -425,8 +422,6 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 	const bool additive = ((flags & DF_ACCUMULATE) != 0);
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
-	const int cx = bw / 2;
-	const int cy = bh / 2;
 	CType * rasterData = bmp.getDataPtr();
 	if ((flags & DF_SHOW_AXIS) != 0) {
 		drawAxes();
@@ -436,33 +431,31 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 	// get the proper number of levels in order to have small number of points in the tree
 	const int qtLevels = QuadTree<Vector2>::getLevels(5.0f, static_cast<float>(topQtDimension)) - 1;
 	// quad tree containing all intersections
-	QuadTree<Vector2> plotQt(qtLevels, topQtDimension / 2);
+	QuadTree<Vector2> plotQt(qtLevels, bw / (2.0f * scale.x), bh / (2.0f * scale.y), rasterToReal(Vector2(bw / 2, bh / 2)));
 
 	const float epsIntersection = 1.0e-6f;
 	// find all intersections
 	for (int y = 0; y < bh - 1; ++y) {
 		for (int x = 0; x < bw - 1; ++x) {
-			const double baseX = x - cx + 0.5;
-			const double baseY = y - cy + 0.5;
-			const double evalBase = fxy(baseX, baseY);
+			const Vector2 base = rasterToReal(Vector2(x, y) + Vector2(0.5f, 0.5f));
+			const double evalBase = fxy(base.x, base.y);
 			// if the base evaluation is close to 0 it is a direct intersection
 			if (std::abs(evalBase) < epsIntersection) {
-				const Vector2 intersection(static_cast<float>(baseX), static_cast<float>(baseY));
-				plotQt.addElement(intersection, intersection);
+				plotQt.addElement(base, base);
 			} else {
 				// otherwise check for horizontal and vertical intersection
-				const double nextX = baseX + 1.0;
-				const double evalHoriz = fxy(nextX, baseY);
+				const double nextX = base.x + 1.0f / scale.x;
+				const double evalHoriz = fxy(nextX, base.y);
 				// there is an intersection if the signs of the two evaluations differ
 				const bool ix = (evalBase * evalHoriz) < 0.0;
 				// if there is intersection - perform binary search to find the exact point
 				if (ix) {
-					double x0 = baseX;
+					double x0 = base.x;
 					double x1 = nextX;
 					double evalX0 = evalBase;
 					double evalX1 = evalHoriz;
 					double dx = (x0 + x1) * 0.5;
-					double evalDx = fxy(dx, baseY);
+					double evalDx = fxy(dx, base.y);
 					while (x1 - x0 > epsIntersection) {
 						if (std::abs(evalDx) < epsIntersection) {
 							// if there is a direct intersection - just break
@@ -477,23 +470,23 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 							evalX1 = evalDx;
 						}
 						dx = (x0 + x1) * 0.5;
-						evalDx = fxy(dx, baseY);
+						evalDx = fxy(dx, base.y);
 					}
 					// now dx contains the midPoint of two close evaluations - use it directly
-					const Vector2 intersection(static_cast<float>(dx), static_cast<float>(baseY));
+					const Vector2 intersection(static_cast<float>(dx), base.y);
 					plotQt.addElement(intersection, intersection);
 				}
-				const double nextY = baseY + 1.0;
-				const double evalVert = fxy(baseX, nextY);
+				const double nextY = base.y + 1.0f / scale.y;
+				const double evalVert = fxy(base.x, nextY);
 				// there is an intersection if the signs of the two evaluations differ
 				const bool iy = (evalBase * evalVert) < 0.0;
 				if (iy) {
-					double y0 = baseY;
+					double y0 = base.y;
 					double y1 = nextY;
 					double evalY0 = evalBase;
 					double evalY1 = evalVert;
 					double dy = (y0 + y1) * 0.5;
-					double evalDy = fxy(baseX, dy);
+					double evalDy = fxy(base.y, dy);
 					while (y1 - y0 > epsIntersection) {
 						if (std::abs(evalDy) < epsIntersection) {
 							// if there is a direct intersection - just break
@@ -508,10 +501,10 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 							evalY1 = evalDy;
 						}
 						dy = (y0 + y1) * 0.5;
-						evalDy = fxy(baseX, dy);
+						evalDy = fxy(base.x, dy);
 					}
 					// now dy contains the midPoint of two close evaluations - use it directly
-					const Vector2 intersection(static_cast<float>(baseX), static_cast<float>(dy));
+					const Vector2 intersection(base.x, static_cast<float>(dy));
 					plotQt.addElement(intersection, intersection);
 				}
 			}
@@ -535,8 +528,9 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 		plotQt.getBottomTrees(intersections);
 		for (const auto& iqt : intersections) {
 			for (const auto& qte : *(iqt->getTreeElements())) {
-				const int dx = static_cast<int>(std::floor(qte.position.x)) + cx;
-				const int dy = static_cast<int>(std::floor(-qte.position.y)) + cy;
+				const Vector2 rasterPos = realToRaster(qte.position);
+				const int dx = static_cast<int>(std::floor(rasterPos.x));
+				const int dy = static_cast<int>(std::floor(rasterPos.y));
 				if (dx >= 0 && dy >= 0 && dx < bw && dy < bh) {
 					rasterData[dy * bw + dx] = (additive ? rasterData[dy * bw + dx] + penColor : penColor);
 				}
@@ -550,14 +544,14 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 		}
 	} else {
 		// now extract the neighbouring intersection point for each pixel in the raster based on the pen width
-		const float halfPenWidth = static_cast<float>(pen.getWidth() / 2.0) + 1.0f; // add one to properly color edging pixels
+		const float halfPenWidth = (static_cast<float>(pen.getWidth() / 2.0) + 1.0f)  * (1.0f / ((scale.x + scale.y) * 0.5f)); // add one to properly color edging pixels
 		const float fullColorRange = static_cast<float>(clamp(pen.getStrength(), 0.0, 1.0) * halfPenWidth);
 		const float halfToneRange = halfPenWidth - fullColorRange;
 		std::vector<QuadTree<Vector2>::QuadTreeElement> intersections;
-		const Vector2 penHalfSize(halfPenWidth + 1.0f, halfPenWidth + 1.0f); // add one to have correct results for small pens
+		const Vector2 penHalfSize(halfPenWidth, halfPenWidth); // add one to have correct results for small pens
 		for (int y = 0; y < bh; ++y) {
 			for (int x = 0; x < bw; ++x) {
-				const Vector2 samplePos(x - cx + 0.5f, y - cy + 0.5f);
+				const Vector2 samplePos = rasterToReal(Vector2(x, y) + Vector2(0.5f, 0.5f));
 				const Rect pixelBBox(samplePos - penHalfSize, samplePos + penHalfSize);
 				intersections.clear();
 				plotQt.getElements(intersections, pixelBBox);
@@ -574,8 +568,7 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 				}
 				// now if a point was found calculate the actual distance and the coloring of the pixel
 				if (found) {
-					const int ay = bh - y - 1; // recalculate y, because the coordinate system is mirrored
-					CType& rdata = rasterData[ay * bw + x];
+					CType& rdata = rasterData[y * bw + x];
 					const float dist = sqrtf(closestSquareDist);
 					if (dist <= fullColorRange) {
 						rdata = (additive ? rdata + penColor : penColor);

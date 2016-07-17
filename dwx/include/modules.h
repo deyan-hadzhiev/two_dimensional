@@ -186,6 +186,8 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", std::to_string(height)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "scale", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "offset", "0.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "color", std::string("ffffff")));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "additive", "false"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "clear", "false"));
@@ -211,6 +213,8 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", std::to_string(height)));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "scale", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_VECTOR, "offset", "0.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "color", std::string("ffffff")));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "additive", "false"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "clear", "false"));
