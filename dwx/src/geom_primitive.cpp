@@ -3,9 +3,152 @@
 #include "drect.h"
 #include "module_base.h"
 
+#include <string>
+
 const Color GeometricPrimitive<Color>::axisCol = Color(127, 127, 127);
 const uint32 GeometricPrimitive<uint32>::axisCol = ~0 >> 1;
 const uint64 GeometricPrimitive<uint64>::axisCol = ~0ULL >> 1;
+
+template<class CType>
+Vector2 GeometricPrimitive<CType>::rasterToReal(const Vector2 & r) const noexcept {
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const Vector2 center(bw * 0.5f, bh * 0.5f);
+	// apply center and offset and flip y
+	const Vector2 realUnscaled(r.x - center.x + offset.x, -(r.y - center.y + offset.y));
+	// finally scale the result
+	return Vector2(realUnscaled.x / scale.x, realUnscaled.y / scale.y);
+}
+
+template<class CType>
+Vector2 GeometricPrimitive<CType>::realToRaster(const Vector2 & r) const noexcept {
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const Vector2 center(bw * 0.5f, bh * 0.5f);
+	// first scale the coordinates
+	const Vector2 realScaled(r.x * scale.x, r.y * scale.y);
+	// then apply the offset and center and flip Y
+	return Vector2(realScaled.x + center.x - offset.x, -realScaled.y + center.y - offset.y);
+}
+
+template<class CType>
+void GeometricPrimitive<CType>::drawAxes() {
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	// get the (0, 0) from real to raster coordinates
+	const Vector2 center = realToRaster(Vector2(0.0f, 0.0f));
+	// all draws should be done with the bmp.setPixel(..) function
+	// since it has boundary checks
+	const int cx = static_cast<int>(center.x);
+	const int cy = static_cast<int>(center.y);
+	// check if the center is in the raster
+	bool centerInRaster = (cx >= 0 && cx < bw && cy >= 0 && cy < bh);
+	const int subdivs = 3; //!< the number of subdivisions shown
+	const int subdivLineLen = 9; //!< the length of the subdivision line
+	// some constants for the text drawing
+	const int textOffsetX = 3;
+	const int textOffsetY = 2;
+	char workStr[128] = "";
+	const char format[] = "%.2f";
+	// first draw some stuff on the horizontal axis (if it is in the raster)
+	if (cy >= 0 && cy < bh) {
+		bmp.drawAxisAlignedLine(0, bw - 1, cy, PA_X_AXIS, axisCol);
+		const int step = bw / (subdivs + 1);
+		std::vector<int> points;
+		if (centerInRaster) {
+			for (int i = 0; i < subdivs; ++i) {
+				const int pointOffset = (i + 1) * step;
+				if (bmp.validPixelPosition(cx + pointOffset, cy)) {
+					points.push_back(cx + pointOffset);
+				}
+				if (bmp.validPixelPosition(cx - pointOffset, cy)) {
+					points.push_back(cx - pointOffset);
+				}
+			}
+		} else {
+			// else just put the points that are on step size from the edge
+			for (int i = 0; i < subdivs; ++i) {
+				const int pointOffset = (i + 1) * step;
+				points.push_back(pointOffset);
+			}
+		}
+		const int halfLen = subdivLineLen / 2;
+		// now draw a separator line for each subdivision
+		for (int x : points) {
+			bmp.drawAxisAlignedLine(cy - halfLen, cy + halfLen, x, PA_Y_AXIS, axisCol);
+			// and now draw some text about the actual value
+			const Vector2 rasterPos(x, cy);
+			const Vector2 realPos = rasterToReal(rasterPos);
+			snprintf(workStr, _countof(workStr), format, realPos.x);
+			bmp.drawString(workStr, x + textOffsetX, cy + textOffsetY, axisCol);
+		}
+		// and finally draw some text and lines on the two ends (only if the center is not in the raster)
+		bmp.drawAxisAlignedLine(cy - halfLen, cy + halfLen, bw - 1, PA_Y_AXIS, axisCol);
+		const Vector2 rightReal = rasterToReal(Vector2(bw - 1, cy));
+		snprintf(workStr, _countof(workStr), format, rightReal.x);
+		// for the other end the text extent must be calculated first
+		int tw = 0, th = 0;
+		bmp.getTextExtent(workStr, tw, th);
+		bmp.drawString(workStr, bw - tw - textOffsetX - 1, cy + textOffsetY, axisCol);
+		if (!centerInRaster) {
+			bmp.drawAxisAlignedLine(cy - halfLen, cy + halfLen, 0, PA_Y_AXIS, axisCol);
+			const Vector2 leftReal = rasterToReal(Vector2(0, cy));
+			snprintf(workStr, _countof(workStr), format, leftReal.x);
+			bmp.drawString(workStr, textOffsetX, cy + textOffsetY, axisCol);
+		}
+	}
+	// second draw some stuff on the vertical axis (if it is in the raster)
+	if (cx >= 0 && cx < bw){
+		bmp.drawAxisAlignedLine(0, bh - 1, cx, PA_Y_AXIS, axisCol);
+		const int step = bh / (subdivs + 1);
+		std::vector<int> points;
+		if (centerInRaster) {
+			for (int i = 0; i < subdivs; ++i) {
+				const int pointOffset = (i + 1) * step;
+				if (bmp.validPixelPosition(cx, cy + pointOffset)) {
+					points.push_back(cy + pointOffset);
+				}
+				if (bmp.validPixelPosition(cx, cy - pointOffset)) {
+					points.push_back(cy - pointOffset);
+				}
+			}
+		} else {
+			// else just put the points that are on step size from the edge
+			for (int i = 0; i < subdivs; ++i) {
+				const int pointOffset = (i + 1) * step;
+				points.push_back(pointOffset);
+			}
+		}
+		const int halfLen = subdivLineLen / 2;
+		// now draw a separator line for each subdivision
+		for (int y : points) {
+			bmp.drawAxisAlignedLine(cx - halfLen, cx + halfLen, y, PA_X_AXIS, axisCol);
+			// and now draw some text about the actual value
+			const Vector2 rasterPos(cx, y);
+			const Vector2 realPos = rasterToReal(rasterPos);
+			snprintf(workStr, _countof(workStr), format, realPos.y);
+			bmp.drawString(workStr, cx + textOffsetX, y + textOffsetY, axisCol);
+		}
+		// and finally draw some text and lines on the two ends (only if the center is not in the raster
+		bmp.drawAxisAlignedLine(cx - halfLen, cx + halfLen, bh - 1, PA_X_AXIS, axisCol);
+		const Vector2 rightReal = rasterToReal(Vector2(cx, bh - 1));
+		snprintf(workStr, _countof(workStr), format, rightReal.y);
+		// for the other end the text extent must be calculated first
+		int tw = 0, th = 0;
+		bmp.getTextExtent(workStr, tw, th);
+		bmp.drawString(workStr, cx + textOffsetX, bh - th - textOffsetY - 1, axisCol);
+		if (!centerInRaster) {
+			bmp.drawAxisAlignedLine(cx - halfLen, cx + halfLen, 0, PA_X_AXIS, axisCol);
+			const Vector2 leftReal = rasterToReal(Vector2(cx, 0));
+			snprintf(workStr, _countof(workStr), format, leftReal.y);
+			bmp.drawString(workStr, cx + textOffsetX, textOffsetY, axisCol);
+		}
+	}
+	// finally draw the 0 indication in the center if it is in the raster
+	if (centerInRaster) {
+		bmp.drawString("0.0", cx + textOffsetX, cy + textOffsetY, axisCol);
+	}
+}
 
 template class Sinosoid<Color>;
 template class Sinosoid<uint32>;
@@ -64,13 +207,7 @@ void Sinosoid<CType>::draw(unsigned flags) {
 	const int cy = bh / 2;
 	CType * bmpData = bmp.getDataPtr();
 	if ((flags & DF_SHOW_AXIS) != 0) {
-		// draw coord system
-		for (int x = 0; x < bw; ++x) {
-			bmpData[cy * bw + x] = axisCol;
-		}
-		for (int y = 0; y < bh; ++y) {
-			bmpData[y * bw + cx] = axisCol;
-		}
+		drawAxes();
 	}
 	const CType scol = pen.getColor();
 	auto xToRad = [cx](int x) -> float {
@@ -157,13 +294,7 @@ void Function<CType>::draw(unsigned flags) {
 	const int cy = bh / 2;
 	CType * bmpData = bmp.getDataPtr();
 	if ((flags & DF_SHOW_AXIS) != 0) {
-		// draw coord system
-		for (int x = 0; x < bw; ++x) {
-			bmpData[cy * bw + x] = axisCol;
-		}
-		for (int y = 0; y < bh; ++y) {
-			bmpData[y * bw + cx] = axisCol;
-		}
+		drawAxes();
 	}
 	const CType scol = pen.getColor();
 	float x0f = mapX(-cx);
@@ -239,13 +370,7 @@ void FunctionRaster<CType>::draw(unsigned flags) {
 	const int cy = bh / 2;
 	CType * rasterData = bmp.getDataPtr();
 	if ((flags & DF_SHOW_AXIS) != 0) {
-		// draw coord system
-		for (int x = 0; x < bw; ++x) {
-			rasterData[cy * bw + x] = axisCol;
-		}
-		for (int y = 0; y < bh; ++y) {
-			rasterData[y * bw + cx] = axisCol;
-		}
+		drawAxes();
 	}
 	const double halfPenWidth = pen.getWidth() / 2.0 + 1.0;
 	const double fullColorRange = clamp(pen.getStrength(), 0.0, 1.0) * halfPenWidth;
@@ -304,13 +429,7 @@ void FineFunctionRaster<CType>::draw(unsigned flags) {
 	const int cy = bh / 2;
 	CType * rasterData = bmp.getDataPtr();
 	if ((flags & DF_SHOW_AXIS) != 0) {
-		// draw coord system
-		for (int x = 0; x < bw; ++x) {
-			rasterData[cy * bw + x] = axisCol;
-		}
-		for (int y = 0; y < bh; ++y) {
-			rasterData[y * bw + cx] = axisCol;
-		}
+		drawAxes();
 	}
 
 	const float topQtDimension = static_cast<float>(std::max(bw, bh));

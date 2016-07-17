@@ -61,14 +61,21 @@ protected:
 	static const CType axisCol;
 	DrawPen<CType> pen;
 	ProgressCallback * cb;
+	Vector2 scale; //!< the scale of the coordinate system
+	Vector2 offset; //!< the offset of the coordinate system
 public:
 	GeometricPrimitive()
 		: pen(CType())
+		, cb(nullptr)
+		, scale(1.0f, 1.0f)
+		, offset(0.0f, 0.0f)
 	{}
 	GeometricPrimitive(int width, int height)
 		: bmp(width, height)
 		, pen(CType())
 		, cb(nullptr)
+		, scale(1.0f, 1.0f)
+		, offset(0.0f, 0.0f)
 	{}
 
 	virtual ~GeometricPrimitive() {}
@@ -104,6 +111,24 @@ public:
 	void setProgressCallback(ProgressCallback * pcb) {
 		cb = pcb;
 	}
+
+	void setScale(const Vector2& s) {
+		if (isfinite(s.x) && isfinite(s.y) && fabs(s.x) > Eps && fabs(s.y) > Eps) {
+			scale = s;
+		}
+	}
+
+	void setOffset(const Vector2& off) {
+		offset = off;
+	}
+
+	// returns the input raster coordinates in the real coordinate system
+	Vector2 rasterToReal(const Vector2& r) const noexcept;
+
+	// returns the input real coordinates in the raster coordinate system
+	Vector2 realToRaster(const Vector2& r) const noexcept;
+
+	void drawAxes();
 
 	// parametric setters and getters
 	virtual void setParam(const std::string& p, const std::string& value) {}
