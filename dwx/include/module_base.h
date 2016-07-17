@@ -7,6 +7,7 @@
 
 #include "bitmap.h"
 #include "convolution.h"
+#include "vector2.h"
 
 class InputManager;
 class OutputManager;
@@ -150,6 +151,8 @@ public:
 		PT_STRING,
 		PT_ENUM,
 		PT_CKERNEL,
+		PT_VECTOR,
+		PT_BIG_STRING,
 	} type;
 	ModuleBase * module;
 	std::string name;
@@ -190,6 +193,10 @@ public:
 	}
 
 	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getVectorParam(Vector2& value, const std::string& paramName) const {
 		return false;
 	}
 
