@@ -23,6 +23,7 @@
 #include "bitmap.h"
 #include "color.h"
 #include "constants.h"
+#include "ascii_table.h"
 
 FloatBitmap::FloatBitmap() noexcept
 	: width(-1)
@@ -349,6 +350,11 @@ int Pixelmap<ColorType>::getHeight(void) const noexcept {
 template<class ColorType>
 int Pixelmap<ColorType>::getDimensionProduct() const noexcept {
 	return width * height;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::validPixelPosition(int x, int y) const noexcept {
+	return (x >= 0 && x < width && y >= 0 && y < height);
 }
 
 template<class ColorType>
@@ -904,6 +910,123 @@ bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, 
 		}
 	}
 	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::drawAxisAlignedLine(int start, int end, int coord, PixelmapAxis axis, const ColorType & color) {
+	if (!isOK() ||
+		coord < 0 ||
+		(start < 0 && end < 0) ||
+		axis == PixelmapAxis::PA_NONE ||
+		axis == PixelmapAxis::PA_BOTH ||
+		(axis == PixelmapAxis::PA_X_AXIS && (coord >= height || (start >= width  && end >= width ))) ||
+		(axis == PixelmapAxis::PA_Y_AXIS && (coord >= width  || (start >= height && end >= height))))
+	{
+		return false;
+	}
+	int x0, x1, y0, y1, stepX, stepY;
+	if (PixelmapAxis::PA_X_AXIS == axis) {
+		stepX = 1;
+		stepY = 0;
+		x0 = clamp(std::min(start, end), 0, width - 1);
+		x1 = clamp(std::max(start, end), 0, width - 1);
+		y0 = y1 = coord;
+	} else if (PixelmapAxis::PA_Y_AXIS == axis) {
+		stepX = 0;
+		stepY = 1;
+		x0 = x1 = coord;
+		y0 = clamp(std::min(start, end), 0, height - 1);
+		y1 = clamp(std::max(start, end), 0, height - 1);
+	} else {
+		return false;
+	}
+	for (int x = x0, y = y0; x != x1 || y != y1; x += stepX, y += stepY) {
+		data[y * width + x] = color;
+	}
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::drawCharacter(char ch, int x, int y, const ColorType& color) noexcept {
+	if (!isOK() || x + ASCII_TABLE_PACKED_WIDTH < 0 || y + ASCII_TABLE_PACKED_HEIGHT < 0 || x >= width || y >= height) {
+		return false;
+	}
+
+	const int sw = ASCII_TABLE_PACKED_WIDTH;
+	const int sh = ASCII_TABLE_PACKED_HEIGHT;
+	const int dx = (x < 0 ? 0 : x);
+	const int dy = (y < 0 ? 0 : y);
+	const int sx = (x < 0 ? -x : 0) + ASCII_TABLE_PACKED_OFFSET_X;
+	const int sy = (y < 0 ? -y : 0) + ASCII_TABLE_PACKED_OFFSET_Y;
+	const int dw = (x < 0 ? std::min(x + sw, width) : std::min(width - x, sw));
+	const int dh = (y < 0 ? std::min(y + sh, height) : std::min(height - y, sh));
+	// check for getting out of bouds
+	if (dw <= 0 || dh <= 0 || sx >= sw || sy >= sh) {
+		return false;
+	}
+	const float * asciiData = ASCII_TABLE_MASKS[ch];
+	for (int yy = 0; yy < dh; ++yy) {
+		ColorType * destRow = data + (dy + yy) * width + dx;
+		// use the actual width, because the data is not packed
+		const float * maskRow = asciiData + (sy + yy) * ASCII_TABLE_CHAR_WIDTH + sx;
+		for (int xx = 0; xx < dw; ++xx) {
+			ColorType& dataPixel = destRow[xx];
+			const float maskValue = maskRow[xx];
+			dataPixel = static_cast<ColorType>(dataPixel * (1.0 - maskValue)) + static_cast<ColorType>(color * maskValue);
+		}
+	}
+	return true;
+}
+
+template<class ColorType>
+bool Pixelmap<ColorType>::drawString(const char * str, int x, int y, const ColorType& color) noexcept {
+	if (!isOK() || !str || x >= width || y >= height) {
+		return false;
+	}
+	// get the text extent
+	int textWidth = 0;
+	int textHeight = 0;
+	getTextExtent(str, textWidth, textHeight);
+	if (textWidth == 0 || textHeight == 0 || x + textWidth <= 0 || y + textHeight <= 0) {
+		return false;
+	}
+
+	const int strLen = static_cast<int>(strlen(str));
+
+	// output the characters one by one
+	for (int i = 0, dx = x, dy = y; i < strLen; ++i) {
+		if (str[i] == '\n') {
+			dx = x; // reset dx
+			dy += ASCII_TABLE_PACKED_HEIGHT + 1; // and accumulate dy
+		} else {
+			drawCharacter(str[i], dx, dy, color);
+			dx += ASCII_TABLE_PACKED_WIDTH + 1;
+		}
+	}
+	return true;
+}
+
+template<class ColorType>
+void Pixelmap<ColorType>::getTextExtent(const char * str, int & w, int & h) noexcept {
+	if (!str || str[0] == '\0') {
+		w = 0;
+		h = 0;
+		return;
+	}
+	const int strLen = static_cast<int>(strlen(str));
+	// check for new line characters
+	int lines = 1;
+	int maxWidth = 0;
+	int lastNewLine = 0;
+	for (int i = 0; i < strLen; ++i) {
+		if (str[i] == '\n') {
+			lines++;
+			lastNewLine = i;
+		}
+		maxWidth = std::max(i - lastNewLine + 1, maxWidth);
+	}
+	w = maxWidth * (ASCII_TABLE_PACKED_WIDTH + 1);
+	h = lines * (ASCII_TABLE_PACKED_HEIGHT + 1);
 }
 
 template class Histogram<HDL_CHANNEL>;
