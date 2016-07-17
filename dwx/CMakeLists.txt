@@ -25,6 +25,7 @@ set (PUBLIC_HEADERS
 
 set (HEADERS
 	include/arithmetic.h
+	include/ascii_table.h
 	include/bitmap.h
 	include/color.h
 	include/constants.h

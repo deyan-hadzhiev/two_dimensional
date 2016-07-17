@@ -23,6 +23,8 @@ endif()
 
 add_subdirectory(dwx)
 
+add_subdirectory(utils)
+
 if (EXISTS ${INSTALL_DIR} AND WITH_SDL)
 	install(FILES ${SDL_PATH}/lib/x64/SDL2.dll DESTINATION ${INSTALL_DIR})
 endif()
