@@ -30,9 +30,10 @@ public:
 		T element;
 	};
 
-	QuadTree(int _level, float _halfDimension, Vector2 _c = Vector2(0.0f, 0.0f))
+	QuadTree(int _level, float _halfWidth, float _halfHeight, Vector2 _c = Vector2(0.0f, 0.0f))
 		: level(_level)
-		, halfDimension(_halfDimension)
+		, halfWidth(_halfWidth)
+		, halfHeight(_halfHeight)
 		, c(_c)
 		, subtrees{ nullptr }
 	{}
@@ -46,7 +47,8 @@ public:
 
 	QuadTree(const QuadTree& copy)
 		: level(copy.level)
-		, halfDimension(copy.halfDimension)
+		, halfWidth(copy.halfWidth)
+		, halfHeight(copy.halfHeight)
 		, c(copy.c)
 		, subtrees{ nullptr }
 	{
@@ -69,10 +71,10 @@ public:
 	// returns the bounding box of the quad tree
 	inline Rect getBoundingBox() const noexcept {
 		return Rect(
-			c.x - halfDimension,
-			c.y - halfDimension,
-			halfDimension * 2.0f,
-			halfDimension * 2.0f
+			c.x - halfWidth,
+			c.y - halfHeight,
+			halfWidth * 2.0f,
+			halfHeight * 2.0f
 		);
 	}
 
@@ -173,19 +175,21 @@ private:
 			(p.y < c.y ? QuadTreeOffsets::QTO_NEG_Y : 0);
 		if (nullptr == subtrees[subtreeIndex] && create) {
 			// create the subtree
-			const float subHalfDim = halfDimension * 0.5f;
+			const float subHalfWidth = halfWidth * 0.5f;
+			const float subHalfHeight = halfHeight * 0.5f;
 			const Vector2 subCenter(
-				c.x + (p.x < c.x ? -subHalfDim : subHalfDim),
-				c.y + (p.y < c.y ? -subHalfDim : subHalfDim)
+				c.x + (p.x < c.x ? -subHalfWidth : subHalfWidth),
+				c.y + (p.y < c.y ? -subHalfHeight : subHalfHeight)
 			);
-			subtrees[subtreeIndex] = new QuadTree(level - 1, subHalfDim, subCenter);
+			subtrees[subtreeIndex] = new QuadTree(level - 1, subHalfWidth, subHalfHeight, subCenter);
 		}
 		return subtrees[subtreeIndex];
 	}
 
 	inline void copyTree(const QuadTree& cpy) {
 		c = cpy.c;
-		halfDimension = cpy.halfDimension;
+		halfWidth = cpy.halfWidth;
+		halfHeight = cpy.halfHeight;
 		level = cpy.level;
 		for (int i = 0; i < QuadTreeOffsets::QTO_COUNT; ++i) {
 			if (nullptr != subtrees[i]) {
@@ -194,7 +198,7 @@ private:
 			}
 			if (nullptr != cpy.subtrees[i]) {
 				const QuadTree& subt = cpy.subtrees[i];
-				subtrees[i] = new QuadTree(subt.level, subt.halfDimension, subt.c);
+				subtrees[i] = new QuadTree(subt.level, subt.halfWidth, subt.halfHeight, subt.c);
 				subtrees[i]->copyTree(subt);
 			} else {
 				subtrees[i] = nullptr;
@@ -206,7 +210,8 @@ private:
 	}
 
 	Vector2 c; //!< the center of this quad tree
-	float halfDimension; //!< the half dimension of the quad tree (it has width and height of 2 * halfDimension)
+	float halfWidth; //!< the half width of the quad tree (it has width of 2 * halfWidth)
+	float halfHeight; //!< the half height of the quad tree (it has height of 2 * halfHeight)
 	int level; //!< the level of depth upwards from the current tree relative to its subtrees
 	QuadTree * subtrees[QuadTreeOffsets::QTO_COUNT]; //!< the subtrees of this tree (may be nullptr)
 
