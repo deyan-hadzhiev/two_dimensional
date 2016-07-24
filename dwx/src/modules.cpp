@@ -385,7 +385,7 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 	pman->getBoolParam(additive, "additive");
 	pman->getBoolParam(clear, "clear");
 	pman->getBoolParam(axis, "axis");
-	unsigned dflags =
+	const unsigned dflags =
 		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
 		(clear ? DrawFlags::DF_CLEAR : 0) |
 		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
@@ -401,26 +401,37 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 	const DrawPen<Color> pen(penColor, penWidth, penStrenth);
 	raster->setPen(pen);
 
+	bool treeOutput = false;
+	pman->getBoolParam(treeOutput, "outputTree");
+	raster->setTreeOutput(treeOutput);
+
 	std::string function;
 	pman->getStringParam(function, "function");
+	std::vector<std::string> functionList = splitString(function.c_str(), ';');
 
-	ExpressionTree functionTree;
-	if (!functionTree.buildTree(function)) {
-		return KPR_INVALID_INPUT;
-	}
-	const BinaryExpressionEvaluator bee = functionTree.getBinaryEvaluator();
+	BinaryExpressionEvaluator bee;
 	auto evalFunction = [&bee](double x, double y) -> double {
 		return bee.eval(EvaluationContext(x, y, 0));
 	};
 	raster->setFunction(evalFunction);
 
-	bool treeOutput = false;
-	pman->getBoolParam(treeOutput, "outputTree");
-	raster->setTreeOutput(treeOutput);
-
 	raster->setProgressCallback(cb);
 
-	raster->draw(dflags);
+	unsigned drawFlags = dflags;
+	const int functionCount = functionList.size();
+	for (int i = 0; i < functionCount; ++i) {
+		ExpressionTree functionTree;
+		if (!functionTree.buildTree(functionList[i])) {
+			return KPR_INVALID_INPUT;
+		}
+		bee = functionTree.getBinaryEvaluator();
+
+		raster->draw(drawFlags);
+		// after the first run, reset some of the draw flags
+		// generally remove the axis flag and the clear flag
+		drawFlags = dflags & DrawFlags::DF_ACCUMULATE;
+	}
+
 	bmp = raster->getBitmap();
 	SimpleModule::setOutput();
 	if (iman)
