@@ -15,7 +15,6 @@ class ViewFrame;
 class ModePanel : public wxPanel {
 public:
 	friend class ParamPanel;
-	friend class CKernelPanel;
 
 	ModePanel(ViewFrame * viewFrame, unsigned styles = ViewFrame::VFS_NOTHING_ENABLED);
 	virtual ~ModePanel();
@@ -29,10 +28,11 @@ public:
 	virtual void setInput(const wxImage& input) {}
 
 	wxString getCbString() const;
+
+	static const int panelBorder; //!< the default border of panels
 protected:
 	ViewFrame * viewFrame;
 	wxBoxSizer * mPanelSizer;
-	static const int panelBorder; //!< the default border of panels
 	ProgressCallback cb;
 	ParamPanel * paramPanel;
 };

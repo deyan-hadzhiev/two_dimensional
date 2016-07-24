@@ -256,10 +256,47 @@ private:
 	wxButton * hidePreviewButton;
 };
 
+class BigStringPanel;
+
+class BigStringDialog : public wxDialog {
+public:
+	BigStringDialog(BigStringPanel * parent, const wxString& title, const wxString& value);
+
+	wxString GetValue() const;
+
+	void OnShow(wxShowEvent& evt);
+
+	void OnClose(wxCloseEvent& evt);
+private:
+	void OnApplyButton(wxCommandEvent& evt);
+
+	BigStringPanel * paramPanel;
+	wxTextCtrl * textCtrl;
+	wxButton * applyButton; //!< just sends kernel change event
+};
+
+class BigStringPanel : public wxPanel {
+public:
+	BigStringPanel(ParamPanel * parent, wxWindowID id, const wxString& label, const wxString& defValue);
+
+	wxString GetValue() const;
+
+	void OnShowButton(wxCommandEvent& evt);
+	void OnHideButton(wxCommandEvent& evt);
+
+private:
+	BigStringDialog * textDialog;
+	wxButton * showButton;
+	wxButton * hideButton;
+
+	wxBoxSizer * mainSizer;
+};
+
 // TODO: change logic a bit to avoid name clashes
 
 class ParamPanel : public wxPanel, public ParamManager {
 	friend class CKernelPanel;
+	friend class BigStringPanel;
 	wxBoxSizer * panelSizer;
 	ModePanel * modePanel;
 
@@ -270,6 +307,7 @@ class ParamPanel : public wxPanel, public ParamManager {
 	std::unordered_map<int, wxCheckBox*> checkBoxMap;
 	std::unordered_map<int, CKernelPanel*> kernelMap;
 	std::unordered_map<int, wxChoice*> choiceMap;
+	std::unordered_map<int, BigStringPanel*> bigStringMap;
 	std::unordered_map<const ModuleBase*, wxBoxSizer*> moduleSizers;
 
 	void createTextCtrl(const int id, const ParamDescriptor& pd);
@@ -279,6 +317,8 @@ class ParamPanel : public wxPanel, public ParamManager {
 	void createCKernel(const int id, const ParamDescriptor& pd);
 
 	void createChoice(const int id, const ParamDescriptor& pd);
+
+	void createBigString(const int id, const ParamDescriptor& pd);
 
 	// will get the sizer associated with the module, or it will create a new one
 	wxBoxSizer * getModuleSizer(const ModuleBase*);

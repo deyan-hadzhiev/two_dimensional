@@ -901,14 +901,117 @@ void CKernelPanel::updatePreview(const ConvolutionKernel & ck) {
 	previewDlg->updatePreview(ck);
 }
 
+/************************************
+*          BigStringDialog          *
+*************************************/
+
+BigStringDialog::BigStringDialog(BigStringPanel * parent, const wxString & title, const wxString & value)
+	: wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+	, paramPanel(parent)
+	, textCtrl(nullptr)
+	, applyButton(nullptr)
+{
+	Connect(wxEVT_SHOW, wxShowEventHandler(BigStringDialog::OnShow), NULL, this);
+	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(BigStringDialog::OnClose), NULL, this);
+
+	wxBoxSizer * mainSizer = new wxBoxSizer(wxVERTICAL);
+
+	wxBoxSizer * topSizer = new wxBoxSizer(wxHORIZONTAL);
+	topSizer->AddStretchSpacer();
+
+	applyButton = new wxButton(this, wxID_ANY, wxT("Apply"));
+	applyButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(BigStringDialog::OnApplyButton), NULL, this);
+	topSizer->Add(applyButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	mainSizer->Add(topSizer, 0, wxEXPAND | wxALL);
+
+	textCtrl = new wxTextCtrl(this, wxID_ANY, value, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_RICH2);
+	mainSizer->Add(textCtrl, 1, wxEXPAND | wxALL, ModePanel::panelBorder * 2);
+
+	mainSizer->FitInside(this);
+	SetSizerAndFit(mainSizer);
+}
+
+wxString BigStringDialog::GetValue() const {
+	return textCtrl->GetValue();
+}
+
+void BigStringDialog::OnShow(wxShowEvent & evt) {
+	Layout();
+	SendSizeEvent();
+}
+
+void BigStringDialog::OnClose(wxCloseEvent & evt) {
+	wxCommandEvent dummy;
+	paramPanel->OnHideButton(dummy);
+}
+
+void BigStringDialog::OnApplyButton(wxCommandEvent & evt) {
+	wxCommandEvent applyEvt(wxEVT_NULL, paramPanel->GetId());
+	wxPostEvent(paramPanel->GetParent(), applyEvt);
+}
+
+/************************************
+*          BigStringPanel           *
+*************************************/
+
+BigStringPanel::BigStringPanel(ParamPanel * parent, wxWindowID id, const wxString & label, const wxString & defValue)
+	: wxPanel(parent, id)
+	, textDialog(nullptr)
+	, showButton(nullptr)
+	, hideButton(nullptr)
+	, mainSizer(nullptr)
+{
+	mainSizer = new wxBoxSizer(wxHORIZONTAL);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALL | wxCENTER, ModePanel::panelBorder);
+
+	// create the text dialog
+	textDialog = new BigStringDialog(this, label, defValue);
+
+	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
+	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(BigStringPanel::OnShowButton), NULL, this);
+	mainSizer->Add(showButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	hideButton = new wxButton(this, wxID_ANY, wxT("Hide"));
+	hideButton->Hide();
+	hideButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(BigStringPanel::OnHideButton), NULL, this);
+	mainSizer->Add(hideButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	mainSizer->AddStretchSpacer();
+	mainSizer->FitInside(this);
+	SetSizerAndFit(mainSizer);
+}
+
+wxString BigStringPanel::GetValue() const {
+	return textDialog->GetValue();
+}
+
+void BigStringPanel::OnShowButton(wxCommandEvent & evt) {
+	textDialog->Show();
+	hideButton->Show();
+	showButton->Hide();
+	mainSizer->Layout();
+	Fit();
+}
+
+void BigStringPanel::OnHideButton(wxCommandEvent & evt) {
+	textDialog->Hide();
+	showButton->Show();
+	hideButton->Hide();
+	mainSizer->Layout();
+	Fit();
+}
+
+/************************************
+*           ParamPanel              *
+*************************************/
+
 void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 	wxBoxSizer * sizer = getModuleSizer(pd.module);
-	wxBoxSizer * vert = new wxBoxSizer(wxVERTICAL);
-	vert->Add(new wxStaticText(this, wxID_ANY, pd.name), 1, wxEXPAND | wxCENTER);
-	sizer->Add(vert, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+	sizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 0, wxALL | wxCENTER, ModePanel::panelBorder);
 	wxTextCtrl * ctrl = new wxTextCtrl(this, id, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 	ctrl->SetValue(pd.defaultValue);
-	sizer->Add(ctrl, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+	sizer->Add(ctrl, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	// also connect the event
 	Connect(id, wxEVT_TEXT_ENTER, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 	if (pd.type != ParamDescriptor::ParamType::PT_VECTOR) {
@@ -917,7 +1020,7 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 		// create a new text control for the y value
 		wxTextCtrl * ctrl2 = new wxTextCtrl(this, id, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 		ctrl2->SetValue(pd.defaultValue);
-		sizer->Add(ctrl2, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+		sizer->Add(ctrl2, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 		pairTextCtrlMap[id] = std::pair<wxTextCtrl*, wxTextCtrl*>(ctrl, ctrl2);
 	}
 }
@@ -942,9 +1045,7 @@ void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
 
 void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 	wxBoxSizer * sizer = getModuleSizer(pd.module);
-	wxBoxSizer * labelSizer = new wxBoxSizer(wxVERTICAL);
-	labelSizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 1, wxEXPAND | wxCENTER);
-	sizer->Add(labelSizer, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+	sizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	wxChoice * ch = new wxChoice(this, id);
 	const std::vector<std::string> choices = splitString(pd.defaultValue.c_str(), ';');
 	for (unsigned i = 0; i < choices.size(); ++i) {
@@ -953,9 +1054,17 @@ void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 	if (choices.size() > 0) {
 		ch->SetSelection(0);
 	}
-	sizer->Add(ch, 0, wxEXPAND | wxLEFT | wxRIGHT, ModePanel::panelBorder);
+	sizer->Add(ch, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	choiceMap[id] = ch;
 	Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+}
+
+void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
+	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	BigStringPanel * bsp = new BigStringPanel(this, id, pd.name, pd.defaultValue);
+	sizer->Add(bsp, 1, wxEXPAND);
+	bigStringMap[id] = bsp;
+	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 }
 
 wxBoxSizer * ParamPanel::getModuleSizer(const ModuleBase * module) {
@@ -1001,6 +1110,9 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 	case(ParamDescriptor::ParamType::PT_ENUM) :
 		createChoice(id, pd);
 		break;
+	case(ParamDescriptor::ParamType::PT_BIG_STRING) :
+		createBigString(id, pd);
+		break;
 	default:
 		break;
 	}
@@ -1016,6 +1128,13 @@ bool ParamPanel::getStringParam(std::string & value, const std::string & paramNa
 		if (ctrlIt != textCtrlMap.end()) {
 			value = std::string(ctrlIt->second->GetValue());
 			return true;
+		} else {
+			// also check for bigString params
+			const auto bspCtrlIt = bigStringMap.find(paramIt->second);
+			if (bspCtrlIt != bigStringMap.end()) {
+				value = std::string(bspCtrlIt->second->GetValue());
+				return true;
+			}
 		}
 	}
 	return false;
@@ -1078,7 +1197,7 @@ bool ParamPanel::getEnumParam(unsigned & value, const std::string & paramName) c
 			if (selection == wxNOT_FOUND) {
 				return false;
 			} else {
-				value = static_cast<int>(selection);
+				value = static_cast<unsigned>(selection);
 				return true;
 			}
 		}

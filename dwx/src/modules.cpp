@@ -335,20 +335,30 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 
 	std::string function;
 	pman->getStringParam(function, "function");
+	std::vector<std::string> functionList = splitString(function.c_str(), ';');
 
-	ExpressionTree functionTree;
-	if (!functionTree.buildTree(function)) {
-		return KPR_INVALID_INPUT;
-	}
-	const BinaryExpressionEvaluator bee = functionTree.getBinaryEvaluator();
+	raster->setProgressCallback(cb);
+	BinaryExpressionEvaluator bee;
 	auto evalFunction = [&bee](double x, double y) -> double {
 		return bee.eval(EvaluationContext(x, y, 0));
 	};
-	raster->setProgressCallback(cb);
-
 	raster->setFunction(evalFunction);
 
-	raster->draw(dflags);
+	unsigned drawFlags = dflags;
+	const int functionCount = static_cast<int>(functionList.size());
+	for (int i = 0; i < functionCount; ++i) {
+		ExpressionTree functionTree;
+		if (!functionTree.buildTree(functionList[i])) {
+			return KPR_INVALID_INPUT;
+		}
+		bee = functionTree.getBinaryEvaluator();
+
+		raster->draw(drawFlags);
+		// after the first run, reset some of the draw flags
+		// generally remove the axis flag and the clear flag
+		drawFlags = dflags & DrawFlags::DF_ACCUMULATE;
+	}
+
 	bmp = raster->getBitmap();
 	SimpleModule::setOutput();
 	if (iman)
@@ -418,7 +428,7 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 	raster->setProgressCallback(cb);
 
 	unsigned drawFlags = dflags;
-	const int functionCount = functionList.size();
+	const int functionCount = static_cast<int>(functionList.size());
 	for (int i = 0; i < functionCount; ++i) {
 		ExpressionTree functionTree;
 		if (!functionTree.buildTree(functionList[i])) {

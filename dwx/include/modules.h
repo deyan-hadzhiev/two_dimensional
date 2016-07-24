@@ -181,7 +181,7 @@ public:
 		, width(1024)
 		, height(1024)
 	{
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "function", "x + y"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BIG_STRING, "function", "x + y"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penWidth", "1.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
@@ -208,7 +208,7 @@ public:
 		, width(1024)
 		, height(1024)
 	{
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "function", "x + y"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BIG_STRING, "function", "x + y"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penWidth", "1.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "penStrength", "0.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", std::to_string(width)));
