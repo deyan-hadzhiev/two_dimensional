@@ -168,10 +168,10 @@ public:
 	bool drawCharacter(char ch, int x, int y, const ColorType& color) noexcept;
 
 	// draw a string of ASCII characters on the bitmap
-	bool drawString(const char * str, int x, int y, const ColorType& color) noexcept;
+	bool drawString(const char * str, int x, int y, const ColorType& color, int strLen = -1) noexcept;
 
 	// returns the text extent considering new lines
-	static void getTextExtent(const char * str, int& w, int& h) noexcept;
+	static void getTextExtent(const char * str, int& w, int& h, int strLen = -1) noexcept;
 };
 
 using Bitmap = Pixelmap<>;

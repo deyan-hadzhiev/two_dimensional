@@ -979,19 +979,24 @@ bool Pixelmap<ColorType>::drawCharacter(char ch, int x, int y, const ColorType& 
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::drawString(const char * str, int x, int y, const ColorType& color) noexcept {
+bool Pixelmap<ColorType>::drawString(const char * str, int x, int y, const ColorType& color, int strLen) noexcept {
 	if (!isOK() || !str || x >= width || y >= height) {
 		return false;
 	}
 	// get the text extent
 	int textWidth = 0;
 	int textHeight = 0;
-	getTextExtent(str, textWidth, textHeight);
+	getTextExtent(str, textWidth, textHeight, strLen);
 	if (textWidth == 0 || textHeight == 0 || x + textWidth <= 0 || y + textHeight <= 0) {
 		return false;
 	}
 
-	const int strLen = static_cast<int>(strlen(str));
+	const int actualStrLen = static_cast<int>(strlen(str));
+	if (strLen < 0) {
+		strLen = actualStrLen;
+	} else {
+		strLen = std::min(strLen, actualStrLen);
+	}
 
 	// output the characters one by one
 	for (int i = 0, dx = x, dy = y; i < strLen; ++i) {
@@ -1007,13 +1012,18 @@ bool Pixelmap<ColorType>::drawString(const char * str, int x, int y, const Color
 }
 
 template<class ColorType>
-void Pixelmap<ColorType>::getTextExtent(const char * str, int & w, int & h) noexcept {
+void Pixelmap<ColorType>::getTextExtent(const char * str, int & w, int & h, int strLen) noexcept {
 	if (!str || str[0] == '\0') {
 		w = 0;
 		h = 0;
 		return;
 	}
-	const int strLen = static_cast<int>(strlen(str));
+	const int actualStrLen = static_cast<int>(strlen(str));
+	if (strLen < 0) {
+		strLen = actualStrLen;
+	} else {
+		strLen = std::min(strLen, actualStrLen);
+	}
 	// check for new line characters
 	int lines = 1;
 	int maxWidth = 0;
