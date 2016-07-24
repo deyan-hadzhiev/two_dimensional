@@ -288,6 +288,41 @@ SinosoidModule::SinosoidModule()
 	: GeometricModule(new Sinosoid<Color>)
 {}
 
+void reportExpressionError(Bitmap& bmp, const ExpressionParseError& parseError, const std::string& expression) {
+	// TODO - implement PixelmapStringWriter class to handle all string draws gracefully
+	const Color errorCol = Color(0xdd3932);
+	const int bmpWidth = bmp.getWidth();
+	const int bmpHeight = bmp.getHeight();
+	const std::string errorStr = std::string("ERROR: ") + parseError.getErrorString();
+	int errorStrWidth = 0;
+	int errorStrHeight = 0;
+	bmp.getTextExtent(errorStr.c_str(), errorStrWidth, errorStrHeight);
+	const int borders = 5;
+	int expressionWidth = 0;
+	int expressionHeight = 0;
+	bmp.getTextExtent(expression.c_str(), expressionWidth, expressionHeight);
+	// check if the expression would fit in a single line
+	// TODO implement multiline expression
+	if (true || expressionWidth < bmpWidth - borders * 2) {
+		const int errorX = (bmpWidth - errorStrWidth) / 2;
+		const int errorY = bmpHeight / 2 - errorStrHeight - 1;
+		bmp.drawString(errorStr.c_str(), errorX, errorY, errorCol);
+		const int exprX = (bmpWidth - expressionWidth) / 2;
+		const int exprY = bmpHeight / 2 + 1;
+		bmp.drawString(expression.c_str(), exprX, exprY, Color(192, 192, 192));
+		// if there is exact location - draw it with error color
+		if (parseError.position >= 0) {
+			// get the width of the text prior to the position
+			int correctExprWidth = 0;
+			int correctExprHeight = 0;
+			bmp.getTextExtent(expression.c_str(), correctExprWidth, correctExprHeight, parseError.position);
+			bmp.drawString(expression.c_str() + parseError.position, exprX + correctExprWidth, exprY, errorCol, parseError.length);
+		}
+	} else {
+		// TODO
+	}
+}
+
 ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned flags) {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
@@ -335,21 +370,41 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 
 	std::string function;
 	pman->getStringParam(function, "function");
+	std::vector<std::string> functionList = splitString(function.c_str(), ';');
 
-	ExpressionTree functionTree;
-	if (!functionTree.buildTree(function)) {
-		return KPR_INVALID_INPUT;
-	}
-	const BinaryExpressionEvaluator bee = functionTree.getBinaryEvaluator();
+	raster->setProgressCallback(cb);
+	BinaryExpressionEvaluator bee;
 	auto evalFunction = [&bee](double x, double y) -> double {
 		return bee.eval(EvaluationContext(x, y, 0));
 	};
-	raster->setProgressCallback(cb);
-
 	raster->setFunction(evalFunction);
 
-	raster->draw(dflags);
-	bmp = raster->getBitmap();
+	std::pair<ExpressionParseError, std::string> parseError;
+	unsigned drawFlags = dflags;
+	const int functionCount = static_cast<int>(functionList.size());
+	for (int i = 0; i < functionCount; ++i) {
+		ExpressionTree functionTree;
+		parseError.first = functionTree.buildTree(functionList[i]);
+		if (parseError.first) {
+			// save the expression so we could use it for the error reporting
+			parseError.second = functionTree.getExpression();
+			break;
+		}
+		bee = functionTree.getBinaryEvaluator();
+
+		raster->draw(drawFlags);
+		// after the first run, reset some of the draw flags
+		// generally remove the axis flag and the clear flag
+		drawFlags = dflags & DrawFlags::DF_ACCUMULATE;
+	}
+	// check for errors
+	if (!parseError.first) {
+		bmp = raster->getBitmap();
+	} else {
+		bmp.generateEmptyImage(width, height);
+		reportExpressionError(bmp, parseError.first, parseError.second);
+	}
+
 	SimpleModule::setOutput();
 	if (iman)
 		iman->moduleDone(KPR_OK);
@@ -385,7 +440,7 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 	pman->getBoolParam(additive, "additive");
 	pman->getBoolParam(clear, "clear");
 	pman->getBoolParam(axis, "axis");
-	unsigned dflags =
+	const unsigned dflags =
 		(additive ? DrawFlags::DF_ACCUMULATE : 0) |
 		(clear ? DrawFlags::DF_CLEAR : 0) |
 		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
@@ -401,27 +456,48 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 	const DrawPen<Color> pen(penColor, penWidth, penStrenth);
 	raster->setPen(pen);
 
+	bool treeOutput = false;
+	pman->getBoolParam(treeOutput, "outputTree");
+	raster->setTreeOutput(treeOutput);
+
 	std::string function;
 	pman->getStringParam(function, "function");
+	std::vector<std::string> functionList = splitString(function.c_str(), ';');
 
-	ExpressionTree functionTree;
-	if (!functionTree.buildTree(function)) {
-		return KPR_INVALID_INPUT;
-	}
-	const BinaryExpressionEvaluator bee = functionTree.getBinaryEvaluator();
+	BinaryExpressionEvaluator bee;
 	auto evalFunction = [&bee](double x, double y) -> double {
 		return bee.eval(EvaluationContext(x, y, 0));
 	};
 	raster->setFunction(evalFunction);
 
-	bool treeOutput = false;
-	pman->getBoolParam(treeOutput, "outputTree");
-	raster->setTreeOutput(treeOutput);
-
 	raster->setProgressCallback(cb);
 
-	raster->draw(dflags);
-	bmp = raster->getBitmap();
+	std::pair<ExpressionParseError, std::string> parseError;
+	unsigned drawFlags = dflags;
+	const int functionCount = static_cast<int>(functionList.size());
+	for (int i = 0; i < functionCount; ++i) {
+		ExpressionTree functionTree;
+		parseError.first = functionTree.buildTree(functionList[i]);
+		if (parseError.first) {
+			// save the expression so we could use it for the error reporting
+			parseError.second = functionTree.getExpression();
+			break;
+		}
+		bee = functionTree.getBinaryEvaluator();
+
+		raster->draw(drawFlags);
+		// after the first run, reset some of the draw flags
+		// generally remove the axis flag and the clear flag
+		drawFlags = dflags & DrawFlags::DF_ACCUMULATE;
+	}
+	// check for errors
+	if (!parseError.first) {
+		bmp = raster->getBitmap();
+	} else {
+		bmp.generateEmptyImage(width, height);
+		reportExpressionError(bmp, parseError.first, parseError.second);
+	}
+
 	SimpleModule::setOutput();
 	if (iman)
 		iman->moduleDone(KPR_OK);
