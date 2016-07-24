@@ -128,6 +128,7 @@ int ExpressionTree::getPrecedence(char op) {
 
 ExpressionParseError ExpressionTree::checkParanthesis() const {
 	std::stack<char> st;
+	std::stack<int> forwardPositions;
 	bool valid = true;
 	int errorPosition = -1;
 	const int expressionSize = static_cast<int>(expression.size());
@@ -135,9 +136,11 @@ ExpressionParseError ExpressionTree::checkParanthesis() const {
 		const char c = expression[i];
 		if ('(' == c) {
 			st.push(c);
+			forwardPositions.push(i);
 		} else if (')' == c) {
 			if (st.size() > 0 && st.top() == '(') {
 				st.pop();
+				forwardPositions.pop();
 			} else {
 				valid = false;
 				errorPosition = i;
@@ -147,7 +150,7 @@ ExpressionParseError ExpressionTree::checkParanthesis() const {
 	if (!valid) {
 		return ExpressionParseError(ExpressionParseError::EPE_INCORRECT_PARANTHESIS, errorPosition);
 	} else if (0 != st.size()) {
-		return ExpressionParseError(ExpressionParseError::EPE_UNMATCHED_PARANTHESIS, static_cast<int>(st.size()));
+		return ExpressionParseError(ExpressionParseError::EPE_UNMATCHED_PARANTHESIS, forwardPositions.top());
 	}
 	return ExpressionParseError();
 }
@@ -453,26 +456,28 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildFunction(const std::string&
 	return res;
 }
 
-bool ExpressionTree::buildTree(const std::string& expr) {
+ExpressionParseError ExpressionTree::buildTree(const std::string& expr) {
 	expression = expr;
 	// remove whitespace
 	expression.erase(std::remove_if(expression.begin(), expression.end(), ::isspace), expression.end());
 	// transform to lower
 	std::transform(expression.begin(), expression.end(), expression.begin(), ::tolower);
 
-	if (checkParanthesis())
-		return false;
-
-	std::vector<Token> firstLayer;
-
-	if (!tokenize(expression, firstLayer))
-		return false;
-
-	root = buildExpression(firstLayer);
-	if(!root)
-		return false;
-
-	return true;
+	ExpressionParseError parseError;
+	parseError = checkParanthesis();
+	if (!parseError) {
+		std::vector<Token> firstLayer;
+		try {
+			// tokenize the first layer of the epxression
+			tokenize(expression, firstLayer);
+			// now build an expression from the first layer
+			root = buildExpression(firstLayer);
+		} catch (const ExpressionParseError& epr) {
+			parseError = epr;
+			root.reset();
+		}
+	}
+	return parseError;
 }
 
 BinaryExpressionEvaluator::BinaryExpressionEvaluator()

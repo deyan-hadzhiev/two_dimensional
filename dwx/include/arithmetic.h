@@ -41,20 +41,54 @@ struct BinaryEvaluationChunk {
 
 struct ExpressionParseError {
 	int position;
+	int length; //!< the length of the error part
 	enum ErrorType {
 		EPE_OK = 0,
 		EPE_INCORRECT_PARANTHESIS,
 		EPE_UNMATCHED_PARANTHESIS,
 		EPE_SYNTAX,
+		EPE_UNKNOWN_SYMBOL,
 		EPE_UNKNOWN_VARIABLE,
 		EPE_UNKNOWN_FUNCTION,
 	} type;
-	ExpressionParseError(ErrorType _type = EPE_OK, int _position = -1)
+	ExpressionParseError(ErrorType _type = EPE_OK, int _position = -1, int _length = 1)
 		: type(_type)
 		, position(_position)
+		, length(_length)
 	{}
 	operator bool() const {
 		return EPE_OK != type;
+	}
+	std::string getErrorString() const {
+		std::string errorStr;
+		switch (type)
+		{
+		case ExpressionParseError::EPE_OK:
+			errorStr = "OK";
+			break;
+		case ExpressionParseError::EPE_INCORRECT_PARANTHESIS:
+			errorStr = "Incorrect paranthesis - found ')' where it was not expected";
+			break;
+		case ExpressionParseError::EPE_UNMATCHED_PARANTHESIS:
+			errorStr = "Unmatched paranthesis - did not find matching ')'";
+			break;
+		case ExpressionParseError::EPE_SYNTAX:
+			errorStr = "Incorrect syntax";
+			break;
+		case ExpressionParseError::EPE_UNKNOWN_SYMBOL:
+			errorStr = "Encountered an unknown symbol";
+			break;
+		case ExpressionParseError::EPE_UNKNOWN_VARIABLE:
+			errorStr = "Encountered an unknown variable";
+			break;
+		case ExpressionParseError::EPE_UNKNOWN_FUNCTION:
+			errorStr = "Encountered an unknown function";
+			break;
+		default:
+			errorStr = "Unknown error";
+			break;
+		}
+		return errorStr;
 	}
 };
 
@@ -309,7 +343,10 @@ public:
 
 	std::string getExpression() const { return expression; }
 
-	bool buildTree(const std::string& expression);
+	/** parses an expression and builds an expression tree that can be directly evaluated or can be used to build binary evaluator
+	* @returns parse error if any was encountered
+	*/
+	ExpressionParseError buildTree(const std::string& expression);
 
 	inline double eval(const EvaluationContext& values) const {
 		return root->eval(values);

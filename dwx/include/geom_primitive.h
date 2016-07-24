@@ -58,12 +58,13 @@ template<class CType>
 class GeometricPrimitive {
 protected:
 	Pixelmap<CType> bmp;
-	static const CType axisCol;
 	DrawPen<CType> pen;
 	ProgressCallback * cb;
 	Vector2 scale; //!< the scale of the coordinate system
 	Vector2 offset; //!< the offset of the coordinate system
 public:
+	static const CType axisCol;
+
 	GeometricPrimitive()
 		: pen(CType())
 		, cb(nullptr)
