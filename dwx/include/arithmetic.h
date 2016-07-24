@@ -50,6 +50,8 @@ struct ExpressionParseError {
 		EPE_UNKNOWN_SYMBOL,
 		EPE_UNKNOWN_VARIABLE,
 		EPE_UNKNOWN_FUNCTION,
+		EPE_MISSING_COMMA,
+		EPE_INTERNAL,
 	} type;
 	ExpressionParseError(ErrorType _type = EPE_OK, int _position = -1, int _length = 1)
 		: type(_type)
@@ -83,6 +85,12 @@ struct ExpressionParseError {
 			break;
 		case ExpressionParseError::EPE_UNKNOWN_FUNCTION:
 			errorStr = "Encountered an unknown function";
+			break;
+		case ExpressionParseError::EPE_MISSING_COMMA:
+			errorStr = "Missing expected comma in the expression";
+			break;
+		case ExpressionParseError::EPE_INTERNAL:
+			errorStr = "Internal parser error";
 			break;
 		default:
 			errorStr = "Unknown error";
@@ -305,12 +313,14 @@ class ExpressionTree {
 	};
 
 	struct Token {
-		Token(TokenType t, const std::string& c)
+		Token(TokenType t, const std::string& c, int _position)
 			: type(t)
 			, contents(c)
+			, position(_position)
 		{}
 		TokenType type;
 		std::string contents;
+		int position; //!< the token position in the global expression
 	};
 
 	std::string expression;
@@ -322,9 +332,11 @@ class ExpressionTree {
 	// returns the precedence of the operations ^ => 0, * / => 1, + - => 2
 	static int getPrecedence(char op);
 
-	// constructs one layer of tokens and saves it in 'tokens'
-	// returns false if expression has an invalid tokens
-	static bool tokenize(const std::string& expr, std::vector<Token>& tokens);
+	/** constructs one layer of tokens and saves it in 'tokens'
+	* @param offset The offset of the expression in the global expression
+	* @returns false if expression has an invalid tokens
+	*/
+	static bool tokenize(const std::string& expr, std::vector<Token>& tokens, int offset);
 
 	// builds a tree from a single token.
 	// if the token is expression of function, it calls build expression for it.
@@ -334,7 +346,7 @@ class ExpressionTree {
 	static std::shared_ptr<ExpressionNode> buildExpression(const std::vector<Token>& tokens);
 
 	// builds a tree from a function expression string
-	static std::shared_ptr<ExpressionNode> buildFunction(const std::string& function);
+	static std::shared_ptr<ExpressionNode> buildFunction(const std::string& function, int offset);
 public:
 	ExpressionTree()
 		: root()

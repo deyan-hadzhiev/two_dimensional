@@ -155,7 +155,7 @@ ExpressionParseError ExpressionTree::checkParanthesis() const {
 	return ExpressionParseError();
 }
 
-bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& tokens) {
+bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& tokens, int offset) {
 	bool valid = true;
 	TokenType lastToken = TT_OPERAND;
 
@@ -168,28 +168,29 @@ bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& token
 			valid &= (lastToken == TT_OPERAND);
 		}
 
-		if (!valid)
-			break;
+		if (!valid) {
+			throw ExpressionParseError(ExpressionParseError::EPE_SYNTAX, tokens.back().position, static_cast<int>(tokens.back().contents.size()));
+		}
 
 		const char ch = expr[i];
 
 		// check if this is a leading expression sign
 		if (i == 0 && (ch == '+' || ch == '-')) {
 			// add a zero token to evaluate arithmetics correctly later
-			tokens.push_back(Token(TT_CONSTANT, "0.0"));
-			tokens.push_back(Token(TT_OPERAND, std::string(1, ch)));
+			tokens.push_back(Token(TT_CONSTANT, "0.0", -1));
+			tokens.push_back(Token(TT_OPERAND, std::string(1, ch), i + offset));
 			lastToken = TT_OPERAND;
 			continue;
 		}
 
 		if (ch == 'x' || ch == 'y' || ch == 'z') {
-			tokens.push_back(Token(TT_VARIABLE, std::string(1, ch)));
+			tokens.push_back(Token(TT_VARIABLE, std::string(1, ch), i + offset));
 			lastToken = TT_VARIABLE;
 		} else if (ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^') {
-			tokens.push_back(Token(TT_OPERAND, std::string(1, ch)));
+			tokens.push_back(Token(TT_OPERAND, std::string(1, ch), i + offset));
 			lastToken = TT_OPERAND;
 		} else if (ch == ')') {
-			valid = false;
+			throw ExpressionParseError(ExpressionParseError::EPE_INCORRECT_PARANTHESIS, i + offset);
 		} else if (ch == '(') {
 			// this is a whole expression, so we must find the matching paranthesis
 			int j = i;
@@ -202,15 +203,14 @@ bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& token
 					left--;
 			}
 			if (left > 0 && j >= expr.size() - 1) {
-				valid = false;
-				break;
+				throw ExpressionParseError(ExpressionParseError::EPE_UNMATCHED_PARANTHESIS, offset + i);
 			}
 			
 			// copy the whole string in the paranthesis
-			tokens.push_back(Token(TT_EXPRESSION, expr.substr(i + 1, j - i - 1)));
+			tokens.push_back(Token(TT_EXPRESSION, expr.substr(i + 1, j - i - 1), i + offset + 1));
 			lastToken = TT_EXPRESSION;
 			i = j;
-		} else if (isdigit(ch)) {
+		} else if (isdigit(ch) || '.' == ch) {
 			// a number, we must copy it
 			int j = i;
 			bool dot = false;
@@ -220,7 +220,7 @@ bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& token
 				j++;
 			}
 			
-			tokens.push_back(Token(TT_CONSTANT, expr.substr(i, j - i)));
+			tokens.push_back(Token(TT_CONSTANT, expr.substr(i, j - i), i + offset));
 			lastToken = TT_CONSTANT;
 			i = j - 1;
 		} else if (
@@ -246,12 +246,11 @@ bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& token
 					left--;
 			}
 			if (left > 0 && j >= expr.size() - 1) {
-				valid = false;
-				break;
+				throw ExpressionParseError(ExpressionParseError::EPE_UNMATCHED_PARANTHESIS, offset + i + 3 + (strncmp(&expr[i], "sqrt", 4) == 0 ? 1 : 0));
 			}
 
 			// copy the whole string in the paranthesis + last paranthesis
-			tokens.push_back(Token(TT_FUNCTION, expr.substr(i, j - i + 1)));
+			tokens.push_back(Token(TT_FUNCTION, expr.substr(i, j - i + 1), offset + i));
 			lastToken = TT_FUNCTION;
 			i = j;
 		} else if (
@@ -259,10 +258,25 @@ bool ExpressionTree::tokenize(const std::string& expr, std::vector<Token>& token
 			strncmp(&expr[i], "e", 1) == 0
 		) {
 			const int size = (expr.compare(i, 2, "pi") == 0 ? 2 : 1);
-			tokens.push_back(Token(TT_CONSTANT, expr.substr(i, size)));
+			tokens.push_back(Token(TT_CONSTANT, expr.substr(i, size), offset + i));
 			lastToken = TT_CONSTANT;
 			i += size - 1;
+		} else {
+			// throw an error based on the symbol and length
+			if (ch >= 'a' && ch <= 'z') {
+				int size = 1;
+				while (i + size < expr.size() && expr[i + size] >= 'a' && expr[i + size] <= 'z') {
+					size++;
+				}
+				throw ExpressionParseError((size > 1 ? ExpressionParseError::EPE_UNKNOWN_FUNCTION : ExpressionParseError::EPE_UNKNOWN_VARIABLE), i + offset, size);
+			} else {
+				throw ExpressionParseError(ExpressionParseError::EPE_UNKNOWN_SYMBOL, offset + i);
+			}
 		}
+	}
+	// the last token must not be operand
+	if (lastToken == TT_OPERAND) {
+		throw ExpressionParseError(ExpressionParseError::EPE_SYNTAX, tokens.back().position, static_cast<int>(tokens.back().contents.size()));
 	}
 	return valid;
 }
@@ -286,7 +300,7 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildToken(const Token& token) {
 	case ExpressionTree::TT_EXPRESSION:
 	{
 		std::vector<Token> exprTokens;
-		if (tokenize(token.contents, exprTokens)) {
+		if (tokenize(token.contents, exprTokens, token.position)) {
 			res = buildExpression(exprTokens);
 		}
 		break;
@@ -304,18 +318,18 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildToken(const Token& token) {
 			res.reset(new IdentifierNode(IdentifierNode::Z));
 			break;
 		default:
-			res = nullptr;
+			throw ExpressionParseError(ExpressionParseError::EPE_UNKNOWN_VARIABLE, token.position);
 			break;
 		}
 		break;
 	}
 	case ExpressionTree::TT_FUNCTION:
 	{
-		res = buildFunction(token.contents);
+		res = buildFunction(token.contents, token.position);
 		break;
 	}
 	default:
-		res = nullptr;
+		throw ExpressionParseError(ExpressionParseError::EPE_SYNTAX, token.position, static_cast<int>(token.contents.size()));
 		break;
 	}
 	return res;
@@ -334,17 +348,14 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildExpression(const std::vecto
 			if ( (i & 1) == 0 && tokens[i].type != TT_OPERAND) {
 				std::shared_ptr<ExpressionNode> tokenTree = buildToken(tokens[i]);
 				if (!tokenTree) {
-					error = true;
-					break;
+					throw ExpressionParseError(ExpressionParseError::EPE_INTERNAL, tokens[i].position, static_cast<int>(tokens[i].contents.size()));
 				}
 				nodeStack.push(tokenTree);
 			} else if ( (i & 1) == 1 && tokens[i].type == TT_OPERAND) {
 				const char op = tokens[i].contents[0];
 				const int precedence = getPrecedence(op);
 				if (precedence == 3) {
-					// invalid op
-					error = true;
-					break;
+					throw ExpressionParseError(ExpressionParseError::EPE_UNKNOWN_SYMBOL, tokens[i].position);
 				}
 
 				int lastPrecedence = (opStack.empty() ? 3 : getPrecedence(opStack.top()));
@@ -353,6 +364,9 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildExpression(const std::vecto
 				} else if (precedence == lastPrecedence) {
 					const char constructOp = opStack.top();
 					if (lastPrecedence > 0) {
+						if (nodeStack.size() < 2 || opStack.size() < 1) {
+							throw ExpressionParseError(ExpressionParseError::EPE_INTERNAL, tokens[i].position, static_cast<int>(tokens[i].contents.size()));
+						}
 						std::shared_ptr<ExpressionNode> right = nodeStack.top();
 						nodeStack.pop();
 						std::shared_ptr<ExpressionNode> left = nodeStack.top();
@@ -366,6 +380,9 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildExpression(const std::vecto
 				} else {
 					while (precedence > lastPrecedence || (precedence == lastPrecedence && precedence > 0)) {
 						const char constructOp = opStack.top();
+						if (nodeStack.size() < 2 || opStack.size() < 1) {
+							throw ExpressionParseError(ExpressionParseError::EPE_INTERNAL, tokens[i].position, static_cast<int>(tokens[i].contents.size()));
+						}
 						std::shared_ptr<ExpressionNode> right = nodeStack.top();
 						nodeStack.pop();
 						std::shared_ptr<ExpressionNode> left = nodeStack.top();
@@ -378,13 +395,16 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildExpression(const std::vecto
 					opStack.push(op);
 				}
 			} else {
-				error = true;
+				throw ExpressionParseError(ExpressionParseError::EPE_SYNTAX, tokens[i].position, static_cast<int>(tokens[i].contents.size()));
 			}
 		}
 
 		if (!error) {
 			while (!opStack.empty()) {
 				const char constructOp = opStack.top();
+				if (nodeStack.size() < 2 || opStack.size() < 1) {
+					throw ExpressionParseError(ExpressionParseError::EPE_INTERNAL, tokens[0].position);
+				}
 				std::shared_ptr<ExpressionNode> right = nodeStack.top();
 				nodeStack.pop();
 				std::shared_ptr<ExpressionNode> left = nodeStack.top();
@@ -399,7 +419,7 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildExpression(const std::vecto
 	return res;
 }
 
-std::shared_ptr<ExpressionNode> ExpressionTree::buildFunction(const std::string& function) {
+std::shared_ptr<ExpressionNode> ExpressionTree::buildFunction(const std::string& function, int offset) {
 	std::shared_ptr<ExpressionNode> res;
 	size_t left = function.find_first_of('(');
 	size_t right = function.find_last_of(')');
@@ -407,12 +427,12 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildFunction(const std::string&
 	if (left != std::string::npos && right != std::string::npos) {
 		FunctionType ftype = getFunctionType(function);
 		if (ftype == F_ERR) {
-			res = nullptr;
+			throw ExpressionParseError(ExpressionParseError::EPE_UNKNOWN_FUNCTION, offset, static_cast<int>(function.size()));
 		} else if (ftype != F_MIN && ftype != F_MAX) {
 			std::string insideExpression = function.substr(left + 1, right - left - 1);
 			std::shared_ptr<ExpressionNode> insideTree;
 			std::vector<Token> insideTokens;
-			if (tokenize(insideExpression, insideTokens)) {
+			if (tokenize(insideExpression, insideTokens, static_cast<int>(offset + left + 1))) {
 				insideTree = buildExpression(insideTokens);
 			}
 
@@ -442,7 +462,7 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildFunction(const std::string&
 				std::vector<Token> leftTokens;
 				std::vector<Token> rightTokens;
 
-				if (tokenize(leftExpr, leftTokens) && tokenize(rightExpr, rightTokens)) {
+				if (tokenize(leftExpr, leftTokens, static_cast<int>(offset + left + 1)) && tokenize(rightExpr, rightTokens, static_cast<int>(offset + comaPos + 1))) {
 					std::shared_ptr<ExpressionNode> leftSubTree = buildExpression(leftTokens);
 					std::shared_ptr<ExpressionNode> rightSubTree = buildExpression(rightTokens);
 
@@ -450,8 +470,12 @@ std::shared_ptr<ExpressionNode> ExpressionTree::buildFunction(const std::string&
 						res.reset(new TwoFunctionNode(ftype, leftSubTree, rightSubTree));
 					}
 				}
+			} else {
+				throw ExpressionParseError(ExpressionParseError::EPE_MISSING_COMMA, static_cast<int>(offset + left + 1), static_cast<int>(function.size() - left));
 			}
 		}
+	} else {
+		throw ExpressionParseError(ExpressionParseError::EPE_INTERNAL, offset, static_cast<int>(function.size()));
 	}
 	return res;
 }
@@ -469,7 +493,7 @@ ExpressionParseError ExpressionTree::buildTree(const std::string& expr) {
 		std::vector<Token> firstLayer;
 		try {
 			// tokenize the first layer of the epxression
-			tokenize(expression, firstLayer);
+			tokenize(expression, firstLayer, 0);
 			// now build an expression from the first layer
 			root = buildExpression(firstLayer);
 		} catch (const ExpressionParseError& epr) {
