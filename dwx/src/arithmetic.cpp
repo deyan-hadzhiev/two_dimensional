@@ -555,96 +555,69 @@ void BinaryExpressionEvaluator::buildFromTree(const ExpressionNode * root) {
 }
 
 double BinaryExpressionEvaluator::eval(const EvaluationContext & context) const noexcept {
-	//std::stack<double> valueStack;
-	int stackTop = 0;
+	int stackTop = -1;
 	const int evalSize = expressionSize;
 	for (int i = 0; i < evalSize; ++i) {
 		const BinaryEvaluationChunk& symbol = binaryExpression[i];
 		switch (symbol.type) {
 		case (BinaryEvaluationChunk::BET_CONSTANT):
-			valueStack[stackTop++] = symbol.data;
+			valueStack[++stackTop] = symbol.data;
 			break;
 		case (BinaryEvaluationChunk::BET_IDENTIFIER_X):
-			valueStack[stackTop++] = context.x;
+			valueStack[++stackTop] = context.x;
 			break;
 		case (BinaryEvaluationChunk::BET_IDENTIFIER_Y):
-			valueStack[stackTop++] = context.y;
+			valueStack[++stackTop] = context.y;
 			break;
 		case (BinaryEvaluationChunk::BET_IDENTIFIER_Z):
-			valueStack[stackTop++] = context.z;
+			valueStack[++stackTop] = context.z;
 			break;
-		case (BinaryEvaluationChunk::BET_OPERAND_ADD): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = lhs + rhs;
+		case (BinaryEvaluationChunk::BET_OPERAND_ADD):
+			--stackTop;
+			valueStack[stackTop] += valueStack[stackTop + 1];
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_OPERAND_SUBTRACT): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = lhs - rhs;
+		case (BinaryEvaluationChunk::BET_OPERAND_SUBTRACT):
+			--stackTop;
+			valueStack[stackTop] = valueStack[stackTop + 1] - valueStack[stackTop];
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_OPERAND_MULTIPLY): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = lhs * rhs;
+		case (BinaryEvaluationChunk::BET_OPERAND_MULTIPLY):
+			--stackTop;
+			valueStack[stackTop] *= valueStack[stackTop + 1];
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_OPERAND_DIVIDE): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = lhs / rhs;
+		case (BinaryEvaluationChunk::BET_OPERAND_DIVIDE):
+			--stackTop;
+			valueStack[stackTop] = valueStack[stackTop + 1] / valueStack[stackTop];
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_OPERAND_POWER): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = pow(lhs, rhs);
+		case (BinaryEvaluationChunk::BET_OPERAND_POWER):
+			--stackTop;
+			valueStack[stackTop] = pow(valueStack[stackTop + 1], valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_SIN): {
-			const double expr = valueStack[--stackTop];
-			valueStack[stackTop++] = sin(expr);
+		case (BinaryEvaluationChunk::BET_FUNCTION_SIN):
+			valueStack[stackTop] = sin(valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_COS): {
-			const double expr = valueStack[--stackTop];
-			valueStack[stackTop++] = cos(expr);
+		case (BinaryEvaluationChunk::BET_FUNCTION_COS):
+			valueStack[stackTop] = cos(valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_TAN): {
-			const double expr = valueStack[--stackTop];
-			valueStack[stackTop++] = tan(expr);
+		case (BinaryEvaluationChunk::BET_FUNCTION_TAN):
+			valueStack[stackTop] = tan(valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_ABS): {
-			const double expr = valueStack[--stackTop];
-			valueStack[stackTop++] = abs(expr);
+		case (BinaryEvaluationChunk::BET_FUNCTION_ABS):
+			valueStack[stackTop] = abs(valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_SQRT): {
-			const double expr = valueStack[--stackTop];
-			valueStack[stackTop++] = sqrt(expr);
+		case (BinaryEvaluationChunk::BET_FUNCTION_SQRT):
+			valueStack[stackTop] = sqrt(valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_LOG): {
-			const double expr = valueStack[--stackTop];
-			valueStack[stackTop++] = log(expr);
+		case (BinaryEvaluationChunk::BET_FUNCTION_LOG):
+			valueStack[stackTop] = log(valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_MIN): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = std::min(lhs, rhs);
+		case (BinaryEvaluationChunk::BET_FUNCTION_MIN):
+			--stackTop;
+			valueStack[stackTop] = std::min(valueStack[stackTop + 1], valueStack[stackTop]);
 			break;
-		}
-		case (BinaryEvaluationChunk::BET_FUNCTION_MAX): {
-			const double lhs = valueStack[--stackTop];
-			const double rhs = valueStack[--stackTop];
-			valueStack[stackTop++] = std::max(lhs, rhs);
+		case (BinaryEvaluationChunk::BET_FUNCTION_MAX):
+			--stackTop;
+			valueStack[stackTop] = std::max(valueStack[stackTop + 1], valueStack[stackTop]);
 			break;
-		}
 		default:
 			break;
 		}
