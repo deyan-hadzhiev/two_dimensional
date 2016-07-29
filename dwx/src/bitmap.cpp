@@ -595,8 +595,9 @@ bool Pixelmap<ColorType>::expand(const int w, const int h, const int x, const in
 		const int dy = (y < 0 ? 0 : y);
 		const int sx = (x < 0 ? -x : 0);
 		const int sy = (y < 0 ? -y : 0);
-		const int dw = (x < 0 ? std::min(oldWidth + x, width) : std::min(width - x, oldWidth));
-		const int dh = (y < 0 ? std::min(oldHeight + y, height) : std::min(height - y, oldHeight));
+		// volatiles are necessary because of some msvc optimizations bug -.-
+		volatile const int dw = (x < 0 ? std::min(oldWidth + x, width) : std::min(width - x, oldWidth));
+		volatile const int dh = (y < 0 ? std::min(oldHeight + y, height) : std::min(height - y, oldHeight));
 		// buffers that will be used later for the vertical stretch
 		std::unique_ptr<ColorType[]> topRow(new ColorType[width]);
 		std::unique_ptr<ColorType[]> bottomRow(new ColorType[width]);
