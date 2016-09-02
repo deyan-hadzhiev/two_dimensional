@@ -37,9 +37,10 @@ set (HEADERS
 	include/guimain.h
 	include/kmeans.h
 	include/matrix2.h
-	include/modules.h
 	include/module_base.h
+	include/module_dag.h
 	include/module_manager.h
+	include/modules.h
 	include/param_base.h
 	include/param_handlers.h
 	include/progress.h
@@ -63,9 +64,10 @@ set (SOURCES
 	src/geom_primitive.cpp
 	src/guimain.cpp
 	src/matrix2.cpp
-	src/modules.cpp
+	src/module_dag.cpp
 	src/module_manager.cpp
 	src/param_handlers.cpp
+	src/modules.cpp
 	src/util.cpp
 	src/wx_bitmap_canvas.cpp
 	src/wx_modes.cpp
