@@ -11,6 +11,7 @@ const ModuleDescription MODULE_DESC[ModuleId::M_COUNT] = {
 	ModuleDescription(M_FINE_FUNCTION_RASTER, create<FineFunctionRasterModule>, "fine_function_raster", "Fine Function Raster", 0, 1),
 	ModuleDescription(M_HOUGH_RO_THETA,       create<HoughModule>,              "hough_rho_theta",      "Hough Rho Theta",      1, 1),
 	ModuleDescription(M_ROTATION,             create<RotationModule>,           "rotation",             "Image rotation",       1, 1),
+	ModuleDescription(M_SHEAR,                create<ShearModule>,              "shear",                "Image shear",          1, 1),
 	ModuleDescription(M_HISTOGRAMS,           create<HistogramModule>,          "histogram_smooth",     "Histogram Smoothing",  1, 1),
 	ModuleDescription(M_THRESHOLD,            create<ThresholdModule>,          "threshold",            "Threshold",            1, 1),
 	ModuleDescription(M_FILTER,               create<FilterModule>,             "filter",               "Convolution Filter",   1, 1),

@@ -245,6 +245,18 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class ShearModule : public AsyncModule {
+public:
+	ShearModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "horizontal", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "vertical", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch;mirror"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "bilinear;bicubic"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class HistogramModule : public AsyncModule {
 public:
 	HistogramModule() {

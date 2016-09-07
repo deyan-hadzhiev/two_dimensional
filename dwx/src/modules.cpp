@@ -646,6 +646,87 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	return ModuleBase::KPR_OK;
 }
 
+ModuleBase::ProcessResult ShearModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	const int bw = bmp.getWidth();
+	const int bh = bmp.getHeight();
+	const int cx = bw / 2;
+	const int cy = bh / 2;
+	float horizontal = 0.0f;
+	float vertical = 0.0f;
+	if (pman) {
+		pman->getFloatParam(horizontal, "horizontal");
+		pman->getFloatParam(vertical, "vertical");
+		// invert the vertical because of the inverse coordinate system
+		vertical = -vertical;
+	}
+	const Matrix2 shear = Matrix2(1.0f, horizontal, 0.0f, 1.0f) * Matrix2(1.0f, 0.0f, vertical, 1.0f);
+	const Matrix2 invShear(inverseMatrix(shear));
+	Vector2 edges[4] = {
+		Vector2(-cx + 0.5f, -cy + 0.5f),
+		Vector2(cx + (bw & 1 ? 0.5f : -0.5f), -cy + .5f),
+		Vector2(cx + (bw & 1 ? 0.5f : -0.5f), cy + (bh & 1 ? 0.5f : -0.5f)),
+		Vector2(-cx + 0.5f, cy + (bh & 1 ? 0.5f : -0.5f))
+	};
+	float minX = 0.0f;
+	float maxX = 0.0f;
+	float minY = 0.0f;
+	float maxY = 0.0f;
+	for (int i = 0; i < 4; ++i) {
+		edges[i] = shear * edges[i]; // rotate the edge to get where it will be mapped
+		minX = std::min(edges[i].x, minX);
+		maxX = std::max(edges[i].x, maxX);
+		minY = std::min(edges[i].y, minY);
+		maxY = std::max(edges[i].y, maxY);
+	}
+	const int obw = static_cast<int>(ceilf(maxX) - floorf(minX));
+	const int obh = static_cast<int>(ceilf(maxY) - floorf(minY));
+	Bitmap bmpOut(obw, obh);
+	Color * bmpData = bmpOut.getDataPtr();
+	const int ocx = obw / 2;
+	const int ocy = obh / 2;
+	EdgeFillType edge = EdgeFillType::EFT_BLANK;
+	unsigned filterType = 0;
+	if (pman) {
+		unsigned edgeType = 0;
+		if (pman->getEnumParam(edgeType, "edge")) {
+			edge = static_cast<EdgeFillType>(edgeType);
+		}
+		pman->getEnumParam(filterType, "filterType");
+	}
+	if (0 == filterType) {
+		for (int y = 0; y < obh && !getAbortState(); ++y) {
+			for (int x = 0; x < obw && !getAbortState(); ++x) {
+				const Vector2 origin = invShear * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+				bmpData[y * obw + x] = bmp.getBilinearFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+			}
+			if (cb) {
+				cb->setPercentDone(y, obh);
+			}
+		}
+	} else if (1 == filterType) {
+		for (int y = 0; y < obh && !getAbortState(); ++y) {
+			for (int x = 0; x < obw && !getAbortState(); ++x) {
+				const Vector2 origin = invShear * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+				bmpData[y * obw + x] = bmp.getBicubicFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+			}
+			if (cb) {
+				cb->setPercentDone(y, obh);
+			}
+		}
+	}
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
+	if (oman) {
+		oman->setOutput(bmpOut, 1);
+	}
+	return ModuleBase::KPR_OK;
+}
+
 ModuleBase::ProcessResult HistogramModule::moduleImplementation(unsigned flags) {
 	const bool inputOk = getInput();
 	if (!inputOk || !bmp.isOK()) {
