@@ -261,6 +261,8 @@ template bool Pixelmap<Color>::downscale<Color>(Pixelmap<Color>&, const int, con
 template bool Pixelmap<Color>::downscale<TColor<float> >(Pixelmap<Color>&, const int, const int) const;
 template bool Pixelmap<Color>::downscale<TColor<double> >(Pixelmap<Color>&, const int, const int) const;
 
+template bool Pixelmap<Color>::upscale<TColor<double> >(Pixelmap<Color>&, const int, const int, UpscaleFiltering filterType) const;
+
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap() noexcept
 	: width(-1)
@@ -291,6 +293,37 @@ void Pixelmap<ColorType>::freeMem(void) noexcept {
 	if (data) delete[] data;
 	data = nullptr;
 	width = height = -1;
+}
+
+template<class ColorType>
+inline bool Pixelmap<ColorType>::remapCoord(float& c, int bound, EdgeFillType edge) noexcept {
+	if (c < 0.0f || static_cast<int>(c) >= bound) {
+		if (EFT_BLANK == edge) {
+			return false;
+		} else if (EFT_TILE == edge) {
+			c = c - static_cast<float>((static_cast<int>(c) / bound - (c < 0.0f ? 1 : 0)) * bound);
+			if (c >= bound) {
+				c = bound - 0.05f;
+			}
+		} else if (EFT_STRETCH == edge) {
+			c = (c < 0.0f ? 0.0f : (c >= static_cast<float>(bound) ? bound - 1 : c));
+		} else if (EFT_MIRROR == edge) {
+			// make absolute
+			c = fabs(c);
+			const int dBound = bound * 2;
+			// tile to the bound * domain
+			if (c >= dBound) {
+				c = c - static_cast<float>((static_cast<int>(c) / dBound) * dBound);
+			}
+			// calculate mirrored position
+			if (c >= bound) {
+				c = (dBound - c);
+			}
+		} else {
+			return false;
+		}
+	}
+	return true;
 }
 
 template<class ColorType>
@@ -414,58 +447,83 @@ ColorType Pixelmap<ColorType>::getPixel(int x, int y) const  noexcept {
 }
 
 template<class ColorType>
-ColorType Pixelmap<ColorType>::getFilteredPixel(float x, float y, EdgeFillType edge) const noexcept {
+template<class IntermediateColorType>
+ColorType Pixelmap<ColorType>::getBilinearFilteredPixel(float x, float y, EdgeFillType edge) const noexcept {
 	if (!data || !width || !height)
 		return ColorType();
-	const bool tile = (EFT_TILE == edge);
-	if (x < 0.0f || int(x) >= width || y < 0.0f || int(y) >= height) {
-		if (EFT_BLANK == edge) {
-			return ColorType();
-		} else if (EFT_TILE == edge) {
-			x = x - float((int(x) / width - (x < 0 ? 1 : 0)) * width);
-			if (x >= width)
-				y = width - 0.05f;
-			y = y - float((int(y) / height - (y < 0 ? 1 : 0)) * height);
-			if (y >= height)
-				y = height - 0.05f;
-		} else if (EFT_STRETCH == edge) {
-			x = (x < 0.0f ? 0.0f : (x >= width ? width - 1 : x));
-			y = (y < 0.0f ? 0.0f : (y >= height ? height - 1 : y));
-		} else if (EFT_MIRROR == edge) {
-			// first make x and y absolute
-			x = fabs(x);
-			y = fabs(y);
-			const int dWidth = width * 2;
-			const int dHeight = height * 2;
-			// then tile to the width * 2 and height * 2 domain
-			if (x >= dWidth) {
-				x = x - float((int(x) / dWidth) * dWidth);
-			}
-			if (y >= dHeight) {
-				y = y - float((int(y) / dHeight) * dHeight);
-			}
-			// and finally calculate the positions
-			if (x >= width) {
-				x = (dWidth - x);
-			}
-			if (y >= height) {
-				y = (dHeight - y);
-			}
-		} else {
-			return ColorType();
-		}
+	if (!remapCoord(x, width, edge) || !remapCoord(y, height, edge)) {
+		return ColorType();
 	}
-	const int tx = (int)floor(x);
-	const int ty = (int)floor(y);
-	const int tx_next = (tile ? (tx + 1) % width : std::min(tx + 1, width - 1)); // this is usually done for tiling textures, but well...
-	const int ty_next = (tile ? (ty + 1) % height : std::min(ty + 1, height - 1));
+	float xn = x + 1.0f;
+	float yn = y + 1.0f;
+	if (!remapCoord(xn, width, edge)) {
+		xn = x;
+	}
+	if (!remapCoord(yn, height, edge)) {
+		yn = y;
+	}
+	const int tx = static_cast<int>(floor(x));
+	const int ty = static_cast<int>(floor(y));
+	const int txNext = static_cast<int>(floor(xn));
+	const int tyNext = static_cast<int>(floor(yn));
 	const double p = x - tx;
 	const double q = y - ty;
 	return static_cast<ColorType>(
-		  data[ty      * width + tx]      * ((1.0 - p) * (1.0 - q))
-		+ data[ty      * width + tx_next] * (p         * (1.0 - q))
-		+ data[ty_next * width + tx]      * ((1.0 - p) *         q)
-		+ data[ty_next * width + tx_next] * (p         *         q));
+		  static_cast<IntermediateColorType>(data[ty     * width + tx]     * ((1.0 - p) * (1.0 - q)))
+		+ static_cast<IntermediateColorType>(data[ty     * width + txNext] * (p         * (1.0 - q)))
+		+ static_cast<IntermediateColorType>(data[tyNext * width + tx]     * ((1.0 - p) *         q))
+		+ static_cast<IntermediateColorType>(data[tyNext * width + txNext] * (p         *         q)));
+}
+
+template<class ColorType>
+template<class IntermediateColorType>
+ColorType Pixelmap<ColorType>::getBicubicFilteredPixel(float x, float y, EdgeFillType edge) const noexcept {
+	if (!isOK() || 0 == width || 0 == height)
+		return ColorType();
+	if (!remapCoord(x, width, edge) || !remapCoord(y, height, edge)) {
+		return ColorType();
+	}
+	float xReal[3] = { x - 1.0f, x + 1.0f, x + 2.0f };
+	float yReal[3] = { y - 1.0f, y + 1.0f, y + 2.0f };
+	for (int i = 0; i < 3; ++i) {
+		if (!remapCoord(xReal[i], width, edge)) {
+			xReal[i] = x;
+		}
+		if (!remapCoord(yReal[i], height, edge)) {
+			yReal[i] = y;
+		}
+	}
+	const int xCoords[4] = {
+		static_cast<int>(floor(xReal[0])),
+		static_cast<int>(floor(x)),
+		static_cast<int>(floor(xReal[1])),
+		static_cast<int>(floor(xReal[2])),
+	};
+	const int yCoords[4] = {
+		static_cast<int>(floor(yReal[0])),
+		static_cast<int>(floor(y)),
+		static_cast<int>(floor(yReal[1])),
+		static_cast<int>(floor(yReal[2])),
+	};
+	const double p = x - xCoords[1];
+	const double q = y - yCoords[1];
+	IntermediateColorType horizontal[4];
+	for (int i = 0; i < 4; ++i) {
+		horizontal[i] = cubicInterpolate<IntermediateColorType>(
+			static_cast<IntermediateColorType>(data[yCoords[i] * width + xCoords[0]]),
+			static_cast<IntermediateColorType>(data[yCoords[i] * width + xCoords[1]]),
+			static_cast<IntermediateColorType>(data[yCoords[i] * width + xCoords[2]]),
+			static_cast<IntermediateColorType>(data[yCoords[i] * width + xCoords[3]]),
+			p
+		);
+	}
+	return static_cast<ColorType>(cubicInterpolate<IntermediateColorType>(
+		horizontal[0],
+		horizontal[1],
+		horizontal[2],
+		horizontal[3],
+		q
+	));
 }
 
 template<class ColorType>
@@ -870,6 +928,44 @@ bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int d
 		}
 	}
 	downScaled = Pixelmap<ColorType>(destPmp);
+	return true;
+}
+
+template<class ColorType>
+template<class IntermediateColorType>
+bool Pixelmap<ColorType>::upscale(Pixelmap<ColorType>& upScaled, const int upWidth, const int upHeight, UpscaleFiltering filterType) const {
+	if (!isOK() || upWidth < width || upHeight < height) {
+		return false;
+	} else if (upWidth == width && upHeight == height) {
+		upScaled = *this;
+		return true;
+	}
+	upScaled.generateEmptyImage(upWidth, upHeight, false);
+	const double ratioWidth = width / static_cast<double>(upWidth);
+	const double ratioHeight = height / static_cast<double>(upHeight);
+	ColorType * upData = upScaled.getDataPtr();
+	if (UF_NEAREST_NEIGHBOUR == filterType) {
+		for (int y = 0; y < upHeight; ++y) {
+			for (int x = 0; x < upWidth; ++x) {
+				const int downY = clamp(nearestInt(y * ratioHeight), 0, height - 1);
+				const int downX = clamp(nearestInt(x * ratioWidth), 0, width - 1);
+				upData[y * upWidth + x] = data[downY * width + downX];
+			}
+		}
+	} else if (UF_BILINEAR == filterType) {
+		for (int y = 0; y < upHeight; ++y) {
+			for (int x = 0; x < upWidth; ++x) {
+				upData[y * upWidth + x] = getBilinearFilteredPixel<IntermediateColorType>(static_cast<float>(x * ratioWidth), static_cast<float>(y * ratioHeight), EFT_STRETCH);
+			}
+		}
+	} else if (UF_BICUBIC == filterType) {
+		for (int y = 0; y < upHeight; ++y) {
+			for (int x = 0; x < upWidth; ++x) {
+				upData[y * upWidth + x] = getBicubicFilteredPixel<IntermediateColorType>(static_cast<float>(x * ratioWidth), static_cast<float>(y * ratioHeight), EFT_STRETCH);
+			}
+		}
+	}
+
 	return true;
 }
 

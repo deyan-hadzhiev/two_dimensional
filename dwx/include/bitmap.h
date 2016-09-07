@@ -86,8 +86,15 @@ enum PixelmapAxis {
 	PA_COUNT,
 };
 
+enum UpscaleFiltering {
+	UF_NEAREST_NEIGHBOUR = 0, //!< nearest neighbour upscaling
+	UF_BILINEAR,              //!< bilinear upscaling
+	UF_BICUBIC,               //!< bicubic upscaling
+};
+
 template<class ColorType = Color>
 class Pixelmap {
+	static inline bool remapCoord(float& c, int bound, EdgeFillType edge) noexcept;
 protected:
 	int width, height;
 	// TODO make Bitmap data a shared ptr, so bitmaps can be easily shared
@@ -113,7 +120,12 @@ public:
 	void generateEmptyImage(int width, int height, bool clear = true) noexcept; //!< Creates an empty image with the given dimensions (and clears it by default)
 	void fill(ColorType c, int x = 0, int y = 0, int width = -1, int height = -1);
 	ColorType getPixel(int x, int y) const noexcept; //!< Gets the pixel at coordinates (x, y). Returns black if (x, y) is outside of the image
-	ColorType getFilteredPixel(float x, float y, EdgeFillType edge = EdgeFillType::EFT_BLANK) const noexcept;
+	// returns bilinearly filtered pixel at the specified coordinates
+	template<class IntermediateColorType>
+	ColorType getBilinearFilteredPixel(float x, float y, EdgeFillType edge = EdgeFillType::EFT_BLANK) const noexcept;
+	// returns bicubically filtered pixel at the specified coordinates
+	template<class IntermediateColorType>
+	ColorType getBicubicFilteredPixel(float x, float y, EdgeFillType edge = EdgeFillType::EFT_STRETCH) const noexcept;
 	void remap(std::function<ColorType(ColorType)>) noexcept; // remap R, G, B channels by a function
 
 	void setPixel(int x, int y, const ColorType& col) noexcept; //!< Sets the pixel at coordinates (x, y)
@@ -157,6 +169,10 @@ public:
 	// downscales the bitmap using fractions
 	template<class IntermediateColorType>
 	bool downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const;
+
+	// upscales the bitmap using the provided upscale type
+	template<class IntermediateColorType>
+	bool upscale(Pixelmap<ColorType>& upScaled, const int upWidth, const int upHeight, UpscaleFiltering filterType = UF_BILINEAR) const;
 
 	// draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
 	bool drawBitmap(Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;

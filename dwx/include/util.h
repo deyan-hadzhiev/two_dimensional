@@ -31,7 +31,13 @@ inline float toRadians(float angle) noexcept { return static_cast<float>((angle 
 inline float toDegrees(float angle) noexcept { return static_cast<float>((angle / PI) * 180.0); }
 inline double toRadians(double angle) noexcept { return (angle / 180.0) * PI; }
 inline double toDegrees(double angle) noexcept { return (angle / PI) * 180.0; }
-constexpr inline int nearestInt(float x) noexcept { return static_cast<int>(x > 0 ? x + 0.5f : x - 0.5f); }
+constexpr inline int nearestInt(float x) noexcept { return static_cast<int>(x > 0.0f ? x + 0.5f : x - 0.5f); }
+constexpr inline int nearestInt(double x) noexcept { return static_cast<int>(x > 0.0 ? x + 0.5 : x - 0.5); }
+
+template<class T>
+inline T cubicInterpolate(T a0, T a1, T a2, T a3, double x) {
+	return a1 + 0.5 * x * (a2 - a0 + x * (2.0 * a0 - 5.0 * a1 + 4.0 * a2 - a3 + x * (3.0 * (a1 - a2) + a3 - a0)));
+}
 
 template<class T>
 T clamp(T x, T xMin, T xMax) noexcept {

@@ -608,19 +608,33 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	const int ocx = obw / 2;
 	const int ocy = obh / 2;
 	EdgeFillType edge = EdgeFillType::EFT_BLANK;
+	unsigned filterType = 0;
 	if (pman) {
 		unsigned edgeType = 0;
 		if (pman->getEnumParam(edgeType, "edge")) {
 			edge = static_cast<EdgeFillType>(edgeType);
 		}
+		pman->getEnumParam(filterType, "filterType");
 	}
-	for (int y = 0; y < obh && !getAbortState(); ++y) {
-		for (int x = 0; x < obw && !getAbortState(); ++x) {
-			const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-			bmpData[y * obw + x] = bmp.getFilteredPixel(origin.x + cx, origin.y + cy, edge);
+	if (0 == filterType) {
+		for (int y = 0; y < obh && !getAbortState(); ++y) {
+			for (int x = 0; x < obw && !getAbortState(); ++x) {
+				const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+				bmpData[y * obw + x] = bmp.getBilinearFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+			}
+			if (cb) {
+				cb->setPercentDone(y, obh);
+			}
 		}
-		if (cb) {
-			cb->setPercentDone(y, obh);
+	} else if (1 == filterType) {
+		for (int y = 0; y < obh && !getAbortState(); ++y) {
+			for (int x = 0; x < obw && !getAbortState(); ++x) {
+				const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+				bmpData[y * obw + x] = bmp.getBicubicFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+			}
+			if (cb) {
+				cb->setPercentDone(y, obh);
+			}
 		}
 	}
 	if (cb) {
@@ -776,6 +790,7 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) 
 	}
 	if (cb) {
 		cb->setModuleName("Downscale");
+		cb->setPercentDone(0, 1);
 	}
 	int width = 0;
 	int height = 0;
@@ -795,6 +810,42 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) 
 		res = bmp.downscale<TColor<float> >(out, width, height);
 	} else if (3 == meduimType) {
 		res = bmp.downscale<TColor<double> >(out, width, height);
+	}
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
+	if (res) {
+		if (oman) {
+			oman->setOutput(out, 1);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult UpScaleModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Upscale");
+		cb->setPercentDone(0, 1);
+	}
+	int width = 0;
+	int height = 0;
+	unsigned filterType = UpscaleFiltering::UF_BILINEAR;
+	if (pman) {
+		pman->getIntParam(width, "upscaleWidth");
+		pman->getIntParam(height, "upscaleHeight");
+		pman->getEnumParam(filterType, "filterType");
+	}
+	Bitmap out;
+	bool res = false;
+	res = bmp.upscale<TColor<double> >(out, width, height, static_cast<UpscaleFiltering>(filterType));
+	if (cb) {
+		cb->setPercentDone(1, 1);
 	}
 	if (res) {
 		if (oman) {

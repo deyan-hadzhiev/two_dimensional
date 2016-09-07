@@ -239,6 +239,7 @@ public:
 	RotationModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "angle"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "edge", "blank;tile;stretch;mirror"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "bilinear;bicubic"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
@@ -286,6 +287,17 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleWidth", "128"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleHeight", "128"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "medium", "uint16;uint8;float;double"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
+class UpScaleModule : public AsyncModule {
+public:
+	UpScaleModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upscaleWidth", "128"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upscaleHeight", "128"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "NearestNeighbour;Bilinear;Bicubic"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
