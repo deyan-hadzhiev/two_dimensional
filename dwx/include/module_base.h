@@ -5,6 +5,7 @@
 #include <atomic>
 #include <mutex>
 
+#include "color.h"
 #include "bitmap.h"
 #include "convolution.h"
 #include "vector2.h"
@@ -153,6 +154,7 @@ public:
 		PT_CKERNEL,
 		PT_VECTOR,
 		PT_BIG_STRING,
+		PT_COLOR,
 	} type;
 	ModuleBase * module;
 	std::string name;
@@ -197,6 +199,10 @@ public:
 	}
 
 	virtual bool getVectorParam(Vector2& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getColorParam(Color& value, const std::string& paramName) const {
 		return false;
 	}
 

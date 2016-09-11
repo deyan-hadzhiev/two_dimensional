@@ -357,10 +357,8 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 		(clear ? DrawFlags::DF_CLEAR : 0) |
 		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
 
-	std::string color;
-	pman->getStringParam(color, "color");
-	const uint32 colValue = strtoul(color.c_str(), NULL, 16);
-	const Color penColor = Color(colValue);
+	Color penColor;
+	pman->getColorParam(penColor, "color");
 	float penWidth = 1.0;
 	pman->getFloatParam(penWidth, "penWidth");
 	float penStrenth = 0.5;
@@ -445,10 +443,8 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 		(clear ? DrawFlags::DF_CLEAR : 0) |
 		(axis ? DrawFlags::DF_SHOW_AXIS : 0);
 
-	std::string color;
-	pman->getStringParam(color, "color");
-	const uint32 colValue = strtoul(color.c_str(), NULL, 16);
-	const Color penColor = Color(colValue);
+	Color penColor;
+	pman->getColorParam(penColor, "color");
 	float penWidth = 1.0;
 	pman->getFloatParam(penWidth, "penWidth");
 	float penStrenth = 0.5;

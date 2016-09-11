@@ -4,6 +4,7 @@
 #include <wx/panel.h>
 #include <wx/sizer.h>
 #include <wx/choice.h>
+#include <wx/colordlg.h>
 
 #include <unordered_map>
 
@@ -292,6 +293,26 @@ private:
 	wxBoxSizer * mainSizer;
 };
 
+class ColorPanel : public wxPanel {
+public:
+	ColorPanel(ParamPanel * parent, wxWindowID id, const wxString& label, const wxString& defValue);
+
+	wxColour GetValue() const;
+
+	void OnShowButton(wxCommandEvent& evt);
+
+private:
+	ParamPanel * parent;
+	wxColourData colorData;
+	wxPanel * previewPanel;
+	wxToolTip * previewValue;
+	wxColourDialog * colorDialog;
+
+	wxButton * showButton;
+
+	wxBoxSizer * mainSizer;
+};
+
 // TODO: change logic a bit to avoid name clashes
 
 class ParamPanel : public wxPanel, public ParamManager {
@@ -308,6 +329,7 @@ class ParamPanel : public wxPanel, public ParamManager {
 	std::unordered_map<int, CKernelPanel*> kernelMap;
 	std::unordered_map<int, wxChoice*> choiceMap;
 	std::unordered_map<int, BigStringPanel*> bigStringMap;
+	std::unordered_map<int, ColorPanel*> colorMap;
 	std::unordered_map<const ModuleBase*, wxBoxSizer*> moduleSizers;
 
 	void createTextCtrl(const int id, const ParamDescriptor& pd);
@@ -319,6 +341,8 @@ class ParamPanel : public wxPanel, public ParamManager {
 	void createChoice(const int id, const ParamDescriptor& pd);
 
 	void createBigString(const int id, const ParamDescriptor& pd);
+
+	void createColor(const int id, const ParamDescriptor& pd);
 
 	// will get the sizer associated with the module, or it will create a new one
 	wxBoxSizer * getModuleSizer(const ModuleBase*);
@@ -340,6 +364,8 @@ public:
 	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const override;
 
 	virtual bool getVectorParam(Vector2& value, const std::string& paramName) const override;
+
+	virtual bool getColorParam(Color& value, const std::string& paramName) const override;
 
 	virtual void resizeParent();
 

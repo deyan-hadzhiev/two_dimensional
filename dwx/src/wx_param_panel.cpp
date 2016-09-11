@@ -1003,6 +1003,61 @@ void BigStringPanel::OnHideButton(wxCommandEvent & evt) {
 }
 
 /************************************
+*          ColorPanel               *
+*************************************/
+
+ColorPanel::ColorPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString & defValue)
+	: wxPanel(_parent, id)
+	, parent(_parent)
+	, colorData()
+	, previewPanel(nullptr)
+	, previewValue(nullptr)
+	, colorDialog(nullptr)
+	, showButton(nullptr)
+	, mainSizer(nullptr)
+{
+	mainSizer = new wxBoxSizer(wxHORIZONTAL);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALL | wxCENTER, ModePanel::panelBorder);
+
+	const uint32 defColValue = strtoul(defValue.c_str(), NULL, 16);
+	const wxColour defValueColor(defColValue);
+	colorData.SetColour(defValueColor);
+	colorDialog = new wxColourDialog(this, &colorData);
+
+	previewPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(20, 20));
+	mainSizer->Add(previewPanel, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+	previewPanel->SetOwnBackgroundColour(defValueColor);
+
+	previewValue = new wxToolTip(defValue);
+	previewPanel->SetToolTip(previewValue);
+
+	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
+	showButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(ColorPanel::OnShowButton), NULL, this);
+	mainSizer->Add(showButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	mainSizer->FitInside(this);
+	SetSizerAndFit(mainSizer);
+}
+
+wxColour ColorPanel::GetValue() const {
+	return colorData.GetColour();
+}
+
+void ColorPanel::OnShowButton(wxCommandEvent & evt) {
+	if (wxID_OK == colorDialog->ShowModal()) {
+		colorData = colorDialog->GetColourData();
+		const wxColour color = colorData.GetColour();
+		previewPanel->SetOwnBackgroundColour(color);
+		wxString hexValue;
+		hexValue.Printf("%02x%02x%02x", color.Red(), color.Green(), color.Blue());
+		previewValue->SetTip(hexValue);
+		previewPanel->Refresh();
+		wxCommandEvent applyEvt(wxEVT_NULL, this->GetId());
+		wxPostEvent(parent, applyEvt);
+	}
+}
+
+/************************************
 *           ParamPanel              *
 *************************************/
 
@@ -1067,6 +1122,14 @@ void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 }
 
+void ParamPanel::createColor(const int id, const ParamDescriptor & pd) {
+	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	ColorPanel * cp = new ColorPanel(this, id, pd.name, pd.defaultValue);
+	sizer->Add(cp, 1, wxEXPAND);
+	colorMap[id] = cp;
+	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+}
+
 wxBoxSizer * ParamPanel::getModuleSizer(const ModuleBase * module) {
 	auto moduleSizerIt = moduleSizers.find(module);
 	wxBoxSizer * sizer = nullptr;
@@ -1113,7 +1176,11 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 	case(ParamDescriptor::ParamType::PT_BIG_STRING) :
 		createBigString(id, pd);
 		break;
+	case(ParamDescriptor::ParamType::PT_COLOR) :
+		createColor(id, pd);
+		break;
 	default:
+		DASSERT(false);
 		break;
 	}
 	SetSizerAndFit(panelSizer, false);
@@ -1213,6 +1280,18 @@ bool ParamPanel::getVectorParam(Vector2 & value, const std::string & paramName) 
 			value.x = atof(ctrlIt->second.first->GetValue().c_str());
 			value.y = atof(ctrlIt->second.second->GetValue().c_str());
 			return true;
+		}
+	}
+	return false;
+}
+
+bool ParamPanel::getColorParam(Color & value, const std::string & paramName) const {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = colorMap.find(paramIt->second);
+		if (ctrlIt != colorMap.end()) {
+			const wxColour val = ctrlIt->second->GetValue();
+			value = Color(val.Red(), val.Green(), val.Blue());
 		}
 	}
 	return false;
