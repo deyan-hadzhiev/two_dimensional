@@ -13,7 +13,7 @@
 #include "guimain.h"
 #include "wx_modes.h"
 #include "wx_bitmap_canvas.h"
-#include "modules.h"
+#include "module_manager.h"
 #include "geom_primitive.h"
 
 ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)

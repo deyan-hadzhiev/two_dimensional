@@ -2,6 +2,7 @@
 #include "quad_tree.h"
 #include "drect.h"
 #include "module_base.h"
+#include "progress.h"
 
 #include <string>
 

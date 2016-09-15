@@ -2,6 +2,7 @@
 #include "bitmap.h"
 #include "vector2.h"
 #include "module_base.h"
+#include "progress.h"
 
 ConvolutionKernel::ConvolutionKernel()
 	: data(nullptr)

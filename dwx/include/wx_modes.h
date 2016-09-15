@@ -3,11 +3,11 @@
 
 #include <wx/wx.h>
 
+#include "progress.h"
 #include "guimain.h"
 #include "wx_bitmap_canvas.h"
 #include "wx_param_panel.h"
 #include "module_base.h"
-#include "modules.h"
 #include "geom_primitive.h"
 
 class ViewFrame;

@@ -22,6 +22,7 @@ const ModuleDescription MODULE_DESC[ModuleId::M_COUNT] = {
 	ModuleDescription(M_MIRROR,               create<MirrorModule>,             "mirror",               "Mirror",               1, 1),
 	ModuleDescription(M_EXPAND,               create<ExpandModule>,             "expand",               "Expand",               1, 1),
 	ModuleDescription(M_CHANNEL,              create<ChannelModule>,            "channel",              "Channel",              1, 1),
+	ModuleDescription(M_KMEANS,               create<KMeansModule>,             "kmeans",               "K-Means",              1, 1),
 	ModuleDescription(M_FFT_DOMAIN,           create<FFTDomainModule>,          "fft_domain",           "FFTDomain",            1, 1),
 	ModuleDescription(M_FFT_COMPRESSION,      create<FFTCompressionModule>,     "fft_compression",      "FFTCompression",       1, 1),
 	ModuleDescription(M_FFT_FILTER,           create<FFTFilter>,                "fft_filter",           "FFTFilter",            1, 1),

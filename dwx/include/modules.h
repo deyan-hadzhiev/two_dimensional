@@ -369,6 +369,16 @@ public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
 };
 
+class KMeansModule : public AsyncModule {
+public:
+	KMeansModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "numClasses", "5"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "numIterations", "10"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class FFTDomainModule : public AsyncModule {
 public:
 	FFTDomainModule() {

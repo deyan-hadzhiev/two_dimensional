@@ -2,8 +2,6 @@
 #define __MODULE_BASE_H__
 
 #include <string>
-#include <atomic>
-#include <mutex>
 
 #include "color.h"
 #include "bitmap.h"
@@ -13,66 +11,7 @@
 class InputManager;
 class OutputManager;
 class ParamManager;
-
-class ProgressCallback {
-	std::atomic<bool> abortFlag;
-	std::atomic<int> fractionsDone;
-	std::atomic<int> fractionMax;
-	std::atomic<int64> duration;
-	mutable std::mutex nameMutex;
-	std::string moduleName;
-public:
-	ProgressCallback()
-		: abortFlag(false)
-		, fractionsDone(0)
-		, fractionMax(1)
-		, duration(0)
-		, moduleName("None")
-	{}
-
-	void setAbortFlag() noexcept {
-		abortFlag = true;
-	}
-
-	bool getAbortFlag() const noexcept {
-		return abortFlag;
-	}
-
-	void setPercentDone(int _fractionsDone, int _fractionMax) noexcept {
-		fractionsDone = _fractionsDone;
-		fractionMax = _fractionMax;
-	}
-
-	float getPercentDone() const noexcept {
-		return float(fractionsDone * 100) / fractionMax;
-	}
-
-	void setDuration(int64 _duration) noexcept {
-		duration = _duration;
-	}
-
-	int64 getDuration() const noexcept {
-		return duration;
-	}
-
-	void setModuleName(const std::string& _moduleName) {
-		std::unique_lock<std::mutex> a(nameMutex);
-		moduleName = _moduleName;
-	}
-
-	std::string getModuleName() const {
-		std::unique_lock<std::mutex> a(nameMutex);
-		return moduleName;
-	}
-
-	void reset() {
-		abortFlag = false;
-		fractionsDone = 0;
-		fractionMax = 1;
-		duration = 0;
-		moduleName = std::string("None");
-	}
-};
+class ProgressCallback;
 
 class ModuleBase {
 protected:
@@ -122,6 +61,12 @@ public:
 	// interface for checking the status of processing
 	virtual int percentDone() {
 		return -1;
+	}
+};
+
+class NullModule : public ModuleBase {
+	virtual ModuleBase::ProcessResult runModule(unsigned) override {
+		return ModuleBase::KPR_NO_IMPLEMENTATION;
 	}
 };
 

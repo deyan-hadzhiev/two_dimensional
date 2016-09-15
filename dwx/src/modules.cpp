@@ -4,14 +4,16 @@
 #include <algorithm>
 #include <chrono>
 
+#include "util.h"
 #include "arithmetic.h"
 #include "modules.h"
+#include "progress.h"
 #include "vector2.h"
 #include "matrix2.h"
-#include "util.h"
 #include "dcomplex.h"
 #include "convolution.h"
 #include "fft_butterfly.h"
+#include "kmeans.h"
 
 ModuleBase::ProcessResult SimpleModule::runModule(unsigned flags) {
 	const bool hasInput = getInput();
@@ -1067,6 +1069,58 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	bool res = bmp.getChannel(channelData.get(), static_cast<ColorChannel>(channel));
 	if (res) {
 		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
+		if (oman) {
+			oman->setOutput(out, bmpId);
+		}
+		return KPR_OK;
+	} else {
+		return KPR_FATAL_ERROR;
+	}
+}
+
+ModuleBase::ProcessResult KMeansModule::moduleImplementation(unsigned flags) {
+	const bool inputOk = getInput();
+	if (!inputOk || !bmp.isOK()) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("K-Means");
+		cb->setPercentDone(0, 1);
+	}
+	int numClasses = 3;
+	int numIterations = 3;
+	if (pman) {
+		pman->getIntParam(numClasses, "numClasses");
+		pman->getIntParam(numIterations, "numIterations");
+	}
+	const int bmpDims = bmp.getDimensionProduct();
+	std::unique_ptr<Vector<3, double>[] > valArray(new Vector<3, double>[bmpDims]);
+	const Color * bmpData = bmp.getDataPtr();
+	// convert the colors to 3-dimensional vectors
+	for (int i = 0; i < bmpDims; ++i) {
+		const TColor<double> c = static_cast<TColor<double> >(bmpData[i]);
+		valArray[i] = Vector<3, double>(c.components);
+	}
+	// get the class distribution and mean values
+	const auto& meansRes = kMeans(valArray.get(), bmpDims, numClasses, numIterations, cb);
+	if (meansRes.first.size() != 0 && meansRes.second.size() == numClasses) {
+		// convert the means to colors
+		std::unique_ptr<Color[]> meanColors(new Color[numClasses]);
+		for (int j = 0; j < numClasses; ++j) {
+			const auto& cv = meansRes.second[j];
+			const TColor<double> cd(cv[0], cv[1], cv[2]);
+			meanColors[j] = static_cast<Color>(cd);
+		}
+		Bitmap out(bmp.getWidth(), bmp.getHeight());
+		Color * outData = out.getDataPtr();
+		// now directly set the output values based on the class distributions
+		const std::vector<int>& distribution = meansRes.first;
+		for (int i = 0; i < bmpDims; ++i) {
+			outData[i] = meanColors[distribution[i]];
+		}
+		if (cb) {
+			cb->setPercentDone(1, 1);
+		}
 		if (oman) {
 			oman->setOutput(out, bmpId);
 		}

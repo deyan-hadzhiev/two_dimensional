@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "module_base.h"
-#include "modules.h"
 
 enum ModuleId {
 	M_VOID = -1,
@@ -28,6 +27,7 @@ enum ModuleId {
 	M_MIRROR,
 	M_EXPAND,
 	M_CHANNEL,
+	M_KMEANS,
 	M_FFT_DOMAIN,
 	M_FFT_COMPRESSION,
 	M_FFT_FILTER,
@@ -50,7 +50,7 @@ public:
 	int inputs; //!< number of inputs required by the module
 	int outputs; //!< number of outputs provided by the module // for now all provide a single output
 
-	ModuleDescription(ModuleId _id = M_VOID, ModuleCreator _maker = create<IdentityModule>, const std::string& _name = "void", const std::string& _fullName = "Void", int _inputs = 0, int _outputs = 0)
+	ModuleDescription(ModuleId _id = M_VOID, ModuleCreator _maker = create<NullModule>, const std::string& _name = "void", const std::string& _fullName = "Void", int _inputs = 0, int _outputs = 0)
 		: id(_id)
 		, make(_maker)
 		, name(_name)

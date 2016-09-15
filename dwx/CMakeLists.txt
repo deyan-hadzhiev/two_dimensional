@@ -35,12 +35,15 @@ set (HEADERS
 	include/fft_butterfly.h
 	include/geom_primitive.h
 	include/guimain.h
+	include/kmeans.h
 	include/matrix2.h
 	include/modules.h
 	include/module_base.h
 	include/module_manager.h
+	include/progress.h
 	include/quad_tree.h
 	include/util.h
+	include/vectorn.h
 	include/vector2.h
 	include/wx_bitmap_canvas.h
 	include/wx_modes.h
