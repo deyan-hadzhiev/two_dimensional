@@ -229,6 +229,44 @@ private:
 	int height;
 };
 
+class RandomNoiseModule : public AsyncModule {
+public:
+	RandomNoiseModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", "1024"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", "1024"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "samples", "1000000"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "gradient", "2"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "mx", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "sx", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "my", "0.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "sy", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_COLOR, "background", "000000"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_COLOR, "sampleColor", "ffffff"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "randEngine", "c-rand;LCG;MT;ranlux;knuth_b"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "distribution", "uniform;normal;chi_squared;log_normal;cauchy;fisher_f;student_t"));
+	}
+
+	enum {
+		RE_C_RAND = 0,
+		RE_LINEAR_CONGRUENTIAL_GEN,
+		RE_MERSENNE_TWISTER,
+		RE_RANLUX,
+		RE_KNUTH_B,
+	};
+
+	enum {
+		D_UNIFORM = 0,
+		D_NORMAL,
+		D_CHI_SQUARED,
+		D_LOG_NORMAL,
+		D_CAUCHY,
+		D_FISHER_F,
+		D_STUDENT_T,
+	};
+
+	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+};
+
 class HoughModule : public AsyncModule {
 public:
 	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;

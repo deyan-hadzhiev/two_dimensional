@@ -3,6 +3,8 @@
 #include <utility>
 #include <algorithm>
 #include <chrono>
+#include <random>
+#include <time.h>
 
 #include "util.h"
 #include "arithmetic.h"
@@ -330,6 +332,7 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
+		cb->setModuleName("Function Raster");
 		cb->setPercentDone(0, 1);
 	}
 	const int pWidth = width;
@@ -416,6 +419,7 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
+		cb->setModuleName("Fine Function Raster");
 		cb->setPercentDone(0, 1);
 	}
 	const int pWidth = width;
@@ -496,6 +500,255 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 		reportExpressionError(bmp, parseError.first, parseError.second);
 	}
 
+	SimpleModule::setOutput();
+	if (iman)
+		iman->moduleDone(KPR_OK);
+	return KPR_OK;
+}
+
+template<class RandGen, class DistWidth, class DistHeight>
+class RandomBmpSampler {
+public:
+	RandomBmpSampler(RandGen seed, DistWidth dw, DistHeight dh)
+		: rGen(seed)
+		, distWidth(dw)
+		, distHeight(dh)
+	{}
+
+	void sample(Pixelmap<TColor<double> >& output, const TColor<double> c, const int64 samples, ProgressCallback * cb) {
+		if (!output.isOK() || samples <= 0) {
+			return;
+		}
+		const int width = output.getWidth();
+		const int height = output.getHeight();
+		const int dimProd = width * height;
+		TColor<double> * outData = output.getDataPtr();
+		if (cb) {
+			for (int64 i = 0; i < samples && !cb->getAbortFlag(); ++i) {
+				const int x = static_cast<int>(std::round(distWidth(rGen)));
+				const int y = static_cast<int>(std::round(distHeight(rGen)));
+				if (x >= 0 && x < width && y >= 0 && y < height) {
+					outData[y * width + x] += c;
+				}
+				cb->setPercentDone(i, samples);
+			}
+		} else {
+			for (int64 i = 0; i < samples; ++i) {
+				const int x = static_cast<int>(std::round(distWidth(rGen)));
+				const int y = static_cast<int>(std::round(distHeight(rGen)));
+				if (x >= 0 && x < width && y >= 0 && y < height) {
+					outData[y * width + x] += c;
+				}
+			}
+		}
+	}
+private:
+	RandGen rGen;
+	DistWidth distWidth;
+	DistHeight distHeight;
+};
+
+ModuleBase::ProcessResult RandomNoiseModule::moduleImplementation(unsigned flags) {
+	if (cb) {
+		cb->setModuleName("Fine Function Raster");
+		cb->setPercentDone(0, 1);
+	}
+	int bmpWidth = 1024;
+	int bmpHeight = 1024;
+	int64 samples = 1000000;
+	int gradient = 2;
+	float mx = 0.0;
+	float sx = 1.0;
+	float my = 0.0;
+	float sy = 1.0;
+	Color background(0x000000);
+	Color sampleColor(0xffffff);
+	unsigned randEngine = 0;
+	unsigned distribution = 0;
+	if (pman) {
+		pman->getIntParam(bmpWidth, "width");
+		pman->getIntParam(bmpHeight, "height");
+		pman->getInt64Param(samples, "samples");
+		pman->getIntParam(gradient, "gradient");
+		pman->getFloatParam(mx, "mx");
+		pman->getFloatParam(sx, "sx");
+		pman->getFloatParam(my, "my");
+		pman->getFloatParam(sy, "sy");
+		pman->getColorParam(background, "background");
+		pman->getColorParam(sampleColor, "sampleColor");
+		pman->getEnumParam(randEngine, "randEngine");
+		pman->getEnumParam(distribution, "distribution");
+		if (gradient < 1) {
+			gradient = 1;
+		}
+	}
+	const TColor<double> bkgColor(background);
+	const TColor<double> fgColor(sampleColor);
+	const TColor<double> diffColor = (fgColor - bkgColor) / static_cast<double>(gradient);
+	Pixelmap<TColor<double> > sampledBmp(bmpWidth, bmpHeight);
+	sampledBmp.fill(bkgColor);
+	const int dimProd = bmpWidth * bmpHeight;
+	if (randEngine == RE_C_RAND) {
+		// c-rand
+		srand(static_cast<uint32>(time(NULL)));
+		TColor<double> * sampleData = sampledBmp.getDataPtr();
+		for (int64 i = 0; i < samples && (!cb || !cb->getAbortFlag()); ++i) {
+			const int x = rand() % bmpWidth;
+			const int y = rand() % bmpHeight;
+			sampleData[y * bmpWidth + x] += diffColor;
+			if (cb) {
+				cb->setPercentDone(i, samples);
+			}
+		}
+	} else {
+		std::random_device rDev;
+		std::seed_seq seed{ rDev(), rDev(), rDev(), rDev(), rDev(), rDev(), rDev(), rDev() };
+		if (distribution == D_UNIFORM) {
+			std::uniform_int_distribution<int> dWidth(static_cast<int>(mx), static_cast<int>(sx));
+			std::uniform_int_distribution<int> dHeight(static_cast<int>(my), static_cast<int>(sy));
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		} else if (distribution == D_NORMAL) {
+			std::normal_distribution<double> dWidth(mx, sx);
+			std::normal_distribution<double> dHeight(my, sy);
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		} else if (distribution == D_CHI_SQUARED) {
+			std::chi_squared_distribution<double> dWidth(mx);
+			std::chi_squared_distribution<double> dHeight(my);
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		} else if (distribution == D_LOG_NORMAL) {
+			std::lognormal_distribution<double> dWidth(mx, sx);
+			std::lognormal_distribution<double> dHeight(my, sy);
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		} else if (distribution == D_CAUCHY) {
+			std::cauchy_distribution<double> dWidth(mx, sx);
+			std::cauchy_distribution<double> dHeight(my, sy);
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		} else if (distribution == D_FISHER_F) {
+			std::fisher_f_distribution<double> dWidth(mx, sx);
+			std::fisher_f_distribution<double> dHeight(my, sy);
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		} else if (distribution == D_STUDENT_T) {
+			std::student_t_distribution<double> dWidth(mx);
+			std::student_t_distribution<double> dHeight(my);
+			if (randEngine == RE_LINEAR_CONGRUENTIAL_GEN) {
+				std::minstd_rand re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_MERSENNE_TWISTER) {
+				std::mt19937 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_RANLUX) {
+				std::ranlux24 re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			} else if (randEngine == RE_KNUTH_B) {
+				std::knuth_b re(seed);
+				RandomBmpSampler<decltype(re), decltype(dWidth), decltype(dHeight)> s(re, dWidth, dHeight);
+				s.sample(sampledBmp, diffColor, samples, cb);
+			}
+		}
+	}
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
+	bmp = sampledBmp;
 	SimpleModule::setOutput();
 	if (iman)
 		iman->moduleDone(KPR_OK);

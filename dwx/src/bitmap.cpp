@@ -240,7 +240,7 @@ template class Pixelmap<Color>;
 template class Pixelmap<TColor<uint16> >;
 template class Pixelmap<TColor<int32> >;
 template class Pixelmap<TColor<Complex> >;
-
+template class Pixelmap<TColor<double> >;
 
 // conversion Color <-> TColor<int32>
 template Pixelmap<TColor<int32> >::Pixelmap(const Pixelmap<Color>&);
@@ -249,6 +249,10 @@ template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<int32> >&);
 // conversion Color <-> TColor<Complex>
 template Pixelmap<TColor<Complex> >::Pixelmap(const Pixelmap<Color>&);
 template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<Complex> >&);
+
+// conversion Color <-> TColor<double>
+template Pixelmap<TColor<double> >::Pixelmap(const Pixelmap<Color>&);
+template Pixelmap<Color>::Pixelmap(const Pixelmap<TColor<double> >&);
 
 template bool Pixelmap<Color>::getChannel<uint8>(uint8 *, ColorChannel) const;
 template bool Pixelmap<TColor<Complex> >::getChannel<Complex>(Complex *, ColorChannel) const;
