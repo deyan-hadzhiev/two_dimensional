@@ -9,8 +9,8 @@
 
 class ProgressCallback {
 	std::atomic<bool> abortFlag;
-	std::atomic<int> fractionsDone;
-	std::atomic<int> fractionMax;
+	std::atomic<int64> fractionsDone;
+	std::atomic<int64> fractionMax;
 	std::atomic<int64> duration;
 	mutable std::mutex nameMutex;
 	std::string moduleName;
@@ -31,13 +31,13 @@ public:
 		return abortFlag;
 	}
 
-	void setPercentDone(int _fractionsDone, int _fractionMax) noexcept {
+	void setPercentDone(int64 _fractionsDone, int64 _fractionMax) noexcept {
 		fractionsDone = _fractionsDone;
 		fractionMax = _fractionMax;
 	}
 
 	float getPercentDone() const noexcept {
-		return float(fractionsDone * 100) / fractionMax;
+		return static_cast<float>((fractionsDone * 10000) / fractionMax) / 100.0f;
 	}
 
 	void setDuration(int64 _duration) noexcept {
