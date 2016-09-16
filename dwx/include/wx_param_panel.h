@@ -355,6 +355,8 @@ public:
 
 	virtual bool getIntParam(int& value, const std::string& paramName) const override;
 
+	virtual bool getInt64Param(int64& value, const std::string& paramName) const override;
+
 	virtual bool getFloatParam(float& value, const std::string& paramName) const override;
 
 	virtual bool getBoolParam(bool& value, const std::string& paramName) const override;

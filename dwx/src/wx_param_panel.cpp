@@ -1162,6 +1162,7 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 		createCheckBox(id, pd);
 		break;
 	case(ParamDescriptor::ParamType::PT_INT) :
+	case(ParamDescriptor::ParamType::PT_INT64) :
 	case(ParamDescriptor::ParamType::PT_FLOAT) :
 	case(ParamDescriptor::ParamType::PT_STRING) :
 	case(ParamDescriptor::ParamType::PT_VECTOR) :
@@ -1213,6 +1214,18 @@ bool ParamPanel::getIntParam(int & value, const std::string & paramName) const {
 		const auto ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			value = atoi(ctrlIt->second->GetValue().c_str());
+			return true;
+		}
+	}
+	return false;
+}
+
+bool ParamPanel::getInt64Param(int64 & value, const std::string & paramName) const {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		if (ctrlIt != textCtrlMap.end()) {
+			value = _atoi64(ctrlIt->second->GetValue().c_str());
 			return true;
 		}
 	}

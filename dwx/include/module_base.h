@@ -93,6 +93,7 @@ public:
 		PT_NONE = 0,
 		PT_BOOL,
 		PT_INT,
+		PT_INT64,
 		PT_FLOAT,
 		PT_STRING,
 		PT_ENUM,
@@ -124,6 +125,10 @@ public:
 	}
 
 	virtual bool getIntParam(int& value, const std::string& paramName) const {
+		return false;
+	}
+
+	virtual bool getInt64Param(int64& value, const std::string& paramName) const {
 		return false;
 	}
 
