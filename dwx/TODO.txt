@@ -1,0 +1,5 @@
+TODO:
+
+1. Node based module system and UI with option for saving configurations (json?)
+2. Drag'n'drop pictures (and configuration for the node system)
+3. Parameters connectivity logic for enabling/disabling and else (lamba functions)
