@@ -13,6 +13,8 @@ macro (ir_add_install _INSTALL_NAME)
 	endif()
 endmacro()
 
+set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD TRUE)
+
 project(two_dimensional)
 
 #option (WTIH_SDL CACHE OFF STRING "Compile the dsdl project")
