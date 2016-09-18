@@ -1080,6 +1080,9 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 	if (pd.changeHandler) {
 		ctrl->Connect(id, wxEVT_TEXT, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
 	}
+	if (!pd.enabled) {
+		ctrl->Enable(false);
+	}
 	if (pd.type != ParamDescriptor::ParamType::PT_VECTOR) {
 		textCtrlMap[id] = ctrl;
 	} else {
@@ -1088,6 +1091,9 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 		ctrl2->SetValue(pd.defaultValue);
 		if (pd.changeHandler) {
 			ctrl2->Connect(id, wxEVT_TEXT, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
+		}
+		if (!pd.enabled) {
+			ctrl2->Enable(false);
 		}
 		sizer->Add(ctrl2, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 		pairTextCtrlMap[id] = std::pair<wxTextCtrl*, wxTextCtrl*>(ctrl, ctrl2);
@@ -1106,6 +1112,9 @@ void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
 	} else {
 		Connect(id, wxEVT_CHECKBOX, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 	}
+	if (!pd.enabled) {
+		cb->Enable(false);
+	}
 }
 
 void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
@@ -1114,6 +1123,7 @@ void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
 	sizer->Add(ckp, 1, wxEXPAND);
 	kernelMap[id] = ckp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// TODO - enabled check
 }
 
 void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
@@ -1129,7 +1139,14 @@ void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 	}
 	sizer->Add(ch, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	choiceMap[id] = ch;
-	Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	if (pd.changeHandler) {
+		Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
+	} else {
+		Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	}
+	if (!pd.enabled) {
+		ch->Enable(false);
+	}
 }
 
 void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
@@ -1138,6 +1155,7 @@ void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
 	sizer->Add(bsp, 1, wxEXPAND);
 	bigStringMap[id] = bsp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// TODO - enabled check
 }
 
 void ParamPanel::createColor(const int id, const ParamDescriptor & pd) {
@@ -1146,6 +1164,7 @@ void ParamPanel::createColor(const int id, const ParamDescriptor & pd) {
 	sizer->Add(cp, 1, wxEXPAND);
 	colorMap[id] = cp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// TODO - enabled check
 }
 
 wxBoxSizer * ParamPanel::getModuleSizer(const ModuleBase * module) {
@@ -1208,7 +1227,58 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 }
 
 void ParamPanel::enableParam(const std::string & paramName, bool enable) {
-	// TODO
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto pdIt = paramIdMap.find(paramIt->second);
+		if (pdIt != paramIdMap.end()) {
+			const ParamDescriptor& pd = pdIt->second;
+			switch (pd.type) {
+			case(ParamDescriptor::ParamType::PT_BOOL): {
+				const auto ctrlIt = checkBoxMap.find(paramIt->second);
+				if (ctrlIt != checkBoxMap.end()) {
+					ctrlIt->second->Enable(enable);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_INT):
+			case(ParamDescriptor::ParamType::PT_INT64):
+			case(ParamDescriptor::ParamType::PT_FLOAT):
+			case(ParamDescriptor::ParamType::PT_STRING): {
+				const auto ctrlIt = textCtrlMap.find(paramIt->second);
+				if (ctrlIt != textCtrlMap.end()) {
+					ctrlIt->second->Enable(enable);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_BIG_STRING): {
+				// TODO
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_VECTOR): {
+				// TODO
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_CKERNEL): {
+				// TODO
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_ENUM): {
+				const auto ctrlIt = choiceMap.find(paramIt->second);
+				if (ctrlIt != choiceMap.end()) {
+					ctrlIt->second->Enable(enable);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_COLOR): {
+				// TODO
+				break;
+			}
+			default:
+				DASSERT(false);
+				break;
+			}
+		}
+	}
 }
 
 void ParamPanel::onImageChange(int width, int height) {

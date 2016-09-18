@@ -592,10 +592,16 @@ ModuleBase::ProcessResult RandomNoiseModule::moduleImplementation(unsigned flags
 		// c-rand
 		srand(static_cast<uint32>(time(NULL)));
 		TColor<double> * sampleData = sampledBmp.getDataPtr();
-		for (int64 i = 0; i < samples && (!cb || !cb->getAbortFlag()); ++i) {
-			const int x = rand() % bmpWidth;
-			const int y = rand() % bmpHeight;
-			sampleData[y * bmpWidth + x] += diffColor;
+		const int offsetX = static_cast<int>(mx);
+		const int rangeWidth = static_cast<int>(sx - mx);
+		const int offsetY = static_cast<int>(my);
+		const int rangeHeight = static_cast<int>(sy - my);
+		for (int64 i = 0; i < samples && !getAbortState(); ++i) {
+			const int x = offsetX + (rand() % rangeWidth);
+			const int y = offsetY + (rand() % rangeHeight);
+			if (x >= 0 && x < bmpWidth && y >= 0 && y < bmpHeight) {
+				sampleData[y * bmpWidth + x] += diffColor;
+			}
 			if (cb) {
 				cb->setPercentDone(i, samples);
 			}

@@ -229,20 +229,23 @@ private:
 };
 
 class RandomNoiseModule : public AsyncModule {
+	RandomNoiseChangeHandler distGenHandler;
 public:
-	RandomNoiseModule() {
+	RandomNoiseModule()
+		: distGenHandler(0, 0)
+	{
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", "1024"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", "1024"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "samples", "1000000"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "gradient", "2"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "mx", "0.0"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "sx", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "sx", "1024.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "my", "0.0"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "sy", "1.0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "sy", "1024.0"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_COLOR, "background", "000000"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_COLOR, "sampleColor", "ffffff"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "randEngine", "c-rand;LCG;MT;ranlux;knuth_b"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "distribution", "uniform;normal;chi_squared;log_normal;cauchy;fisher_f;student_t"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "randEngine", "c-rand;LCG;MT;ranlux;knuth_b", &distGenHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "distribution", "uniform;normal;chi_squared;log_normal;cauchy;fisher_f;student_t", &distGenHandler, false));
 	}
 
 	enum {

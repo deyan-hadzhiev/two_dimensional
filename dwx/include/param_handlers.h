@@ -19,4 +19,16 @@ public:
 	virtual void onImageChange(ParamManager * pman, int width, int height) override;
 };
 
+class RandomNoiseChangeHandler : public ParamChangeHandler {
+	unsigned randGen;
+	unsigned distribution;
+public:
+	RandomNoiseChangeHandler(unsigned _randGen, unsigned _distribution)
+		: randGen(_randGen)
+		, distribution(_distribution)
+	{}
+
+	virtual bool onParamChange(ParamManager * pman, const std::string& paramName, const unsigned& value) override;
+};
+
 #endif // __PARAM_HANDLERS_H__
