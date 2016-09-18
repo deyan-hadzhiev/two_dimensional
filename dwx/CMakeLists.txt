@@ -40,6 +40,8 @@ set (HEADERS
 	include/modules.h
 	include/module_base.h
 	include/module_manager.h
+	include/param_base.h
+	include/param_handlers.h
 	include/progress.h
 	include/quad_tree.h
 	include/util.h
@@ -61,6 +63,7 @@ set (SOURCES
 	src/matrix2.cpp
 	src/modules.cpp
 	src/module_manager.cpp
+	src/param_handlers.cpp
 	src/util.cpp
 	src/wx_modes.cpp
 	src/wx_bitmap_canvas.cpp

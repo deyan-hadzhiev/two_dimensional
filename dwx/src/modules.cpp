@@ -1128,8 +1128,8 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) 
 	int height = 0;
 	unsigned meduimType = 0;
 	if (pman) {
-		pman->getIntParam(width, "downscaleWidth");
-		pman->getIntParam(height, "downscaleHeight");
+		pman->getIntParam(width, "width");
+		pman->getIntParam(height, "height");
 		pman->getEnumParam(meduimType, "medium");
 	}
 	Bitmap out;
@@ -1169,8 +1169,8 @@ ModuleBase::ProcessResult UpScaleModule::moduleImplementation(unsigned flags) {
 	int height = 0;
 	unsigned filterType = UpscaleFiltering::UF_BILINEAR;
 	if (pman) {
-		pman->getIntParam(width, "upscaleWidth");
-		pman->getIntParam(height, "upscaleHeight");
+		pman->getIntParam(width, "width");
+		pman->getIntParam(height, "height");
 		pman->getEnumParam(filterType, "filterType");
 	}
 	Bitmap out;

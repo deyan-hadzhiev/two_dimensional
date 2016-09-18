@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "param_base.h"
 #include "color.h"
 #include "bitmap.h"
 #include "convolution.h"
@@ -85,79 +86,6 @@ public:
 	virtual ~OutputManager() {}
 	// sets the provided bitmap and outputs it in a fine matter
 	virtual void setOutput(const Bitmap& outputBmp, int id) = 0;
-};
-
-class ParamDescriptor {
-public:
-	enum class ParamType {
-		PT_NONE = 0,
-		PT_BOOL,
-		PT_INT,
-		PT_INT64,
-		PT_FLOAT,
-		PT_STRING,
-		PT_ENUM,
-		PT_CKERNEL,
-		PT_VECTOR,
-		PT_BIG_STRING,
-		PT_COLOR,
-	} type;
-	ModuleBase * module;
-	std::string name;
-	std::string defaultValue;
-	ParamDescriptor(ModuleBase * _module = nullptr,
-	                ParamType _type = ParamType::PT_NONE,
-	                const std::string& _name = std::string(),
-	                const std::string& _defaultValue = std::string("0"))
-		: module(_module)
-		, type(_type)
-		, name(_name)
-		, defaultValue(_defaultValue)
-	{}
-};
-
-class ParamManager {
-public:
-	virtual ~ParamManager() {}
-	// param getters - return true if the param is found
-	virtual bool getStringParam(std::string& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getIntParam(int& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getInt64Param(int64& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getFloatParam(float& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getBoolParam(bool& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getCKernelParam(ConvolutionKernel& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getVectorParam(Vector2& value, const std::string& paramName) const {
-		return false;
-	}
-
-	virtual bool getColorParam(Color& value, const std::string& paramName) const {
-		return false;
-	}
-
-	// adds a parameter to internal storage for type info and optionally updates to the module
-	virtual void addParam(const ParamDescriptor& pd) = 0;
 };
 
 #endif // __MODULE_BASE_H__

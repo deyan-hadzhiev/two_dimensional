@@ -12,8 +12,7 @@
 #include "bitmap.h"
 #include "module_base.h"
 #include "geom_primitive.h"
-
-using ParamList = std::unordered_map<std::string, std::string>;
+#include "param_handlers.h"
 
 // TODO add a module as an input/output manager of another module to chain modules
 
@@ -332,10 +331,15 @@ public:
 };
 
 class DownScaleModule : public AsyncModule {
+	AspectRatioHandler aspectHandler;
 public:
-	DownScaleModule() {
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleWidth", "128"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "downscaleHeight", "128"));
+	DownScaleModule()
+		: aspectHandler(false, 1.0)
+	{
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", "128", &aspectHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", "128", &aspectHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "keepAspect", "false", &aspectHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "aspectRatio", "1.0", &aspectHandler));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "medium", "uint16;uint8;float;double"));
 	}
 
@@ -343,10 +347,15 @@ public:
 };
 
 class UpScaleModule : public AsyncModule {
+	AspectRatioHandler aspectHandler;
 public:
-	UpScaleModule() {
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upscaleWidth", "128"));
-		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upscaleHeight", "128"));
+	UpScaleModule()
+		: aspectHandler(false, 1.0)
+	{
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "width", "128", &aspectHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "height", "128", &aspectHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "keepAspect", "false", &aspectHandler));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "aspectRatio", "1.0", &aspectHandler));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "NearestNeighbour;Bilinear;Bicubic"));
 	}
 
