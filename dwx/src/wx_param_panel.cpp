@@ -941,6 +941,10 @@ void BigStringDialog::OnShow(wxShowEvent & evt) {
 	SendSizeEvent();
 }
 
+void BigStringDialog::ChangeValue(const wxString & value) {
+	textCtrl->ChangeValue(value);
+}
+
 void BigStringDialog::OnClose(wxCloseEvent & evt) {
 	wxCommandEvent dummy;
 	paramPanel->OnHideButton(dummy);
@@ -984,6 +988,10 @@ BigStringPanel::BigStringPanel(ParamPanel * parent, wxWindowID id, const wxStrin
 
 wxString BigStringPanel::GetValue() const {
 	return textDialog->GetValue();
+}
+
+void BigStringPanel::ChangeValue(const wxString & value) {
+	textDialog->ChangeValue(value);
 }
 
 void BigStringPanel::OnShowButton(wxCommandEvent & evt) {
@@ -1069,12 +1077,24 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 	sizer->Add(ctrl, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	// also connect the event
 	Connect(id, wxEVT_TEXT_ENTER, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	if (pd.changeHandler) {
+		ctrl->Connect(id, wxEVT_TEXT, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
+	}
+	if (!pd.enabled) {
+		ctrl->Enable(false);
+	}
 	if (pd.type != ParamDescriptor::ParamType::PT_VECTOR) {
 		textCtrlMap[id] = ctrl;
 	} else {
 		// create a new text control for the y value
 		wxTextCtrl * ctrl2 = new wxTextCtrl(this, id, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 		ctrl2->SetValue(pd.defaultValue);
+		if (pd.changeHandler) {
+			ctrl2->Connect(id, wxEVT_TEXT, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
+		}
+		if (!pd.enabled) {
+			ctrl2->Enable(false);
+		}
 		sizer->Add(ctrl2, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 		pairTextCtrlMap[id] = std::pair<wxTextCtrl*, wxTextCtrl*>(ctrl, ctrl2);
 	}
@@ -1086,8 +1106,15 @@ void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
 	cb->SetValue(pd.defaultValue != "false" && pd.defaultValue != "0");
 	sizer->Add(cb, 1, wxEXPAND);
 	checkBoxMap[id] = cb;
-	// also connect the event
-	Connect(id, wxEVT_CHECKBOX, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// also connect the event to the proper handler based on available changeHandler
+	if (pd.changeHandler) {
+		Connect(id, wxEVT_CHECKBOX, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
+	} else {
+		Connect(id, wxEVT_CHECKBOX, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	}
+	if (!pd.enabled) {
+		cb->Enable(false);
+	}
 }
 
 void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
@@ -1096,6 +1123,7 @@ void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
 	sizer->Add(ckp, 1, wxEXPAND);
 	kernelMap[id] = ckp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// TODO - enabled check
 }
 
 void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
@@ -1111,7 +1139,14 @@ void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 	}
 	sizer->Add(ch, 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	choiceMap[id] = ch;
-	Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	if (pd.changeHandler) {
+		Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamSoftChange), NULL, this);
+	} else {
+		Connect(id, wxEVT_CHOICE, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	}
+	if (!pd.enabled) {
+		ch->Enable(false);
+	}
 }
 
 void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
@@ -1120,6 +1155,7 @@ void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
 	sizer->Add(bsp, 1, wxEXPAND);
 	bigStringMap[id] = bsp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// TODO - enabled check
 }
 
 void ParamPanel::createColor(const int id, const ParamDescriptor & pd) {
@@ -1128,6 +1164,7 @@ void ParamPanel::createColor(const int id, const ParamDescriptor & pd) {
 	sizer->Add(cp, 1, wxEXPAND);
 	colorMap[id] = cp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
+	// TODO - enabled check
 }
 
 wxBoxSizer * ParamPanel::getModuleSizer(const ModuleBase * module) {
@@ -1189,6 +1226,86 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 	resizeParent();
 }
 
+void ParamPanel::enableParam(const std::string & paramName, bool enable) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto pdIt = paramIdMap.find(paramIt->second);
+		if (pdIt != paramIdMap.end()) {
+			const ParamDescriptor& pd = pdIt->second;
+			switch (pd.type) {
+			case(ParamDescriptor::ParamType::PT_BOOL): {
+				const auto ctrlIt = checkBoxMap.find(paramIt->second);
+				if (ctrlIt != checkBoxMap.end()) {
+					ctrlIt->second->Enable(enable);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_INT):
+			case(ParamDescriptor::ParamType::PT_INT64):
+			case(ParamDescriptor::ParamType::PT_FLOAT):
+			case(ParamDescriptor::ParamType::PT_STRING): {
+				const auto ctrlIt = textCtrlMap.find(paramIt->second);
+				if (ctrlIt != textCtrlMap.end()) {
+					ctrlIt->second->Enable(enable);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_BIG_STRING): {
+				// TODO
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_VECTOR): {
+				// TODO
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_CKERNEL): {
+				// TODO
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_ENUM): {
+				const auto ctrlIt = choiceMap.find(paramIt->second);
+				if (ctrlIt != choiceMap.end()) {
+					ctrlIt->second->Enable(enable);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_COLOR): {
+				// TODO
+				break;
+			}
+			default:
+				DASSERT(false);
+				break;
+			}
+		}
+	}
+}
+
+void ParamPanel::onImageChange(int width, int height) {
+	// notify all params that have changeHandler attached
+	for (const auto& paramIt : paramIdMap) {
+		const ParamDescriptor& pd = paramIt.second;
+		if (pd.changeHandler) {
+			pd.changeHandler->onImageChange(this, width, height);
+		}
+	}
+}
+
+void ParamPanel::setStringParam(const std::string & value, const std::string & paramName) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		if (ctrlIt != textCtrlMap.end()) {
+			ctrlIt->second->ChangeValue(value);
+		} else {
+			const auto bspCtrlIt = bigStringMap.find(paramIt->second);
+			if (bspCtrlIt != bigStringMap.end()) {
+				bspCtrlIt->second->ChangeValue(value);
+			}
+		}
+	}
+}
+
 bool ParamPanel::getStringParam(std::string & value, const std::string & paramName) const {
 	const auto paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
@@ -1208,6 +1325,17 @@ bool ParamPanel::getStringParam(std::string & value, const std::string & paramNa
 	return false;
 }
 
+void ParamPanel::setIntParam(const int & value, const std::string & paramName) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		if (ctrlIt != textCtrlMap.end()) {
+			const wxString valueStr = wxString::Format("%d", value);
+			ctrlIt->second->ChangeValue(valueStr);
+		}
+	}
+}
+
 bool ParamPanel::getIntParam(int & value, const std::string & paramName) const {
 	const auto paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
@@ -1218,6 +1346,17 @@ bool ParamPanel::getIntParam(int & value, const std::string & paramName) const {
 		}
 	}
 	return false;
+}
+
+void ParamPanel::setInt64Param(const int64 & value, const std::string & paramName) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		if (ctrlIt != textCtrlMap.end()) {
+			const wxString valueStr = wxString::Format("%lld", value);
+			ctrlIt->second->ChangeValue(valueStr);
+		}
+	}
 }
 
 bool ParamPanel::getInt64Param(int64 & value, const std::string & paramName) const {
@@ -1232,6 +1371,17 @@ bool ParamPanel::getInt64Param(int64 & value, const std::string & paramName) con
 	return false;
 }
 
+void ParamPanel::setFloatParam(const float & value, const std::string & paramName) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		if (ctrlIt != textCtrlMap.end()) {
+			const wxString valueStr = wxString::Format("%f", value);
+			ctrlIt->second->ChangeValue(valueStr);
+		}
+	}
+}
+
 bool ParamPanel::getFloatParam(float & value, const std::string & paramName) const {
 	const auto paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
@@ -1242,6 +1392,16 @@ bool ParamPanel::getFloatParam(float & value, const std::string & paramName) con
 		}
 	}
 	return false;
+}
+
+void ParamPanel::setBoolParam(const bool & value, const std::string & paramName) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = checkBoxMap.find(paramIt->second);
+		if (ctrlIt != checkBoxMap.end()) {
+			ctrlIt->second->SetValue(value);
+		}
+	}
 }
 
 bool ParamPanel::getBoolParam(bool & value, const std::string & paramName) const {
@@ -1256,6 +1416,10 @@ bool ParamPanel::getBoolParam(bool & value, const std::string & paramName) const
 	return false;
 }
 
+void ParamPanel::setCKernelParam(const ConvolutionKernel & value, const std::string & paramName) {
+	// TODO - a lot of changes
+}
+
 bool ParamPanel::getCKernelParam(ConvolutionKernel & value, const std::string & paramName) const {
 	const auto paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
@@ -1266,6 +1430,16 @@ bool ParamPanel::getCKernelParam(ConvolutionKernel & value, const std::string & 
 		}
 	}
 	return false;
+}
+
+void ParamPanel::setEnumParam(const unsigned & value, const std::string & paramName) {
+	const auto paramIt = paramMap.find(paramName);
+	if (paramIt != paramMap.end()) {
+		const auto ctrlIt = choiceMap.find(paramIt->second);
+		if (ctrlIt != choiceMap.end()) {
+			ctrlIt->second->SetSelection(static_cast<int>(value));
+		}
+	}
 }
 
 bool ParamPanel::getEnumParam(unsigned & value, const std::string & paramName) const {
@@ -1285,6 +1459,10 @@ bool ParamPanel::getEnumParam(unsigned & value, const std::string & paramName) c
 	return false;
 }
 
+void ParamPanel::setVectorParam(const Vector2 & value, const std::string & paramName) {
+	// TODO - a lot of changes
+}
+
 bool ParamPanel::getVectorParam(Vector2 & value, const std::string & paramName) const {
 	const auto paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
@@ -1296,6 +1474,10 @@ bool ParamPanel::getVectorParam(Vector2 & value, const std::string & paramName) 
 		}
 	}
 	return false;
+}
+
+void ParamPanel::setColorParam(const Color & value, const std::string & paramName) {
+	// TODO - a lot of changes
 }
 
 bool ParamPanel::getColorParam(Color & value, const std::string & paramName) const {
@@ -1313,6 +1495,89 @@ bool ParamPanel::getColorParam(Color & value, const std::string & paramName) con
 void ParamPanel::resizeParent() {
 	SendSizeEventToParent();
 	SendSizeEvent();
+}
+
+void ParamPanel::OnParamSoftChange(wxCommandEvent & ev) {
+	const int evtId = ev.GetId();
+	auto pdIt = paramIdMap.find(evtId);
+	if (pdIt != paramIdMap.end()) {
+		const ParamDescriptor& pd = pdIt->second;
+		if (pd.changeHandler != nullptr) {
+			bool updateModule = false;
+			switch (pd.type) {
+			case(ParamDescriptor::ParamType::PT_BOOL): {
+				bool value = false;
+				if (getBoolParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_INT): {
+				int value = 0;
+				if (getIntParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_INT64): {
+				int64 value = 0;
+				if (getInt64Param(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_FLOAT): {
+				float value = 0;
+				if (getFloatParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_STRING):
+			case(ParamDescriptor::ParamType::PT_BIG_STRING): {
+				std::string value;
+				if (getStringParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_VECTOR): {
+				Vector2 value;
+				if (getVectorParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_CKERNEL): {
+				ConvolutionKernel value;
+				if (getCKernelParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_ENUM): {
+				unsigned value = 0;
+				if (getEnumParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			case(ParamDescriptor::ParamType::PT_COLOR): {
+				Color value;
+				if (getColorParam(value, pd.name)) {
+					updateModule = pd.changeHandler->onParamChange(this, pd.name, value);
+				}
+				break;
+			}
+			default:
+				DASSERT(false);
+				break;
+			}
+			if (updateModule) {
+				pd.module->update();
+			}
+		}
+	}
 }
 
 void ParamPanel::OnParamChange(wxCommandEvent & ev) {

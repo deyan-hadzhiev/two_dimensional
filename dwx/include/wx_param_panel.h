@@ -267,6 +267,8 @@ public:
 
 	void OnShow(wxShowEvent& evt);
 
+	void ChangeValue(const wxString& value);
+
 	void OnClose(wxCloseEvent& evt);
 private:
 	void OnApplyButton(wxCommandEvent& evt);
@@ -281,6 +283,8 @@ public:
 	BigStringPanel(ParamPanel * parent, wxWindowID id, const wxString& label, const wxString& defValue);
 
 	wxString GetValue() const;
+
+	void ChangeValue(const wxString& value);
 
 	void OnShowButton(wxCommandEvent& evt);
 	void OnHideButton(wxCommandEvent& evt);
@@ -351,25 +355,40 @@ public:
 
 	virtual void addParam(const ParamDescriptor& pd) override;
 
+	virtual void enableParam(const std::string& paramName, bool enable) override;
+
+	virtual void onImageChange(int width, int height) override;
+
+	virtual void setStringParam(const std::string& value, const std::string& paramName) override;
 	virtual bool getStringParam(std::string& value, const std::string& paramName) const override;
 
+	virtual void setIntParam(const int& value, const std::string& paramName) override;
 	virtual bool getIntParam(int& value, const std::string& paramName) const override;
 
+	virtual void setInt64Param(const int64& value, const std::string& paramName) override;
 	virtual bool getInt64Param(int64& value, const std::string& paramName) const override;
 
+	virtual void setFloatParam(const float& value, const std::string& paramName) override;
 	virtual bool getFloatParam(float& value, const std::string& paramName) const override;
 
+	virtual void setBoolParam(const bool& value, const std::string& paramName) override;
 	virtual bool getBoolParam(bool& value, const std::string& paramName) const override;
 
+	virtual void setCKernelParam(const ConvolutionKernel& value, const std::string& paramName) override;
 	virtual bool getCKernelParam(ConvolutionKernel& value, const std::string& paramName) const override;
 
+	virtual void setEnumParam(const unsigned& value, const std::string& paramName) override;
 	virtual bool getEnumParam(unsigned& value, const std::string& paramName) const override;
 
+	virtual void setVectorParam(const Vector2& value, const std::string& paramName) override;
 	virtual bool getVectorParam(Vector2& value, const std::string& paramName) const override;
 
+	virtual void setColorParam(const Color& value, const std::string& paramName) override;
 	virtual bool getColorParam(Color& value, const std::string& paramName) const override;
 
 	virtual void resizeParent();
+
+	void OnParamSoftChange(wxCommandEvent& ev);
 
 	void OnParamChange(wxCommandEvent& ev);
 };
