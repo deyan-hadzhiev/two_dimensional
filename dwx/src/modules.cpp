@@ -834,63 +834,97 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	const int cx = bw / 2;
 	const int cy = bh / 2;
 	float angle = 0.0f;
+	int roundedAngle = 0;
 	if (pman) {
 		if (pman->getFloatParam(angle, "angle")) {
+			// get the rounded angle before the radian conversion
+			roundedAngle = roundf(angle);
 			angle = toRadians(angle);
 		}
 	}
-	const Matrix2 rot(rotationMatrix(angle));
-	const Matrix2 invRot(transpose(rot)); // since this is rotation, the inverse is the transposed matrix
-	Vector2 edges[4] = {
-		Vector2(-cx + 0.5f, -cy + 0.5f),
-		Vector2(cx + (bw & 1 ? 0.5f : -0.5f), -cy + .5f),
-		Vector2(cx + (bw & 1 ? 0.5f : -0.5f), cy + (bh & 1 ? 0.5f : -0.5f)),
-		Vector2(-cx + 0.5f, cy + (bh & 1 ? 0.5f : -0.5f))
-	};
-	float minX = 0.0f;
-	float maxX = 0.0f;
-	float minY = 0.0f;
-	float maxY = 0.0f;
-	for (int i = 0; i < 4; ++i) {
-		edges[i] = rot * edges[i]; // rotate the edge to get where it will be mapped
-		minX = std::min(edges[i].x, minX);
-		maxX = std::max(edges[i].x, maxX);
-		minY = std::min(edges[i].y, minY);
-		maxY = std::max(edges[i].y, maxY);
-	}
-	const int obw = static_cast<int>(ceilf(maxX) - floorf(minX));
-	const int obh = static_cast<int>(ceilf(maxY) - floorf(minY));
-	Bitmap bmpOut(obw, obh);
-	Color * bmpData = bmpOut.getDataPtr();
-	const int ocx = obw / 2;
-	const int ocy = obh / 2;
-	EdgeFillType edge = EdgeFillType::EFT_BLANK;
-	unsigned filterType = 0;
-	if (pman) {
-		unsigned edgeType = 0;
-		if (pman->getEnumParam(edgeType, "edge")) {
-			edge = static_cast<EdgeFillType>(edgeType);
+	// check if the rotation is close to a multiple of a right angle
+	Bitmap bmpOut;
+	if ((roundedAngle % 90) == 0) {
+		int rightTurns = (roundedAngle / 90) % 4;
+		if (rightTurns < 0) {
+			rightTurns += 4;
 		}
-		pman->getEnumParam(filterType, "filterType");
-	}
-	if (0 == filterType) {
-		for (int y = 0; y < obh && !getAbortState(); ++y) {
-			for (int x = 0; x < obw && !getAbortState(); ++x) {
-				const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-				bmpData[y * obw + x] = bmp.getBilinearFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
-			}
-			if (cb) {
-				cb->setPercentDone(y, obh);
+		if (rightTurns == 0) {
+			// identity
+			bmpOut = bmp;
+		} else if (rightTurns == 2) {
+			// easiest change is to mirror the image accross both axis
+			bmp.mirror(bmpOut, PA_BOTH);
+		} else {
+			// else some pixels need reordering
+			bmpOut.generateEmptyImage(bh, bw, false);
+			const Color * bmpData = bmp.getDataPtr();
+			Color * bmpOutData = bmpOut.getDataPtr();
+			const int startX = (rightTurns == 1 ? bw - 1 : 0);
+			const int startY = (rightTurns == 1 ? 0 : bh - 1);
+			const int stepX = (rightTurns == 1 ? -1 : 1);
+			const int stepY = (rightTurns == 1 ? 1 : -1);
+			// the bounds are reversed because of the rotation
+			for (int y = 0, sx = startX; y < bw; ++y, sx += stepX) {
+				for (int x = 0, sy = startY; x < bh; ++x, sy += stepY) {
+					bmpOutData[y * bh + x] = bmpData[sy * bw + sx];
+				}
 			}
 		}
-	} else if (1 == filterType) {
-		for (int y = 0; y < obh && !getAbortState(); ++y) {
-			for (int x = 0; x < obw && !getAbortState(); ++x) {
-				const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
-				bmpData[y * obw + x] = bmp.getBicubicFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+	} else {
+		const Matrix2 rot(rotationMatrix(angle));
+		const Matrix2 invRot(transpose(rot)); // since this is rotation, the inverse is the transposed matrix
+		Vector2 edges[4] = {
+			Vector2(-cx + 0.5f, -cy + 0.5f),
+			Vector2(cx + (bw & 1 ? 0.5f : -0.5f), -cy + .5f),
+			Vector2(cx + (bw & 1 ? 0.5f : -0.5f), cy + (bh & 1 ? 0.5f : -0.5f)),
+			Vector2(-cx + 0.5f, cy + (bh & 1 ? 0.5f : -0.5f))
+		};
+		float minX = 0.0f;
+		float maxX = 0.0f;
+		float minY = 0.0f;
+		float maxY = 0.0f;
+		for (int i = 0; i < 4; ++i) {
+			edges[i] = rot * edges[i]; // rotate the edge to get where it will be mapped
+			minX = std::min(edges[i].x, minX);
+			maxX = std::max(edges[i].x, maxX);
+			minY = std::min(edges[i].y, minY);
+			maxY = std::max(edges[i].y, maxY);
+		}
+		const int obw = static_cast<int>(ceilf(maxX) - floorf(minX));
+		const int obh = static_cast<int>(ceilf(maxY) - floorf(minY));
+		bmpOut.generateEmptyImage(obw, obh, false);
+		Color * bmpData = bmpOut.getDataPtr();
+		const int ocx = obw / 2;
+		const int ocy = obh / 2;
+		EdgeFillType edge = EdgeFillType::EFT_BLANK;
+		unsigned filterType = 0;
+		if (pman) {
+			unsigned edgeType = 0;
+			if (pman->getEnumParam(edgeType, "edge")) {
+				edge = static_cast<EdgeFillType>(edgeType);
 			}
-			if (cb) {
-				cb->setPercentDone(y, obh);
+			pman->getEnumParam(filterType, "filterType");
+		}
+		if (0 == filterType) {
+			for (int y = 0; y < obh && !getAbortState(); ++y) {
+				for (int x = 0; x < obw && !getAbortState(); ++x) {
+					const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+					bmpData[y * obw + x] = bmp.getBilinearFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+				}
+				if (cb) {
+					cb->setPercentDone(y, obh);
+				}
+			}
+		} else if (1 == filterType) {
+			for (int y = 0; y < obh && !getAbortState(); ++y) {
+				for (int x = 0; x < obw && !getAbortState(); ++x) {
+					const Vector2 origin = invRot * Vector2(x - ocx + 0.5f, y - ocy + 0.5f);
+					bmpData[y * obw + x] = bmp.getBicubicFilteredPixel<TColor<double> >(origin.x + cx, origin.y + cy, edge);
+				}
+				if (cb) {
+					cb->setPercentDone(y, obh);
+				}
 			}
 		}
 	}

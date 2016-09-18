@@ -2,5 +2,4 @@ TODO:
 
 1. Node based module system and UI with option for saving configurations (json?)
 2. Drag'n'drop pictures (and configuration for the node system)
-3. Improve rotation on right angles
-4. Add GUI dark theme
+3. Add GUI dark theme
