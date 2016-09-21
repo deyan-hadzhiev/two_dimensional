@@ -13,50 +13,7 @@
 #include "module_base.h"
 #include "drect.h"
 
-namespace Convert {
-	inline wxPoint vector(const Vector2& v) {
-		return wxPoint(
-			static_cast<int>(roundf(v.x)),
-			static_cast<int>(roundf(v.y))
-		);
-	}
-	inline Vector2 vector(const wxPoint& p) {
-		return Vector2(
-			static_cast<float>(p.x),
-			static_cast<float>(p.y)
-		);
-	}
-	inline wxSize size(const Size2d& sz) {
-		return wxSize(
-			static_cast<int>(sz.getWidth()),
-			static_cast<int>(sz.getHeight())
-		);
-	}
-	inline Size2d size(const wxSize& sz) {
-		return Size2d(
-			static_cast<float>(sz.GetWidth()),
-			static_cast<float>(sz.GetHeight())
-		);
-	}
-	inline wxRect rect(const Rect& r) {
-		const float fx = floorf(r.x);
-		const float fy = floorf(r.y);
-		return wxRect(
-			static_cast<int>(fx),
-			static_cast<int>(fy),
-			static_cast<int>(ceilf(r.width + (r.x - fx))),
-			static_cast<int>(ceilf(r.height + (r.y - fy)))
-		);
-	}
-	inline Rect rect(const wxRect& r) {
-		return Rect(
-			static_cast<float>(r.x),
-			static_cast<float>(r.y),
-			static_cast<float>(r.width),
-			static_cast<float>(r.height)
-		);
-	}
-}
+#include "wx_scalable.h"
 
 class BitmapCanvas;
 
@@ -81,7 +38,6 @@ private:
 	mutable std::unordered_map<int, wxBitmap*> downscaleCache;
 };
 
-// TODO make it a base class and split the input and output - if it makes sense
 class BitmapCanvas : public wxPanel {
 	friend class ImagePanel;
 public:

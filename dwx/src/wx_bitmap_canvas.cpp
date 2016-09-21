@@ -140,6 +140,9 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 }
 
 void BitmapCanvas::setImage(const wxImage & img, int id) {
+	if (!bmp.IsOk() || bmp.GetSize() != img.GetSize()) {
+		canvasState = CS_DIRTY_FULL;
+	}
 	bmp = wxBitmap(img);
 	rescaler.setBitmap(bmp);
 	if (id == 0) {
@@ -151,7 +154,6 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 	} else {
 		bmpId = id;
 	}
-	canvasState = CS_DIRTY_FULL;
 	Refresh(false);
 }
 

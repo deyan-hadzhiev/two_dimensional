@@ -49,7 +49,9 @@ set (HEADERS
 	include/vector2.h
 	include/wx_bitmap_canvas.h
 	include/wx_modes.h
+	include/wx_multi_module.h
 	include/wx_param_panel.h
+	include/wx_scalable.h
 )
 
 set (SOURCES
@@ -65,9 +67,11 @@ set (SOURCES
 	src/module_manager.cpp
 	src/param_handlers.cpp
 	src/util.cpp
-	src/wx_modes.cpp
 	src/wx_bitmap_canvas.cpp
+	src/wx_modes.cpp
+	src/wx_multi_module.cpp
 	src/wx_param_panel.cpp
+	src/wx_scalable.cpp
 )
 
 link_directories (

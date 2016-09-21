@@ -6,6 +6,7 @@
 #include "progress.h"
 #include "guimain.h"
 #include "wx_bitmap_canvas.h"
+#include "wx_multi_module.h"
 #include "wx_param_panel.h"
 #include "module_base.h"
 #include "geom_primitive.h"
@@ -78,6 +79,7 @@ public:
 
 protected:
 	ModuleFactory * moduleFactory;
+	MultiModuleCanvas * canvas;
 };
 
 #endif // __WX_MODES_H__

@@ -209,6 +209,10 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
 	: ModePanel(vf, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE)
 	, moduleFactory(mf)
+	, canvas(new MultiModuleCanvas(this))
 {
 	moduleFactory->clear();
+	// some sizers
+	mPanelSizer->Add(canvas, 1, wxEXPAND | wxALL);
+	SendSizeEvent();
 }

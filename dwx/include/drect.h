@@ -2,6 +2,7 @@
 #define __DRECT_H__
 
 #include "vector2.h"
+#include "constants.h"
 
 #include <algorithm>
 #include <cmath>
