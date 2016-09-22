@@ -16,7 +16,6 @@ ScalablePanel::ScalablePanel(wxWindow * _parent, const int _minZoom, const int _
 	, view()
 	, canvasState(0)
 	, panelSize(0, 0)
-	, parent(_parent)
 {
 	// connect mouse events
 	Connect(wxEVT_ENTER_WINDOW, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);

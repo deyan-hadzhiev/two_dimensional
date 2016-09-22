@@ -22,7 +22,7 @@ class ModePanel : public wxPanel {
 public:
 	friend class ParamPanel;
 
-	ModePanel(ViewFrame * viewFrame, unsigned styles = ViewFrame::VFS_NOTHING_ENABLED);
+	ModePanel(ViewFrame * viewFrame, bool multiParams, unsigned styles = ViewFrame::VFS_NOTHING_ENABLED);
 	virtual ~ModePanel();
 
 	virtual void onCommandMenu(wxCommandEvent& ev) {}
@@ -77,6 +77,17 @@ protected:
 	ImagePanel * outputPanel;
 };
 
+// holds and operates with  the module, its parameters and graphic properties
+class ModuleNodeCollection {
+public:
+	ModuleDescription moduleDesc;
+	ModuleBase * moduleHandle;
+	ParamPanel * moduleParamPanel;
+
+	ModuleNodeCollection() = default;
+	ModuleNodeCollection(const ModuleDescription& _moduleDesc, ModuleBase * _moduleHandle, ParamPanel * _moduleParamPanel);
+};
+
 class MultiModuleMode : public ModePanel {
 public:
 	MultiModuleMode(ViewFrame * vf, ModuleFactory * mf);
@@ -87,14 +98,22 @@ public:
 	virtual void addModule(const ModuleDescription& md) override;
 
 	// own functions
-	const ModuleDescription& getModuleDescription(int id);
+	// used to bring up the param panel for the module
+	void updateSelection(int id);
+
 protected:
 	static const ModuleDescription defaultDesc;
+
+	static const int controlsWidth;
+	wxBoxSizer * controlsSizer;
+	wxPanel * controlsPanel;
+
 	ModuleFactory * moduleFactory;
 	MultiModuleCanvas * canvas;
 	std::unique_ptr<ModuleDAG> mDag;
 	int moduleCount; //!< used for generating module Ids
-	std::unordered_map<int, ModuleDescription> moduleMap;
+	std::unordered_map<int, ModuleNodeCollection> moduleMap;
+	int selectedModule;
 };
 
 #endif // __WX_MODES_H__

@@ -132,9 +132,11 @@ struct ModuleConnectorDesc {
 	{}
 };
 
+class MultiModuleMode;
+
 class MultiModuleCanvas : public ScalablePanel {
 public:
-	MultiModuleCanvas(wxWindow * _parent);
+	MultiModuleCanvas(MultiModuleMode * _parent);
 
 	virtual ~MultiModuleCanvas() = default;
 
@@ -187,6 +189,7 @@ private:
 
 	void drawModuleConnector(wxDC& dc, const ModuleConnectorDesc& mcd);
 
+	MultiModuleMode * parent;
 	std::unordered_map<int, ModuleGraphicNode> moduleMap;
 	std::unordered_map<int, ModuleConnectorDesc> connectorMap;
 	int connectorMapIdGen;

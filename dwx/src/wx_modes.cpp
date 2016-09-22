@@ -16,19 +16,21 @@
 #include "module_manager.h"
 #include "geom_primitive.h"
 
-ModePanel::ModePanel(ViewFrame * viewFrame, unsigned styles)
+ModePanel::ModePanel(ViewFrame * viewFrame, bool multiParams, unsigned styles)
 	: wxPanel(viewFrame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxNO_BORDER | wxSIZE_AUTO | wxSIZE_FORCE)
 	, viewFrame(viewFrame)
 	, mPanelSizer(nullptr)
 	, paramPanel(nullptr)
 {
 	viewFrame->setCustomStyle(styles);
-	mPanelSizer = new wxBoxSizer(wxVERTICAL);
+	mPanelSizer = new wxBoxSizer(multiParams ? wxHORIZONTAL : wxVERTICAL);
 	SetSizerAndFit(mPanelSizer);
 	SetSize(viewFrame->GetClientSize());
 
-	paramPanel = new ParamPanel(this);
-	mPanelSizer->Add(paramPanel, 0, wxEXPAND | wxALL, panelBorder);
+	if (!multiParams) {
+		paramPanel = new ParamPanel(this, this);
+		mPanelSizer->Add(paramPanel, 0, wxEXPAND | wxALL, panelBorder);
+	}
 	SendSizeEvent();
 }
 
@@ -55,7 +57,7 @@ const int ModePanel::panelBorder = 4;
 const wxString InputOutputMode::ioFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
 
 InputOutputMode::InputOutputMode(ViewFrame * viewFrame, ModuleBase * _module)
-	: ModePanel(viewFrame, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
+	: ModePanel(viewFrame, false, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE) // disable compare for now - it is not done and will not be soon
 	, inputPanel(nullptr)
 	, outputPanel(nullptr)
 	, compareCanvas(nullptr)
@@ -177,7 +179,7 @@ void InputOutputMode::setInput(const wxImage & input) {
 }
 
 GeometricOutput::GeometricOutput(ViewFrame * vf, ModuleBase * _module)
-	: ModePanel(vf, ViewFrame::VFS_CNT_RUN)
+	: ModePanel(vf, false, ViewFrame::VFS_CNT_RUN)
 	, module(_module)
 	, outputPanel(nullptr)
 {
@@ -206,17 +208,39 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
+ModuleNodeCollection::ModuleNodeCollection(const ModuleDescription & _moduleDesc, ModuleBase * _moduleHandle, ParamPanel * _moduleParamPanel)
+	: moduleDesc(_moduleDesc)
+	, moduleHandle(_moduleHandle)
+	, moduleParamPanel(_moduleParamPanel)
+{}
+
 const ModuleDescription MultiModuleMode::defaultDesc = ModuleDescription();
+const int MultiModuleMode::controlsWidth = 200;
 
 MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
-	: ModePanel(vf, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE)
+	: ModePanel(vf, true, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE)
+	, controlsSizer(new wxBoxSizer(wxVERTICAL))
+	, controlsPanel(new wxPanel(this))
 	, moduleFactory(mf)
 	, canvas(new MultiModuleCanvas(this))
 	, mDag(new ModuleDAG)
 	, moduleCount(0)
+	, selectedModule(-1)
 {
 	moduleFactory->clear();
 	// some sizers
+	controlsSizer->SetMinSize(wxSize(controlsWidth, wxDefaultCoord));
+	// add an intermediate panel to use its max size
+	controlsPanel->SetMaxSize(wxSize(controlsWidth, wxDefaultCoord));
+	controlsPanel->SetSizerAndFit(controlsSizer);
+	controlsSizer->FitInside(controlsPanel);
+	// add a button to the controls
+	const wxWindowID buttonId = WinIDProvider::getProvider().getId();
+	controlsSizer->Add(new wxButton(controlsPanel, buttonId, wxT("Show image")), 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+	controlsSizer->Add(new wxStaticLine(controlsPanel), 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+	controlsSizer->AddStretchSpacer();
+	// finally add to the whole panel sizer
+	mPanelSizer->Add(controlsPanel, 0, wxEXPAND | wxALL);
 	mPanelSizer->Add(canvas, 1, wxEXPAND | wxALL);
 	SendSizeEvent();
 }
@@ -226,8 +250,17 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 }
 
 void MultiModuleMode::addModule(const ModuleDescription & md) {
-	moduleMap[moduleCount] = md;
-	ModuleDescription& mmd = moduleMap[moduleCount];
+	// first allocate everything neccessary
+	ModuleBase * moduleHandle = moduleFactory->getModule(md.id);
+	ParamPanel * moduleParamPanel = new ParamPanel(controlsPanel, this, false);
+	// hide the panel and add it to the sizer
+	moduleParamPanel->Show(false);
+	controlsSizer->Add(moduleParamPanel, 0, wxEXPAND);
+	// and add the param panel to the module
+	moduleHandle->addParamManager(moduleParamPanel);
+	// add it to the module map
+	moduleMap[moduleCount] = ModuleNodeCollection(md, moduleHandle, moduleParamPanel);
+	ModuleDescription& mmd = moduleMap[moduleCount].moduleDesc;
 	const std::string mmdMapIdStr = std::to_string(moduleCount);
 	mmd.fullName += std::string(" ") + mmdMapIdStr;
 	canvas->addModuleDescription(moduleCount, mmd);
@@ -235,10 +268,25 @@ void MultiModuleMode::addModule(const ModuleDescription & md) {
 	moduleCount++;
 }
 
-const ModuleDescription & MultiModuleMode::getModuleDescription(int id) {
-	const auto mMapIter = moduleMap.find(id);
-	if (mMapIter != moduleMap.end()) {
-		return mMapIter->second;
+void MultiModuleMode::updateSelection(int id) {
+	// change selection?
+	if (id != selectedModule) {
+		bool refresh = false;
+		// get currently selected module
+		if (selectedModule != -1) {
+			ModuleNodeCollection& mnc = moduleMap[selectedModule];
+			// hide the param panel
+			mnc.moduleParamPanel->Show(false);
+			refresh = true;
+		}
+		if (id != -1) {
+			ModuleNodeCollection& mnc = moduleMap[id];
+			mnc.moduleParamPanel->Show(true);
+			refresh = true;
+		}
+		selectedModule = id;
+		if (refresh) {
+			SendSizeEvent();
+		}
 	}
-	return defaultDesc;
 }

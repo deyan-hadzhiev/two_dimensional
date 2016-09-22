@@ -19,6 +19,11 @@ protected:
 	unsigned flags;
 	ProgressCallback * cb;
 public:
+	ModuleBase()
+		: flags(0U)
+		, cb(nullptr)
+	{}
+
 	virtual ~ModuleBase() {}
 	// adds an input manager (note there may be more than one (probably))
 	virtual void addInputManager(InputManager * iman) {}

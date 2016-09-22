@@ -126,7 +126,6 @@ protected:
 	};
 	unsigned canvasState;
 	wxSize panelSize;
-	wxWindow * parent;
 };
 
 #endif // __WX_SCALABLE_H__

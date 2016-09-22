@@ -142,6 +142,8 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 void BitmapCanvas::setImage(const wxImage & img, int id) {
 	if (!bmp.IsOk() || bmp.GetSize() != img.GetSize()) {
 		canvasState = CS_DIRTY_FULL;
+	} else {
+		canvasState |= CS_DIRTY_BMP;
 	}
 	bmp = wxBitmap(img);
 	rescaler.setBitmap(bmp);
@@ -309,7 +311,7 @@ void BitmapCanvas::remapCanvas() {
 		if ((canvasState & (CS_DIRTY_SIZE | CS_DIRTY_ZOOM)) != 0) {
 			recalcViewSize();
 		}
-		if (canvasState == CS_DIRTY_FULL) {
+		if ((canvasState & CS_DIRTY_FULL) == CS_DIRTY_FULL) {
 			resetViewPos();
 		} else {
 			if ((canvasState & CS_DIRTY_ZOOM) != 0) {

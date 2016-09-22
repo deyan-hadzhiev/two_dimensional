@@ -78,7 +78,9 @@ AsyncModule::AsyncModule()
 {}
 
 AsyncModule::~AsyncModule() {
-	cb->setAbortFlag();
+	if (cb != nullptr) {
+		cb->setAbortFlag();
+	}
 	state = State::AKS_TERMINATED;
 	ev.notify_one();
 	loopThread.join();

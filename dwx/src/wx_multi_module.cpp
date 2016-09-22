@@ -1,5 +1,7 @@
 #include <wx/wx.h>
+#include <wx/panel.h>
 
+#include "wx_modes.h"
 #include "wx_multi_module.h"
 
 const Size2d ModuleGraphicNode::nodeSize = Size2d(200.0f, 200.0f);
@@ -18,8 +20,9 @@ const wxColour MultiModuleCanvas::mmColors[MC_COUNT] = {
 	wxColour(0xc48f40), // MC_CONNECTOR
 };
 
-MultiModuleCanvas::MultiModuleCanvas(wxWindow * _parent)
+MultiModuleCanvas::MultiModuleCanvas(MultiModuleMode * _parent)
 	: ScalablePanel(_parent, -4, 8)
+	, parent(_parent)
 	, connectorMapIdGen(0)
 	, hoveredModuleMapId(-1)
 	, hoveredConnectorType(HT_NONE)
@@ -104,6 +107,7 @@ void MultiModuleCanvas::destroyModuleNode(int id) {
 	}
 	if (selectedModuleMapId == id) {
 		selectedModuleMapId = -1;
+		parent->updateSelection(selectedModuleMapId);
 	}
 }
 
@@ -229,6 +233,7 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 	bool refreshCanvas = intersectionMapId != selectedModuleMapId;
 	if (!overConnector) {
 		selectedModuleMapId = intersectionMapId;
+		parent->updateSelection(selectedModuleMapId);
 	}
 	return refreshCanvas || overConnector;
 }
@@ -293,6 +298,7 @@ bool MultiModuleCanvas::onMouseRightDown() {
 		refresh = true;
 	} else if (selectedModuleMapId != -1) {
 		selectedModuleMapId = -1;
+		parent->updateSelection(selectedModuleMapId);
 		refresh = true;
 	}
 	return refresh;

@@ -129,7 +129,8 @@ private:
 		CS_DIRTY_ZOOM = 1 << 1,
 		CS_DIRTY_POS = 1 << 2,
 		CS_DIRTY_FULL = CS_DIRTY_SIZE | CS_DIRTY_ZOOM | CS_DIRTY_POS,
-		CS_DIRTY_SYNCHRONIZE,
+		CS_DIRTY_BMP = 1 << 3,
+		CS_DIRTY_SYNCHRONIZE = 1 << 4,
 	};
 	unsigned canvasState;
 	wxSize panelSize; //!< the panel size from the last event (NOTE: use this instead of GetSize() because it may be changed between event handling)

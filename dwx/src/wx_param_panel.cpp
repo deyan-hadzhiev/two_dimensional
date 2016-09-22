@@ -774,7 +774,7 @@ const wxString CKernelPanel::dialogTitles[CKernelPanel::DT_COUNT] = {
 	wxT("Table"),
 };
 
-CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide)
+CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString & label, const wxString& defSide, bool horizontal)
 	: wxPanel(_parent, id)
 	, paramPanel(_parent)
 	, kernelDialogs{nullptr}
@@ -796,15 +796,15 @@ CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString &
 	// allocate the preview dialog
 	previewDlg = new CKernelPreviewDlg(this);
 
-	mainSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALL | wxCENTER, 5);
+	mainSizer = new wxBoxSizer(horizontal ? wxHORIZONTAL : wxVERTICAL);
+	mainSizer->Add(new wxStaticText(this, wxID_ANY, label), 0, wxALL | wxCENTER, ModePanel::panelBorder);
 
 	kernelDlgTypeId = WinIDProvider::getProvider().getId(DT_COUNT);
 	for (int i = 0; i < DT_COUNT; ++i) {
 		const wxWindowID typeId = kernelDlgTypeId + i;
 		kernelDlgRb[i] = new wxRadioButton(this, typeId, dialogTitles[i], wxDefaultPosition, wxDefaultSize, (i == 0 ? wxRB_GROUP : 0L));
 		Connect(typeId, wxEVT_RADIOBUTTON, wxCommandEventHandler(CKernelPanel::OnKernelDlgType), NULL, this);
-		mainSizer->Add(kernelDlgRb[i], 1, wxEXPAND | wxALL, 5);
+		mainSizer->Add(kernelDlgRb[i], 1, wxEXPAND | wxALL, ModePanel::panelBorder);
 	}
 
 	showButton = new wxButton(this, wxID_ANY, wxT("Show"));
@@ -825,9 +825,8 @@ CKernelPanel::CKernelPanel(ParamPanel * _parent, wxWindowID id, const wxString &
 	hidePreviewButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(CKernelPanel::OnHidePreviewButton), NULL, this);
 	mainSizer->Add(hidePreviewButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
 
-	mainSizer->AddStretchSpacer(1);
-
 	SetSizerAndFit(mainSizer);
+	mainSizer->FitInside(this);
 	Layout();
 	SendSizeEvent();
 }
@@ -857,7 +856,6 @@ void CKernelPanel::OnShowButton(wxCommandEvent & evt) {
 	hideButton->Show();
 	showButton->Hide();
 	mainSizer->Layout();
-	Fit();
 }
 
 void CKernelPanel::OnHideButton(wxCommandEvent & evt) {
@@ -865,7 +863,6 @@ void CKernelPanel::OnHideButton(wxCommandEvent & evt) {
 	hideButton->Hide();
 	showButton->Show();
 	mainSizer->Layout();
-	Fit();
 }
 
 void CKernelPanel::OnShowPreviewButton(wxCommandEvent & evt) {
@@ -873,7 +870,6 @@ void CKernelPanel::OnShowPreviewButton(wxCommandEvent & evt) {
 	hidePreviewButton->Show();
 	showPreviewButton->Hide();
 	mainSizer->Layout();
-	Fit();
 	// explicitly get the current kernel and update the preview one
 	ConvolutionKernel currentKernel;
 	currentDlg->getKernel(currentKernel);
@@ -885,7 +881,6 @@ void CKernelPanel::OnHidePreviewButton(wxCommandEvent & evt) {
 	hidePreviewButton->Hide();
 	showPreviewButton->Show();
 	mainSizer->Layout();
-	Fit();
 }
 
 void CKernelPanel::OnKernelChange(wxCommandEvent & evt) {
@@ -1070,7 +1065,7 @@ void ColorPanel::OnShowButton(wxCommandEvent & evt) {
 *************************************/
 
 void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
-	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	wxBoxSizer * sizer = panelSizer;
 	sizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 0, wxALL | wxCENTER, ModePanel::panelBorder);
 	wxTextCtrl * ctrl = new wxTextCtrl(this, id, wxT("0"), wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 	ctrl->SetValue(pd.defaultValue);
@@ -1101,10 +1096,10 @@ void ParamPanel::createTextCtrl(const int id, const ParamDescriptor& pd) {
 }
 
 void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
-	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	wxBoxSizer * sizer = panelSizer;
 	wxCheckBox * cb = new wxCheckBox(this, id, pd.name);
 	cb->SetValue(pd.defaultValue != "false" && pd.defaultValue != "0");
-	sizer->Add(cb, 1, wxEXPAND);
+	sizer->Add(cb, 1, wxEXPAND | wxALL, ModePanel::panelBorder);
 	checkBoxMap[id] = cb;
 	// also connect the event to the proper handler based on available changeHandler
 	if (pd.changeHandler) {
@@ -1118,16 +1113,16 @@ void ParamPanel::createCheckBox(const int id, const ParamDescriptor& pd) {
 }
 
 void ParamPanel::createCKernel(const int id, const ParamDescriptor & pd) {
-	wxBoxSizer * sizer = getModuleSizer(pd.module);
-	CKernelPanel * ckp = new CKernelPanel(this, id, pd.name, pd.defaultValue);
-	sizer->Add(ckp, 1, wxEXPAND);
+	wxBoxSizer * sizer = panelSizer;
+	CKernelPanel * ckp = new CKernelPanel(this, id, pd.name, pd.defaultValue, horizontal);
+	sizer->Add(ckp, 1, wxEXPAND | wxALL, ModePanel::panelBorder);
 	kernelMap[id] = ckp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 	// TODO - enabled check
 }
 
 void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
-	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	wxBoxSizer * sizer = panelSizer;
 	sizer->Add(new wxStaticText(this, wxID_ANY, pd.name), 0, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	wxChoice * ch = new wxChoice(this, id);
 	const std::vector<std::string> choices = splitString(pd.defaultValue.c_str(), ';');
@@ -1150,42 +1145,30 @@ void ParamPanel::createChoice(const int id, const ParamDescriptor & pd) {
 }
 
 void ParamPanel::createBigString(const int id, const ParamDescriptor & pd) {
-	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	wxBoxSizer * sizer = panelSizer;
 	BigStringPanel * bsp = new BigStringPanel(this, id, pd.name, pd.defaultValue);
-	sizer->Add(bsp, 1, wxEXPAND);
+	sizer->Add(bsp, 1, wxEXPAND | wxALL | wxCENTER, ModePanel::panelBorder);
 	bigStringMap[id] = bsp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 	// TODO - enabled check
 }
 
 void ParamPanel::createColor(const int id, const ParamDescriptor & pd) {
-	wxBoxSizer * sizer = getModuleSizer(pd.module);
+	wxBoxSizer * sizer = panelSizer;
 	ColorPanel * cp = new ColorPanel(this, id, pd.name, pd.defaultValue);
-	sizer->Add(cp, 1, wxEXPAND);
+	sizer->Add(cp, 1, wxEXPAND | wxALL, ModePanel::panelBorder);
 	colorMap[id] = cp;
 	Connect(id, wxEVT_NULL, wxCommandEventHandler(ParamPanel::OnParamChange), NULL, this);
 	// TODO - enabled check
 }
 
-wxBoxSizer * ParamPanel::getModuleSizer(const ModuleBase * module) {
-	auto moduleSizerIt = moduleSizers.find(module);
-	wxBoxSizer * sizer = nullptr;
-	if (moduleSizerIt == moduleSizers.end()) {
-		sizer = new wxBoxSizer(wxHORIZONTAL);
-		moduleSizers[module] = sizer;
-		panelSizer->Add(sizer, 1, wxEXPAND);
-	} else {
-		sizer = moduleSizerIt->second;
-	}
-	return sizer;
-}
-
-ParamPanel::ParamPanel(ModePanel * parent)
-	: wxPanel(parent)
-	, modePanel(parent)
-	, panelSizer(nullptr)
+ParamPanel::ParamPanel(wxWindow * _parent, ModePanel * _modePanel, bool _horizontal)
+	: wxPanel(_parent)
+	, panelSizer(new wxBoxSizer(_horizontal ? wxHORIZONTAL : wxVERTICAL))
+	, parent(_parent)
+	, modePanel(_modePanel)
+	, horizontal(_horizontal)
 {
-	panelSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizerAndFit(panelSizer);
 }
 

@@ -216,7 +216,7 @@ private:
 
 class CKernelPanel : public wxPanel {
 public:
-	CKernelPanel(ParamPanel * parent, wxWindowID id, const wxString& label, const wxString& defSide);
+	CKernelPanel(ParamPanel * parent, wxWindowID id, const wxString& label, const wxString& defSide, bool horizontal);
 
 	ConvolutionKernel GetValue() const;
 
@@ -319,11 +319,16 @@ private:
 
 // TODO: change logic a bit to avoid name clashes
 
-class ParamPanel : public wxPanel, public ParamManager {
+class ParamPanel
+	: public wxPanel
+	, public ParamManager
+{
 	friend class CKernelPanel;
 	friend class BigStringPanel;
 	wxBoxSizer * panelSizer;
+	wxWindow * parent;
 	ModePanel * modePanel;
+	bool horizontal;
 
 	std::unordered_map<std::string, int> paramMap;
 	std::unordered_map<int, ParamDescriptor> paramIdMap;
@@ -334,7 +339,6 @@ class ParamPanel : public wxPanel, public ParamManager {
 	std::unordered_map<int, wxChoice*> choiceMap;
 	std::unordered_map<int, BigStringPanel*> bigStringMap;
 	std::unordered_map<int, ColorPanel*> colorMap;
-	std::unordered_map<const ModuleBase*, wxBoxSizer*> moduleSizers;
 
 	void createTextCtrl(const int id, const ParamDescriptor& pd);
 
@@ -348,10 +352,8 @@ class ParamPanel : public wxPanel, public ParamManager {
 
 	void createColor(const int id, const ParamDescriptor& pd);
 
-	// will get the sizer associated with the module, or it will create a new one
-	wxBoxSizer * getModuleSizer(const ModuleBase*);
 public:
-	ParamPanel(ModePanel * parent);
+	ParamPanel(wxWindow * parent, ModePanel * _modePanel, bool _horizontal = true);
 
 	virtual void addParam(const ParamDescriptor& pd) override;
 
