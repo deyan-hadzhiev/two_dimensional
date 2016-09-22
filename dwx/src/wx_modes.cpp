@@ -206,13 +206,39 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	}
 }
 
+const ModuleDescription MultiModuleMode::defaultDesc = ModuleDescription();
+
 MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
 	: ModePanel(vf, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE)
 	, moduleFactory(mf)
 	, canvas(new MultiModuleCanvas(this))
+	, mDag(new ModuleDAG)
+	, moduleCount(0)
 {
 	moduleFactory->clear();
 	// some sizers
 	mPanelSizer->Add(canvas, 1, wxEXPAND | wxALL);
 	SendSizeEvent();
+}
+
+void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
+	SendSizeEvent();
+}
+
+void MultiModuleMode::addModule(const ModuleDescription & md) {
+	moduleMap[moduleCount] = md;
+	ModuleDescription& mmd = moduleMap[moduleCount];
+	const std::string mmdMapIdStr = std::to_string(moduleCount);
+	mmd.fullName += std::string(" ") + mmdMapIdStr;
+	canvas->addModuleDescription(moduleCount, mmd);
+	// must remain last
+	moduleCount++;
+}
+
+const ModuleDescription & MultiModuleMode::getModuleDescription(int id) {
+	const auto mMapIter = moduleMap.find(id);
+	if (mMapIter != moduleMap.end()) {
+		return mMapIter->second;
+	}
+	return defaultDesc;
 }

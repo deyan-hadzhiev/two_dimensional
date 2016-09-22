@@ -159,7 +159,7 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 		const ModuleDescription& md = MODULE_DESC[modeId];
 		if (multiModuleMode) {
 			SetStatusText(wxString(wxT("Adding ")) + md.fullName + wxString(wxT(" module")));
-			mPanel->addModule(md.id);
+			mPanel->addModule(md);
 		} else {
 			SetStatusText(wxString(wxT("Using ")) + md.fullName + wxString(wxT(" module")));
 			// TODO maybe don't clear if in mutli module mode

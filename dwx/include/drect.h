@@ -37,6 +37,9 @@ public:
 	Size2d& operator/=(float r) noexcept { w /= r; h /= r; return *this; }
 	Size2d& operator*=(float r) noexcept { w *= r; h *= r; return *this; }
 
+	// maybe dangerous - but usability over all :)
+	explicit operator Vector2 () const { return Vector2(w, h); }
+
 	friend bool operator==(const Size2d& lhs, const Size2d& rhs);
 	friend bool operator!=(const Size2d& lhs, const Size2d& rhs);
 	friend Size2d operator+(const Size2d& lhs, const Size2d& rhs);
@@ -195,6 +198,12 @@ public:
 			p.x >= x && p.x <= x + width &&
 			p.y >= y && p.y <= y + height
 		);
+	}
+
+	// moves the rect by a specified vector
+	inline void translate(const Vector2& p) noexcept {
+		x += p.x;
+		y += p.y;
 	}
 };
 

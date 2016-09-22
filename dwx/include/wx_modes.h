@@ -1,6 +1,9 @@
 #ifndef __WX_MODES_H__
 #define __WX_MODES_H__
 
+#include <memory>
+#include <unordered_map>
+
 #include <wx/wx.h>
 
 #include "progress.h"
@@ -11,6 +14,7 @@
 #include "module_base.h"
 #include "geom_primitive.h"
 #include "module_manager.h"
+#include "module_dag.h"
 
 class ViewFrame;
 
@@ -29,7 +33,7 @@ public:
 
 	virtual void setInput(const wxImage& input) {}
 
-	virtual void addModule(ModuleId mid) {}
+	virtual void addModule(const ModuleDescription& md) {}
 
 	wxString getCbString() const;
 
@@ -77,9 +81,20 @@ class MultiModuleMode : public ModePanel {
 public:
 	MultiModuleMode(ViewFrame * vf, ModuleFactory * mf);
 
+	// derived from ModePanel
+	virtual void onCommandMenu(wxCommandEvent& ev) override;
+
+	virtual void addModule(const ModuleDescription& md) override;
+
+	// own functions
+	const ModuleDescription& getModuleDescription(int id);
 protected:
+	static const ModuleDescription defaultDesc;
 	ModuleFactory * moduleFactory;
 	MultiModuleCanvas * canvas;
+	std::unique_ptr<ModuleDAG> mDag;
+	int moduleCount; //!< used for generating module Ids
+	std::unordered_map<int, ModuleDescription> moduleMap;
 };
 
 #endif // __WX_MODES_H__

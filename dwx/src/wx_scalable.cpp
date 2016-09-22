@@ -33,15 +33,14 @@ ScalablePanel::ScalablePanel(wxWindow * _parent, const int _minZoom, const int _
 void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 	const wxEventType evType = evt.GetEventType();
 	if (evType == wxEVT_MOTION && mouseOverCanvas) {
-		const wxPoint currentMousePos(evt.GetX(), evt.GetY());
+		mousePos = wxPoint(evt.GetX(), evt.GetY());
 		const bool panView = onMouseMove();
-		if (panView && mouseDrag && currentMousePos != updatedMousePos) {
+		if (panView && mouseDrag && mousePos != updatedMousePos) {
 			canvasState |= CS_DIRTY_POS;
 			Refresh(eraseBkg);
 		} else {
-			updatedMousePos = currentMousePos;
+			updatedMousePos = mousePos;
 		}
-		mousePos = currentMousePos;
 	} else if (evType == wxEVT_LEFT_DOWN) {
 		mousePos = wxPoint(evt.GetX(), evt.GetY());
 		SetFocus(); // necessary for Win 7
