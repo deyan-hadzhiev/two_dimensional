@@ -167,6 +167,14 @@ public:
 	inline void setBottomLeft(const Vector2& p) noexcept { setLeft(p.x); setBottom(p.y); }
 	inline void setLeftBottom(const Vector2& p) noexcept { setBottomLeft(p); }
 
+	inline Vector2 getCenter() const noexcept {
+		return Vector2(x + width * 0.5f, y + height * 0.5f);
+	}
+	inline void setCenter(const Vector2& p) noexcept {
+		x = p.x - width * 0.5f;
+		y = p.y - height * 0.5f;
+	}
+
 	inline Rect& intersect(const Rect& r) noexcept {
 		float x2 = getRight();
 		float y2 = getBottom();

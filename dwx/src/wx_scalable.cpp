@@ -64,6 +64,10 @@ void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 	} else if (evType == wxEVT_LEAVE_WINDOW) {
 		if (mouseOverCanvas) {
 			mouseOverCanvas = false;
+			// if the mouse was dragging - call the mouseUp function
+			if (mouseDrag) {
+				onMouseLeftUp();
+			}
 			mouseDrag = false;
 			Refresh(eraseBkg);
 		}
