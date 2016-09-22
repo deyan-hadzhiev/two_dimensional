@@ -71,6 +71,10 @@ protected:
 
 	virtual bool onMouseLeftUp() { return true; }
 
+	virtual bool onMouseRightDown() { return true; }
+
+	virtual bool onMouseRightUp() { return true; }
+
 	template<class Scalable>
 	Scalable scale(Scalable input) const {
 		if (zoomLvl == 0) {
@@ -106,7 +110,8 @@ protected:
 	const int maxZoom;
 	int zoomLvl;
 	int zoomLvlDelta; //!< the delta that has to be applied to the zoom
-	bool mouseDrag; //!< if the mouse is currently dragging
+	bool mouseLeftDrag; //!< if the mouse is currently dragging with left button
+	bool mouseRightDrag; //!< if the mouse is currently dragging with right button
 	bool mouseOverCanvas; //!< if the mouse is over the canvas
 	wxPoint mousePos; //!< the current pointer position (implement saving logic in derived classes)
 	wxPoint updatedMousePos; //!< the last mouse position taken into account (call remapCanvas() to update)

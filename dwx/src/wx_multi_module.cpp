@@ -78,9 +78,38 @@ void MultiModuleCanvas::addModuleDescription(int id, const ModuleDescription & m
 	Refresh(eraseBkg);
 }
 
+void MultiModuleCanvas::destroyModuleNode(int id) {
+	DASSERT(id >= 0);
+	// first destroy all the connectors of the module
+	ModuleGraphicNode& mgn = moduleMap[id];
+	for (int i = 0; i < mgn.moduleDesc.inputs; ++i) {
+		const MGNConnector& mgnc = mgn.inputs[i];
+		if (mgnc.connectorId >= 0) {
+			destroyConnector(mgnc.connectorId);
+		}
+	}
+	for (int i = 0; i < mgn.moduleDesc.outputs; ++i) {
+		const MGNConnector& mgnc = mgn.outputs[i];
+		if (mgnc.connectorId >= 0) {
+			destroyConnector(mgnc.connectorId);
+		}
+	}
+	// then destroy the module itself from the moduleMap
+	moduleMap.erase(id);
+	// finally update selection and hovering
+	if (hoveredModuleMapId == id) {
+		hoveredModuleMapId = -1;
+		hoveredConnectorType = HT_NONE;
+		hoveredModuleConnectorIdx = 0;
+	}
+	if (selectedModuleMapId == id) {
+		selectedModuleMapId = -1;
+	}
+}
+
 bool MultiModuleCanvas::onMouseMove() {
 	bool panView = true;
-	if (mouseDrag) {
+	if (mouseLeftDrag) {
 		// check if the mouse is dragging a connector
 		if (mouseConnector.srcId != -1 || mouseConnector.destId != -1) {
 			reevaluateMouseHover();
@@ -241,6 +270,32 @@ bool MultiModuleCanvas::onMouseLeftUp() {
 		}
 	}
 	return true;
+}
+
+bool MultiModuleCanvas::onMouseRightDown() {
+	bool refresh = false;
+	if (hoveredModuleMapId != -1) {
+		// check if a connector is hovered over
+		if (hoveredConnectorType != HT_NONE) {
+			// check if the connector is connected
+			const MGNConnector& mgnc = (hoveredConnectorType == HT_INPUT ?
+				moduleMap[hoveredModuleMapId].inputs[hoveredModuleConnectorIdx] :
+				moduleMap[hoveredModuleMapId].outputs[hoveredModuleConnectorIdx]
+			);
+			if (mgnc.connectorId != -1 && mgnc.connectorId != -2) {
+				destroyConnector(mgnc.connectorId);
+			} else {
+				destroyModuleNode(hoveredModuleMapId);
+			}
+		} else {
+			destroyModuleNode(hoveredModuleMapId);
+		}
+		refresh = true;
+	} else if (selectedModuleMapId != -1) {
+		selectedModuleMapId = -1;
+		refresh = true;
+	}
+	return refresh;
 }
 
 bool MultiModuleCanvas::reevaluateMouseHover() {

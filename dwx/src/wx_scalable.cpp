@@ -9,7 +9,8 @@ ScalablePanel::ScalablePanel(wxWindow * _parent, const int _minZoom, const int _
 	, minZoom(_minZoom)
 	, maxZoom(_maxZoom)
 	, zoomLvl(0)
-	, mouseDrag(false)
+	, mouseLeftDrag(false)
+	, mouseRightDrag(false)
 	, mouseOverCanvas(false)
 	, mousePos(0, 0)
 	, view()
@@ -24,6 +25,8 @@ ScalablePanel::ScalablePanel(wxWindow * _parent, const int _minZoom, const int _
 	Connect(wxEVT_MOTION, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_LEFT_DOWN, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_LEFT_UP, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
+	Connect(wxEVT_RIGHT_DOWN, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
+	Connect(wxEVT_RIGHT_UP, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	// connect the sizing event
 	Connect(wxEVT_SIZE, wxSizeEventHandler(ScalablePanel::OnSizeEvent), NULL, this);
 
@@ -35,7 +38,7 @@ void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 	if (evType == wxEVT_MOTION && mouseOverCanvas) {
 		mousePos = wxPoint(evt.GetX(), evt.GetY());
 		const bool panView = onMouseMove();
-		if (panView && mouseDrag && mousePos != updatedMousePos) {
+		if (panView && mouseLeftDrag && mousePos != updatedMousePos) {
 			canvasState |= CS_DIRTY_POS;
 			Refresh(eraseBkg);
 		} else {
@@ -44,7 +47,7 @@ void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 	} else if (evType == wxEVT_LEFT_DOWN) {
 		mousePos = wxPoint(evt.GetX(), evt.GetY());
 		SetFocus(); // necessary for Win 7
-		mouseDrag = true;
+		mouseLeftDrag = true;
 		const bool refresh = onMouseLeftDown();
 		if (refresh) {
 			Refresh(eraseBkg);
@@ -55,7 +58,22 @@ void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 		if (refresh) {
 			Refresh(eraseBkg);
 		}
-		mouseDrag = false;
+		mouseLeftDrag = false;
+	} else if (evType == wxEVT_RIGHT_DOWN) {
+		mousePos = wxPoint(evt.GetX(), evt.GetY());
+		SetFocus(); // necessary for Win 7
+		mouseRightDrag = true;
+		const bool refresh = onMouseRightDown();
+		if (refresh) {
+			Refresh(eraseBkg);
+		}
+		updatedMousePos = mousePos;
+	} else if (evType == wxEVT_RIGHT_UP) {
+		const bool refresh = onMouseRightUp();
+		if (refresh) {
+			Refresh(eraseBkg);
+		}
+		mouseRightDrag = false;
 	} else if (evType == wxEVT_ENTER_WINDOW) {
 		if (!mouseOverCanvas) {
 			mouseOverCanvas = true;
@@ -65,10 +83,14 @@ void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 		if (mouseOverCanvas) {
 			mouseOverCanvas = false;
 			// if the mouse was dragging - call the mouseUp function
-			if (mouseDrag) {
+			if (mouseLeftDrag) {
 				onMouseLeftUp();
 			}
-			mouseDrag = false;
+			mouseLeftDrag = false;
+			if (mouseRightDrag) {
+				onMouseRightUp();
+			}
+			mouseRightDrag = false;
 			Refresh(eraseBkg);
 		}
 	} else if (evType == wxEVT_MOUSEWHEEL) {

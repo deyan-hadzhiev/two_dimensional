@@ -144,12 +144,17 @@ public:
 
 	void addModuleDescription(int id, const ModuleDescription& md);
 
+	// return type?
+	void destroyModuleNode(int id);
+
 protected:
 	bool onMouseMove() override;
 
 	bool onMouseLeftDown() override;
 
 	bool onMouseLeftUp() override;
+
+	bool onMouseRightDown() override;
 
 private:
 	enum ModuleColors {
