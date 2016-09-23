@@ -121,6 +121,7 @@ public:
 class MultiModuleMode : public ModePanel {
 public:
 	MultiModuleMode(ViewFrame * vf, ModuleFactory * mf);
+	virtual ~MultiModuleMode();
 
 	// derived from ModePanel
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
@@ -134,6 +135,13 @@ public:
 	// removes a module
 	void removeModule(ModuleId id);
 
+	// open image dlg handler
+	void OnShowImage(wxCommandEvent& evt);
+
+	void OnHideImage(wxCommandEvent& evt);
+
+	void OnImageDlgClosed(wxCloseEvent& evt);
+
 protected:
 	static const ModuleDescription defaultDesc;
 	static const wxString imageFileSelector;
@@ -142,13 +150,25 @@ protected:
 	wxBoxSizer * controlsSizer;
 	wxPanel * controlsPanel;
 
+	wxButton * showImageButton;
+	wxButton * hideImageButton;
+
 	ModuleFactory * moduleFactory;
 	MultiModuleCanvas * canvas;
 	std::unique_ptr<ModuleDAG> mDag;
 	std::unordered_map<ModuleId, ModuleNodeCollection> moduleMap;
+	std::unordered_map<ModuleId, ImageDialog*> imgDlgMap;
 	std::unordered_map<ModuleId, std::shared_ptr<FileOpenHandler> > inputHandlerMap;
 	std::unordered_map<ModuleId, std::shared_ptr<FileSaveHandler> > outputHandlerMap;
 	ModuleId selectedModule;
+
+private:
+	// used for passing module id with event data
+	class ModuleIdHolder : public wxObject {
+	public:
+		ModuleId mid;
+	};
+	std::unordered_map<ModuleId, ModuleIdHolder*> moduleIdHolderMap;
 };
 
 #endif // __WX_MODES_H__

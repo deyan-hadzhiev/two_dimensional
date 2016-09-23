@@ -265,6 +265,8 @@ MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
 	: ModePanel(vf, true, ViewFrame::VFS_ALL_ENABLED & ~ViewFrame::VFS_CNT_COMPARE & ~ViewFrame::VFS_OPEN_SAVE)
 	, controlsSizer(new wxBoxSizer(wxVERTICAL))
 	, controlsPanel(new wxPanel(this))
+	, showImageButton(nullptr)
+	, hideImageButton(nullptr)
 	, moduleFactory(mf)
 	, canvas(new MultiModuleCanvas(this))
 	, mDag(new ModuleDAG)
@@ -277,15 +279,33 @@ MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
 	controlsPanel->SetMaxSize(wxSize(controlsWidth, wxDefaultCoord));
 	controlsPanel->SetSizerAndFit(controlsSizer);
 	controlsSizer->FitInside(controlsPanel);
+	// and now make a sizer for the buttons
+	wxBoxSizer * buttonsSizer = new wxBoxSizer(wxVERTICAL);
 	// add a button to the controls
-	const wxWindowID buttonId = WinIDProvider::getProvider().getId();
-	controlsSizer->Add(new wxButton(controlsPanel, buttonId, wxT("Show image")), 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+	showImageButton = new wxButton(controlsPanel, wxID_ANY, wxT("Show image"));
+	showImageButton->Enable(false);
+	showImageButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MultiModuleMode::OnShowImage), NULL, this);
+	controlsSizer->Add(showImageButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+
+	hideImageButton = new wxButton(controlsPanel, wxID_ANY, wxT("Hide image"));
+	hideImageButton->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MultiModuleMode::OnHideImage), NULL, this);
+	controlsSizer->Add(hideImageButton, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
+	hideImageButton->Show(false);
+
 	controlsSizer->Add(new wxStaticLine(controlsPanel), 0, wxEXPAND | wxALL, ModePanel::panelBorder);
 	controlsSizer->AddStretchSpacer();
 	// finally add to the whole panel sizer
 	mPanelSizer->Add(controlsPanel, 0, wxEXPAND | wxALL);
 	mPanelSizer->Add(canvas, 1, wxEXPAND | wxALL);
 	SendSizeEvent();
+}
+
+MultiModuleMode::~MultiModuleMode() {
+	// destroy everything that is not automatically destroyed by wx
+	for (auto it : moduleIdHolderMap) {
+		delete it.second;
+		it.second = nullptr;
+	}
 }
 
 void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
@@ -341,7 +361,6 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	}
 	default:
-		DASSERT(false);
 		break;
 	}
 }
@@ -400,6 +419,26 @@ void MultiModuleMode::updateSelection(ModuleId id) {
 			} else {
 				modifiedStyle = currentFrameStyle & ~ViewFrame::VFS_OPEN_SAVE;
 			}
+			// check if this module has shown its image dialog
+			showImageButton->Enable(true);
+			hideImageButton->Enable(true);
+			auto& dlgIt = imgDlgMap.find(id);
+			if (dlgIt != imgDlgMap.end()) {
+				// check if shown and base some other changes on that
+				const bool shown = dlgIt->second->IsShown();
+				showImageButton->Show(!shown);
+				hideImageButton->Show(shown);
+			} else {
+				showImageButton->Show();
+				hideImageButton->Hide();
+			}
+			refresh = true;
+		} else {
+			// disable both the show and hide image dialog buttons
+			hideImageButton->Hide();
+			hideImageButton->Enable(false);
+			showImageButton->Show();
+			showImageButton->Enable(false);
 			refresh = true;
 		}
 		selectedModule = id;
@@ -413,6 +452,15 @@ void MultiModuleMode::updateSelection(ModuleId id) {
 }
 
 void MultiModuleMode::removeModule(ModuleId id) {
+	// remove any image dialogs of the module
+	auto& dlgIt = imgDlgMap.find(id);
+	if (dlgIt != imgDlgMap.end()) {
+		dlgIt->second->Destroy();
+		imgDlgMap.erase(id);
+		// there should also be an module id holder associated with the moduleId
+		delete moduleIdHolderMap[id];
+		moduleIdHolderMap.erase(id);
+	}
 	auto& it = moduleMap.find(id);
 	if (it != moduleMap.end()) {
 		ModuleNodeCollection& mnc = it->second;
@@ -431,5 +479,54 @@ void MultiModuleMode::removeModule(ModuleId id) {
 		mnc.moduleParamPanel = nullptr;
 		// after all remove the module from the map
 		moduleMap.erase(id);
+	}
+}
+
+void MultiModuleMode::OnShowImage(wxCommandEvent & evt) {
+	if (selectedModule != InvalidModuleId) {
+		auto it = imgDlgMap.find(selectedModule);
+		ImageDialog * dlg = nullptr;
+		if (it != imgDlgMap.end()) {
+			dlg = it->second;
+		} else {
+			const std::string moduleName = moduleMap[selectedModule].moduleDesc.fullName;
+			dlg = new ImageDialog(this, viewFrame, moduleName);
+			imgDlgMap[selectedModule] = dlg;
+			ModuleIdHolder * idHandle = new ModuleIdHolder;
+			idHandle->mid = selectedModule;
+			dlg->Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(MultiModuleMode::OnImageDlgClosed), idHandle, this);
+		}
+		dlg->Show();
+		showImageButton->Hide();
+		hideImageButton->Show();
+		Layout();
+		Update();
+	}
+}
+
+void MultiModuleMode::OnHideImage(wxCommandEvent & evt) {
+	if (selectedModule != InvalidModuleId) {
+		auto it = imgDlgMap.find(selectedModule);
+		if (it != imgDlgMap.end()) {
+			it->second->Hide();
+		}
+		hideImageButton->Hide();
+		showImageButton->Show();
+		Layout();
+		Update();
+	}
+}
+
+void MultiModuleMode::OnImageDlgClosed(wxCloseEvent & evt) {
+	ModuleIdHolder * idHandle = dynamic_cast<ModuleIdHolder*>(evt.GetEventUserData());
+	if (idHandle) {
+		const ModuleId mid = idHandle->mid;
+		imgDlgMap[mid]->Hide();
+		if (mid == selectedModule) {
+			hideImageButton->Hide();
+			showImageButton->Show();
+			Layout();
+			Update();
+		}
 	}
 }

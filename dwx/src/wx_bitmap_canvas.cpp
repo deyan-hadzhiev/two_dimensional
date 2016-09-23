@@ -524,6 +524,10 @@ void HistogramPanel::OnSizeEvent(wxSizeEvent & evt) {
 	Refresh(false);
 }
 
+/************************************
+*            ImagePanel             *
+*************************************/
+
 ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp)
 	: wxPanel(parent)
 	, canvas(new BitmapCanvas(this, topFrame))
@@ -604,6 +608,7 @@ wxImage ImagePanel::getImage() {
 
 void ImagePanel::toggleHist() {
 	histPanel->Show(!histPanel->IsShown());
+	SendSizeEvent();
 }
 
 bool ImagePanel::getInput(Bitmap & ibmp, int inputIdx) const {
@@ -637,4 +642,59 @@ void ImagePanel::setOutput(const Bitmap & obmp, ModuleId id) {
 
 BitmapCanvas * ImagePanel::getCanvas() const {
 	return canvas;
+}
+
+/************************************
+*          ImageDialog              *
+*************************************/
+
+ImageDialog::ImageDialog(wxWindow * parent, wxFrame * topFrame, const wxString& dlgName)
+	: wxDialog(
+		parent,
+		wxID_ANY,
+		dlgName.IsEmpty() ? wxString(wxT("Image preview")) : dlgName,
+		wxDefaultPosition,
+		wxSize(400, 410),
+		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX | wxMAXIMIZE_BOX
+		)
+	, imgPanel(new ImagePanel(this, topFrame))
+{
+	connectKeyDownEvent(this);
+}
+
+void ImageDialog::setBitmap(const Bitmap & bmp) {
+	imgPanel->setOutput(bmp, InvalidModuleId);
+}
+
+ImagePanel * ImageDialog::getImagePanel() const {
+	return imgPanel;
+}
+
+void ImageDialog::connectKeyDownEvent(wxWindow * component) {
+	if (component) {
+		component->Connect(wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler(ImageDialog::OnKeyEvent), NULL, this);
+		wxWindowListNode * compNode = component->GetChildren().GetFirst();
+		while (compNode) {
+			wxWindow * compChild = compNode->GetData();
+			this->connectKeyDownEvent(compChild);
+			compNode = compNode->GetNext();
+		}
+	}
+}
+
+void ImageDialog::OnKeyEvent(wxKeyEvent & evt) {
+	const int keyCode = evt.GetKeyCode();
+	switch (keyCode) {
+	case(WXK_ESCAPE): {
+		Close();
+		break;
+	}
+	case(WXK_F6): {
+		imgPanel->toggleHist();
+		break;
+	}
+	default:
+		evt.Skip();
+		break;
+	}
 }

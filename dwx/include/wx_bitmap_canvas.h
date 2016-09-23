@@ -189,4 +189,21 @@ private:
 	wxSizer * panelSizer;
 };
 
+class ImageDialog : public wxDialog {
+public:
+	ImageDialog(wxWindow * parent, wxFrame * topFrame, const wxString& dlgName);
+
+	void setBitmap(const Bitmap& bmp);
+
+	ImagePanel * getImagePanel() const;
+
+	// used to recursively connect key down events
+	void connectKeyDownEvent(wxWindow * component);
+
+	void OnKeyEvent(wxKeyEvent& evt);
+
+private:
+	ImagePanel * imgPanel;
+};
+
 #endif // __WX_BITMAP_CANVAS_H__
