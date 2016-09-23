@@ -148,7 +148,7 @@ void InputOutputMode::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	}
 	case (ViewFrame::MID_VF_CNT_RUN) :
-		module->runModule(0);
+		module->runModule();
 		break;
 	case (ViewFrame::MID_VF_CNT_STOP) :
 		cb.setAbortFlag();
@@ -200,7 +200,7 @@ void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	switch (ev.GetId())
 	{
 	case(ViewFrame::MID_VF_CNT_RUN) : {
-		module->runModule(0);
+		module->runModule();
 		break;
 	}
 	default:
@@ -224,7 +224,6 @@ MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
 	, moduleFactory(mf)
 	, canvas(new MultiModuleCanvas(this))
 	, mDag(new ModuleDAG)
-	, moduleCount(0)
 	, selectedModule(-1)
 {
 	moduleFactory->clear();
@@ -252,6 +251,7 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 void MultiModuleMode::addModule(const ModuleDescription & md) {
 	// first allocate everything neccessary
 	ModuleBase * moduleHandle = moduleFactory->getModule(md.id);
+	const ModuleId mid = moduleHandle->getModuleId();
 	ParamPanel * moduleParamPanel = new ParamPanel(controlsPanel, this, false);
 	// hide the panel and add it to the sizer
 	moduleParamPanel->Show(false);
@@ -259,13 +259,11 @@ void MultiModuleMode::addModule(const ModuleDescription & md) {
 	// and add the param panel to the module
 	moduleHandle->addParamManager(moduleParamPanel);
 	// add it to the module map
-	moduleMap[moduleCount] = ModuleNodeCollection(md, moduleHandle, moduleParamPanel);
-	ModuleDescription& mmd = moduleMap[moduleCount].moduleDesc;
-	const std::string mmdMapIdStr = std::to_string(moduleCount);
+	moduleMap[mid] = ModuleNodeCollection(md, moduleHandle, moduleParamPanel);
+	ModuleDescription& mmd = moduleMap[mid].moduleDesc;
+	const std::string mmdMapIdStr = std::to_string(mid);
 	mmd.fullName += std::string(" ") + mmdMapIdStr;
-	canvas->addModuleDescription(moduleCount, mmd);
-	// must remain last
-	moduleCount++;
+	canvas->addModuleDescription(mid, mmd);
 }
 
 void MultiModuleMode::updateSelection(int id) {

@@ -2,7 +2,7 @@
 #include "module_manager.h"
 #include "modules.h"
 
-const ModuleDescription MODULE_DESC[ModuleId::M_COUNT] = {
+const ModuleDescription MODULE_DESC[ModuleTypeId::M_COUNT] = {
 	ModuleDescription(M_IDENTITY,             create<IdentityModule>,           "identity",             "Identity",             1, 1),
 	ModuleDescription(M_NEGATIVE,             create<NegativeModule>,           "negative",             "Negative",             1, 1),
 	ModuleDescription(M_TEXT_SEGMENTATION,    create<TextSegmentationModule>,   "text_segmentation",    "Text Segmentation",    1, 1),
@@ -43,9 +43,9 @@ void ModuleFactory::clear() {
 	allocatedModules.clear();
 }
 
-ModuleBase * ModuleFactory::getModule(ModuleId id) {
+ModuleBase * ModuleFactory::getModule(ModuleTypeId id) {
 	ModuleBase * module = nullptr;
-	if (id > ModuleId::M_VOID && id < ModuleId::M_COUNT) {
+	if (id > ModuleTypeId::M_VOID && id < ModuleTypeId::M_COUNT) {
 		module = MODULE_DESC[id].make();
 	}
 	if (nullptr != module) {

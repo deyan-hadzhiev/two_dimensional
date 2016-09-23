@@ -17,26 +17,20 @@
 #include "fft_butterfly.h"
 #include "kmeans.h"
 
-ModuleBase::ProcessResult SimpleModule::runModule(unsigned flags) {
-	const bool hasInput = getInput();
+ModuleBase::ProcessResult SimpleModule::runModule() {
 	ModuleBase::ProcessResult retval;
-	if (hasInput && bmp.isOK()) {
-		if (cb)
-			cb->reset();
-		const auto start = std::chrono::steady_clock::now();
-		retval = moduleImplementation(flags);
-		const auto end = std::chrono::steady_clock::now();
-		if (cb) {
-			const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-			cb->setDuration(duration);
-		}
-		if (ModuleBase::KPR_OK == retval) {
-			setOutput();
-			if (iman)
-				iman->moduleDone(retval);
-		}
-	} else {
-		retval = ModuleBase::KPR_INVALID_INPUT;
+	if (cb)
+		cb->reset();
+	const auto start = std::chrono::steady_clock::now();
+	retval = moduleImplementation();
+	const auto end = std::chrono::steady_clock::now();
+	if (cb) {
+		const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+		cb->setDuration(duration);
+	}
+	if (ModuleBase::KPR_OK == retval) {
+		if (iman)
+			iman->moduleDone(retval);
 	}
 	return retval;
 }
@@ -52,7 +46,7 @@ void AsyncModule::moduleLoop(AsyncModule * k) {
 			State dirty = State::AKS_DIRTY;
 			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
 			const auto start = std::chrono::steady_clock::now();
-			k->moduleImplementation(0);
+			k->moduleImplementation();
 			const auto end = std::chrono::steady_clock::now();
 			if (k->cb) {
 				const int64 duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -95,22 +89,32 @@ void AsyncModule::update() {
 	ev.notify_one();
 }
 
-ModuleBase::ProcessResult AsyncModule::runModule(unsigned flags) {
+ModuleBase::ProcessResult AsyncModule::runModule() {
 	if (cb)
 		cb->reset();
 	update();
 	return KPR_RUNNING;
 }
 
-ModuleBase::ProcessResult IdentityModule::moduleImplementation(unsigned flags) {
-	return ModuleBase::KPR_OK;
+ModuleBase::ProcessResult IdentityModule::moduleImplementation() {
+	ModuleBase::ProcessResult res = ModuleBase::KPR_INVALID_INPUT;
+	Bitmap bmp;
+	if (getInput(bmp)) {
+		setOutput(bmp);
+		res = ModuleBase::KPR_OK;
+	}
+	return res;
 }
 
-ModuleBase::ProcessResult NegativeModule::moduleImplementation(unsigned flags) {
+ModuleBase::ProcessResult NegativeModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp))
+		return ModuleBase::KPR_INVALID_INPUT;
 	auto negativePix = [](Color a) -> Color {
 		return Color(255, 255, 255) - a;
 	};
 	bmp.remap(negativePix);
+	setOutput(bmp);
 	return ModuleBase::KPR_OK;
 }
 
@@ -135,7 +139,10 @@ IntervalList TextSegmentationModule::extractIntervals(const int * accumValues, c
 	return list;
 }
 
-ModuleBase::ProcessResult TextSegmentationModule::moduleImplementation(unsigned flags) {
+ModuleBase::ProcessResult TextSegmentationModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp))
+		return ModuleBase::KPR_INVALID_INPUT;
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	int threshold = 25;
@@ -235,6 +242,7 @@ ModuleBase::ProcessResult TextSegmentationModule::moduleImplementation(unsigned 
 			}
 		}
 	}
+	setOutput(bmp);
 	return ModuleBase::KPR_OK;
 }
 
@@ -251,16 +259,16 @@ void GeometricModule::setColor(Color rgb) {
 	primitive->getPen().setColor(col);
 }
 
-ModuleBase::ProcessResult GeometricModule::moduleImplementation(unsigned flags) {
-	if (width <= 0 || height <= 0) {
-		return KPR_INVALID_INPUT;
-	}
+ModuleBase::ProcessResult GeometricModule::moduleImplementation() {
 	const int pWidth = width;
 	const int pHeight = height;
 	pman->getIntParam(width, "width");
 	pman->getIntParam(height, "height");
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
 	dirtySize = (width != pWidth || height != pHeight);
-	if (dirtySize || !bmp.isOK()) {
+	if (dirtySize || !primitive->initialized()) {
 		primitive->resize(width, height);
 		dirtySize = false;
 	}
@@ -283,8 +291,8 @@ ModuleBase::ProcessResult GeometricModule::moduleImplementation(unsigned flags) 
 		primitive->setParam(pd.name, value);
 	}
 	primitive->draw(dflags);
-	bmp = primitive->getBitmap();
-	SimpleModule::setOutput();
+	Bitmap bmp = primitive->getBitmap();
+	SimpleModule::setOutput(bmp);
 	if (iman)
 		iman->moduleDone(KPR_OK);
 	return KPR_OK;
@@ -329,10 +337,7 @@ void reportExpressionError(Bitmap& bmp, const ExpressionParseError& parseError, 
 	}
 }
 
-ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned flags) {
-	if (width <= 0 || height <= 0) {
-		return KPR_INVALID_INPUT;
-	}
+ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation() {
 	if (cb) {
 		cb->setModuleName("Function Raster");
 		cb->setPercentDone(0, 1);
@@ -341,12 +346,14 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 	const int pHeight = height;
 	pman->getIntParam(width, "width");
 	pman->getIntParam(height, "height");
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
 	bool dirtySize = (width != pWidth || height != pHeight);
-	if (dirtySize || !bmp.isOK()) {
+	if (dirtySize || !raster->initialized()) {
 		raster->resize(width, height);
 		dirtySize = false;
 	}
-
 	Vector2 scale(1.0f, 1.0f);
 	pman->getVectorParam(scale, "scale");
 	raster->setScale(scale);
@@ -403,6 +410,7 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 		drawFlags = dflags & DrawFlags::DF_ACCUMULATE;
 	}
 	// check for errors
+	Bitmap bmp;
 	if (!parseError.first) {
 		bmp = raster->getBitmap();
 	} else {
@@ -410,16 +418,13 @@ ModuleBase::ProcessResult FunctionRasterModule::moduleImplementation(unsigned fl
 		reportExpressionError(bmp, parseError.first, parseError.second);
 	}
 
-	SimpleModule::setOutput();
+	SimpleModule::setOutput(bmp);
 	if (iman)
 		iman->moduleDone(KPR_OK);
 	return KPR_OK;
 }
 
-ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigned flags) {
-	if (width <= 0 || height <= 0) {
-		return KPR_INVALID_INPUT;
-	}
+ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation() {
 	if (cb) {
 		cb->setModuleName("Fine Function Raster");
 		cb->setPercentDone(0, 1);
@@ -428,8 +433,11 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 	const int pHeight = height;
 	pman->getIntParam(width, "width");
 	pman->getIntParam(height, "height");
+	if (width <= 0 || height <= 0) {
+		return KPR_INVALID_INPUT;
+	}
 	bool dirtySize = (width != pWidth || height != pHeight);
-	if (dirtySize || !bmp.isOK()) {
+	if (dirtySize || !raster->initialized()) {
 		raster->resize(width, height);
 		dirtySize = false;
 	}
@@ -495,6 +503,7 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 		drawFlags = dflags & DrawFlags::DF_ACCUMULATE;
 	}
 	// check for errors
+	Bitmap bmp;
 	if (!parseError.first) {
 		bmp = raster->getBitmap();
 	} else {
@@ -502,7 +511,7 @@ ModuleBase::ProcessResult FineFunctionRasterModule::moduleImplementation(unsigne
 		reportExpressionError(bmp, parseError.first, parseError.second);
 	}
 
-	SimpleModule::setOutput();
+	SimpleModule::setOutput(bmp);
 	if (iman)
 		iman->moduleDone(KPR_OK);
 	return KPR_OK;
@@ -550,7 +559,7 @@ private:
 	DistHeight distHeight;
 };
 
-ModuleBase::ProcessResult RandomNoiseModule::moduleImplementation(unsigned flags) {
+ModuleBase::ProcessResult RandomNoiseModule::moduleImplementation() {
 	if (cb) {
 		cb->setModuleName("Fine Function Raster");
 		cb->setPercentDone(0, 1);
@@ -756,16 +765,16 @@ ModuleBase::ProcessResult RandomNoiseModule::moduleImplementation(unsigned flags
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
-	bmp = sampledBmp;
-	SimpleModule::setOutput();
+	Bitmap bmp = sampledBmp;
+	SimpleModule::setOutput(bmp);
 	if (iman)
 		iman->moduleDone(KPR_OK);
 	return KPR_OK;
 }
 
-ModuleBase::ProcessResult HoughModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult HoughModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -821,14 +830,14 @@ ModuleBase::ProcessResult HoughModule::moduleImplementation(unsigned flags) {
 			bmpOutData[i] = Color(c, c, c);
 		}
 		// so the maximum value has to be mapped to 255 -> multiply by 255 and divide by the max value
-		oman->setOutput(bmpOut, 1); // the zero is important
+		setOutput(bmpOut);
 	}
 	return ModuleBase::KPR_OK;
 }
 
-ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult RotationModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	const int bw = bmp.getWidth();
@@ -840,7 +849,7 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	if (pman) {
 		if (pman->getFloatParam(angle, "angle")) {
 			// get the rounded angle before the radian conversion
-			roundedAngle = roundf(angle);
+			roundedAngle = static_cast<int>(roundf(angle));
 			angle = toRadians(angle);
 		}
 	}
@@ -933,15 +942,13 @@ ModuleBase::ProcessResult RotationModule::moduleImplementation(unsigned flags) {
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
-	if (oman) {
-		oman->setOutput(bmpOut, 1);
-	}
+	setOutput(bmpOut);
 	return ModuleBase::KPR_OK;
 }
 
-ModuleBase::ProcessResult ShearModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult ShearModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	const int bw = bmp.getWidth();
@@ -1014,15 +1021,13 @@ ModuleBase::ProcessResult ShearModule::moduleImplementation(unsigned flags) {
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
-	if (oman) {
-		oman->setOutput(bmpOut, 1);
-	}
+	setOutput(bmpOut);
 	return ModuleBase::KPR_OK;
 }
 
-ModuleBase::ProcessResult HistogramModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult HistogramModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1065,9 +1070,7 @@ ModuleBase::ProcessResult HistogramModule::moduleImplementation(unsigned flags) 
 		bmpOut.drawBitmap(subHisto, 0, i * (subHeight + 1));
 		prevConvolution = convoluted;
 	}
-	if (oman) {
-		oman->setOutput(bmpOut, 1);
-	}
+	setOutput(bmpOut);
 	return KPR_OK;
 }
 
@@ -1103,9 +1106,9 @@ void HistogramModule::drawIntensityHisto(Bitmap & histBmp, const std::vector<uin
 	}
 }
 
-ModuleBase::ProcessResult ThresholdModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult ThresholdModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1127,15 +1130,13 @@ ModuleBase::ProcessResult ThresholdModule::moduleImplementation(unsigned flags) 
 		const int intensity = inData[i].intensity();
 		outData[i] = (lower <= intensity && intensity <= upper ? inData[i] : Color());
 	}
-	if (oman) {
-		oman->setOutput(bmpOut, bmpId);
-	}
+	setOutput(bmpOut);
 	return KPR_OK;
 }
 
-ModuleBase::ProcessResult FilterModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult FilterModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1150,16 +1151,14 @@ ModuleBase::ProcessResult FilterModule::moduleImplementation(unsigned flags) {
 		pman->getBoolParam(normalize, "normalize");
 		pman->getFloatParam(normalizationValue, "normalValue");
 	}
-	Bitmap out = convolute(bmp, k, normalize, normalizationValue, cb);
-	if (oman) {
-		oman->setOutput(out, bmpId);
-	}
+	Bitmap outBmp = convolute(bmp, k, normalize, normalizationValue, cb);
+	setOutput(outBmp);
 	return KPR_OK;
 }
 
-ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult DownScaleModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1189,18 +1188,16 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation(unsigned flags) 
 		cb->setPercentDone(1, 1);
 	}
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, 1);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult UpScaleModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult UpScaleModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1222,18 +1219,16 @@ ModuleBase::ProcessResult UpScaleModule::moduleImplementation(unsigned flags) {
 		cb->setPercentDone(1, 1);
 	}
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, 1);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult RelocateModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult RelocateModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1248,18 +1243,16 @@ ModuleBase::ProcessResult RelocateModule::moduleImplementation(unsigned flags) {
 	Bitmap out;
 	bool res = bmp.relocate(out, nx, ny);
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, 1);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult CropModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult CropModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1278,18 +1271,16 @@ ModuleBase::ProcessResult CropModule::moduleImplementation(unsigned flags) {
 	Bitmap out;
 	bool res = bmp.crop(out, nx, ny, nw, nh);
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, 1);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult MirrorModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult MirrorModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1305,18 +1296,16 @@ ModuleBase::ProcessResult MirrorModule::moduleImplementation(unsigned flags) {
 	Bitmap out;
 	bool res = bmp.mirror(out, static_cast<PixelmapAxis>(axes));
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, 1);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult ExpandModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult ExpandModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1337,18 +1326,16 @@ ModuleBase::ProcessResult ExpandModule::moduleImplementation(unsigned flags) {
 	Bitmap out;
 	bool res = bmp.expand(out, ew, eh, ex, ey, static_cast<EdgeFillType>(fillType));
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, 1);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult ChannelModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1364,18 +1351,16 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation(unsigned flags) {
 	bool res = bmp.getChannel(channelData.get(), static_cast<ColorChannel>(channel));
 	if (res) {
 		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
-		if (oman) {
-			oman->setOutput(out, bmpId);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult KMeansModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult KMeansModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1416,18 +1401,16 @@ ModuleBase::ProcessResult KMeansModule::moduleImplementation(unsigned flags) {
 		if (cb) {
 			cb->setPercentDone(1, 1);
 		}
-		if (oman) {
-			oman->setOutput(out, bmpId);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult FFTDomainModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1554,18 +1537,16 @@ ModuleBase::ProcessResult FFTDomainModule::moduleImplementation(unsigned flags) 
 
 	bool res = true;
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, bmpId);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1667,18 +1648,16 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation(unsigned fl
 
 	bool res = true;
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, bmpId);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;
 	}
 }
 
-ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
-	const bool inputOk = getInput();
-	if (!inputOk || !bmp.isOK()) {
+ModuleBase::ProcessResult FFTFilter::moduleImplementation() {
+	Bitmap bmp;
+	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
 	if (cb) {
@@ -1780,9 +1759,7 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation(unsigned flags) {
 
 	bool res = true;
 	if (res) {
-		if (oman) {
-			oman->setOutput(out, bmpId);
-		}
+		setOutput(out);
 		return KPR_OK;
 	} else {
 		return KPR_FATAL_ERROR;

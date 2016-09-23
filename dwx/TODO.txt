@@ -1,6 +1,8 @@
 TODO:
 
 1. Node based module system and UI with option for saving configurations (json?)
-2. Drag'n'drop pictures (and configuration for the node system)
-3. Add GUI dark theme
-4. Grayscale channels (both mean and naturall intensity)
+2. Add alpha channel
+3. Drag'n'drop pictures (and configuration for the node system)
+4. Add GUI dark theme
+5. Grayscale channels (both mean and naturall intensity)
+6. Implement Alpha color dialog (not sure if necessary)

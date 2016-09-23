@@ -119,7 +119,6 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 	, view(0.0f, 0.0f, 0.0f, 0.0f)
 	, canvasState(CS_DIRTY_FULL)
 	, topFrame(topFrame)
-	, bmpId(0)
 {
 	SetDoubleBuffered(true);
 
@@ -139,7 +138,7 @@ BitmapCanvas::BitmapCanvas(wxWindow * parent, wxFrame * topFrame)
 	Update();
 }
 
-void BitmapCanvas::setImage(const wxImage & img, int id) {
+void BitmapCanvas::setImage(const wxImage & img) {
 	if (!bmp.IsOk() || bmp.GetSize() != img.GetSize()) {
 		canvasState = CS_DIRTY_FULL;
 	} else {
@@ -147,15 +146,6 @@ void BitmapCanvas::setImage(const wxImage & img, int id) {
 	}
 	bmp = wxBitmap(img);
 	rescaler.setBitmap(bmp);
-	if (id == 0) {
-		int rndId = rand();
-		while (rndId == 0) {
-			rndId = rand();
-		}
-		bmpId = rndId;
-	} else {
-		bmpId = id;
-	}
 	Refresh(false);
 }
 
@@ -251,7 +241,7 @@ void BitmapCanvas::synchronize() {
 		BitmapCanvas * s = *i;
 		// this is improtant because it gurads us from bouncing from one synchronization to another recursively
 		// and only if the two ids match, unmatching ids mean that the output image was not generated yet
-		if (bmpId == s->bmpId) {
+		if (bmp.GetSize() == s->bmp.GetSize()) {
 			s->zoomLvl = this->zoomLvl;
 			s->view = this->view;
 			s->canvasState = CS_DIRTY_SYNCHRONIZE;
@@ -588,29 +578,12 @@ ImagePanel::ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * ini
 	SendSizeEvent();
 }
 
-int ImagePanel::getBmpId() const {
-	return bmpId;
-}
-
 void ImagePanel::synchronize() {
 	canvas->synchronize();
 }
 
-void ImagePanel::setImage(const wxImage & img, int id) {
-	if (id == 0) {
-		int rndId = rand();
-		while (rndId == 0) {
-			rndId = rand();
-		}
-		bmpId = rndId;
-	} else {
-		bmpId = id;
-	}
-	canvas->setImage(img, bmpId);
-	if (id == 0) {
-		// TODO
-		//canvas->resetFocus();
-	}
+void ImagePanel::setImage(const wxImage & img) {
+	canvas->setImage(img);
 	{
 		std::lock_guard<std::mutex> lk(bmpMutex);
 		const int w = img.GetWidth();
@@ -633,13 +606,12 @@ void ImagePanel::toggleHist() {
 	histPanel->Show(!histPanel->IsShown());
 }
 
-bool ImagePanel::getInput(Bitmap & ibmp, int & id) const {
+bool ImagePanel::getInput(Bitmap & ibmp, int inputIdx) const {
 	bool retval = false;
 	{
 		std::lock_guard<std::mutex> lk(bmpMutex);
 		if (bmp.isOK()) {
 			ibmp = bmp;
-			id = bmpId;
 			retval = true;
 		}
 	}
@@ -652,15 +624,14 @@ void ImagePanel::moduleDone(ModuleBase::ProcessResult result) {
 	}
 }
 
-void ImagePanel::setOutput(const Bitmap & obmp, int id) {
-	//canvas->setBitmap(obmp, id);
+void ImagePanel::setOutput(const Bitmap & obmp, ModuleId id) {
 	if (obmp.isOK()) {
 		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp = obmp;
 		histPanel->setImage(bmp);
 		Color * bmpDataPtr = bmp.getDataPtr();
 		wxImage canvasImg(wxSize(obmp.getWidth(), obmp.getHeight()), reinterpret_cast<unsigned char *>(bmpDataPtr), true);
-		canvas->setImage(canvasImg, id);
+		canvas->setImage(canvasImg);
 	}
 }
 

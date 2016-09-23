@@ -269,8 +269,8 @@ template bool Pixelmap<Color>::upscale<TColor<double> >(Pixelmap<Color>&, const 
 
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap() noexcept
-	: width(-1)
-	, height(-1)
+	: width(0)
+	, height(0)
 	, data(nullptr)
 {}
 
@@ -296,7 +296,7 @@ template<class ColorType>
 void Pixelmap<ColorType>::freeMem(void) noexcept {
 	if (data) delete[] data;
 	data = nullptr;
-	width = height = -1;
+	width = height = 0;
 }
 
 template<class ColorType>
@@ -339,13 +339,15 @@ void Pixelmap<ColorType>::copy(const Pixelmap<ColorType>& rhs) noexcept {
 	}
 	width = rhs.width;
 	height = rhs.height;
-	memcpy(data, rhs.data, width * height * sizeof(ColorType));
+	if (width > 0 && height > 0) {
+		memcpy(data, rhs.data, width * height * sizeof(ColorType));
+	}
 }
 
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap(const Pixelmap& rhs) noexcept
-	: width(-1)
-	, height(-1)
+	: width(0)
+	, height(0)
 	, data(nullptr)
 {
 	copy(rhs);
@@ -396,7 +398,7 @@ bool Pixelmap<ColorType>::validPixelPosition(int x, int y) const noexcept {
 
 template<class ColorType>
 bool Pixelmap<ColorType>::isOK(void) const  noexcept {
-	return (data != nullptr);
+	return (data != nullptr && width > 0 && height > 0);
 }
 
 template<class ColorType>

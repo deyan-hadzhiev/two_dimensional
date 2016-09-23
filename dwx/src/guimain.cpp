@@ -155,7 +155,7 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 		}
 	}
 	const int modeId = ev.GetId() - MID_VF_MODES_RANGE_START - 1;
-	if (modeId > ModuleId::M_VOID && modeId < ModuleId::M_COUNT) {
+	if (modeId > ModuleTypeId::M_VOID && modeId < ModuleTypeId::M_COUNT) {
 		const ModuleDescription& md = MODULE_DESC[modeId];
 		if (multiModuleMode) {
 			SetStatusText(wxString(wxT("Adding ")) + md.fullName + wxString(wxT(" module")));

@@ -19,21 +19,20 @@
 // A simple module with a single image, input and output
 class SimpleModule : public ModuleBase {
 protected:
-	virtual bool getInput() {
+	virtual bool getInput(Bitmap& bmp, int inputIdx = 0) {
 		if (iman) {
-			return iman->getInput(bmp, bmpId);
+			const bool res = iman->getInput(bmp, inputIdx);
+			return res && bmp.isOK();
 		}
 		return false;
 	}
 
-	virtual void setOutput() const {
+	virtual void setOutput(const Bitmap& bmp) const {
 		if (oman) {
-			oman->setOutput(bmp, bmpId);
+			oman->setOutput(bmp, moduleId);
 		}
 	}
 
-	int bmpId;
-	Bitmap bmp;
 	InputManager * iman;
 	OutputManager * oman;
 	ParamManager * pman;
@@ -41,8 +40,7 @@ protected:
 	std::vector<ParamDescriptor> paramList;
 public:
 	SimpleModule()
-		: bmpId(0)
-		, iman(nullptr)
+		: iman(nullptr)
 		, oman(nullptr)
 		, pman(nullptr)
 	{}
@@ -63,10 +61,11 @@ public:
 	}
 
 	// a simple implementation that can be overriden and handles basic input output and calls the moduleImplementation function
-	virtual ModuleBase::ProcessResult runModule(unsigned flags) override;
+	virtual ModuleBase::ProcessResult runModule() override;
 
+protected:
 	// this function will be called from the runModule(..) function and if not overriden will not do anything to the output image
-	virtual ModuleBase::ProcessResult moduleImplementation(unsigned flags) {
+	virtual ModuleBase::ProcessResult moduleImplementation() {
 		return ModuleBase::KPR_NO_IMPLEMENTATION;
 	}
 };
@@ -87,7 +86,7 @@ public:
 
 	virtual void update() override;
 
-	virtual ModuleBase::ProcessResult runModule(unsigned flags) override;
+	virtual ModuleBase::ProcessResult runModule() override;
 protected:
 	std::atomic<State> state;
 	std::mutex moduleMutex;
@@ -97,20 +96,17 @@ protected:
 	static void moduleLoop(AsyncModule * k);
 
 	bool getAbortState() const;
-
-	//!< override for all AsyncModules by default
-	virtual void setOutput() const override {}
 };
 
 class IdentityModule : public SimpleModule {
 public:
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class NegativeModule : public SimpleModule {
 public:
 	// starts the module process (still havent thought of decent flags, but multithreaded is a candidate :)
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 using IntervalList = std::vector<std::pair<int, int> >;
@@ -121,7 +117,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "threshold"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class GeometricModule : public AsyncModule {
@@ -165,7 +161,7 @@ public:
 
 	virtual void setColor(Color rgb);
 
-	virtual ModuleBase::ProcessResult moduleImplementation(unsigned flags) override;
+	virtual ModuleBase::ProcessResult moduleImplementation() override;
 };
 
 class SinosoidModule : public GeometricModule {
@@ -193,7 +189,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "axis", "false"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 private:
 	std::unique_ptr<FunctionRaster<Color> > raster;
 	int width;
@@ -221,7 +217,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "outputTree", "false"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 private:
 	std::unique_ptr<FineFunctionRaster<Color> > raster;
 	int width;
@@ -266,12 +262,12 @@ public:
 		D_STUDENT_T,
 	};
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class HoughModule : public AsyncModule {
 public:
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class RotationModule : public AsyncModule {
@@ -282,7 +278,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "bilinear;bicubic"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class ShearModule : public AsyncModule {
@@ -294,7 +290,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "bilinear;bicubic"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class HistogramModule : public AsyncModule {
@@ -306,7 +302,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_STRING, "vector", "0.075;0.25;0.35;0.25;0.075"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 private:
 
 	void drawIntensityHisto(Bitmap& histBmp, const std::vector<uint32>& data, const uint32 maxIntensity) const;
@@ -319,7 +315,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "upper", "255"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class FilterModule : public AsyncModule {
@@ -330,7 +326,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalValue", "1.0"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class DownScaleModule : public AsyncModule {
@@ -346,7 +342,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "medium", "uint16;uint8;float;double"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class UpScaleModule : public AsyncModule {
@@ -362,7 +358,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "filterType", "NearestNeighbour;Bilinear;Bicubic"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class RelocateModule : public AsyncModule {
@@ -372,7 +368,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "relocateY", "0"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class CropModule : public AsyncModule {
@@ -384,7 +380,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "cropHeight", "0"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class MirrorModule : public AsyncModule {
@@ -394,7 +390,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "mirrorY", "true"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class ExpandModule : public	AsyncModule {
@@ -407,7 +403,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "expandY", "0"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class ChannelModule : public AsyncModule {
@@ -416,7 +412,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_ENUM, "channel", "red;green;blue"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class KMeansModule : public AsyncModule {
@@ -426,7 +422,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "numIterations", "10"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class FFTDomainModule : public AsyncModule {
@@ -438,7 +434,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "powerOf2", "false"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class FFTCompressionModule : public AsyncModule {
@@ -447,7 +443,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "compressPercent", "50.0"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 class FFTFilter : public AsyncModule {
@@ -458,7 +454,7 @@ public:
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalizationValue", "1.0"));
 	}
 
-	ModuleBase::ProcessResult moduleImplementation(unsigned flags) override final;
+	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
 #endif // __MODULES_H__

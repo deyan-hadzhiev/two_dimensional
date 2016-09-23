@@ -114,9 +114,8 @@ protected:
 	ModuleFactory * moduleFactory;
 	MultiModuleCanvas * canvas;
 	std::unique_ptr<ModuleDAG> mDag;
-	int moduleCount; //!< used for generating module Ids
-	std::unordered_map<int, ModuleNodeCollection> moduleMap;
-	int selectedModule;
+	std::unordered_map<ModuleId, ModuleNodeCollection> moduleMap;
+	ModuleId selectedModule;
 };
 
 #endif // __WX_MODES_H__

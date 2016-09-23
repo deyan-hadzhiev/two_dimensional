@@ -51,7 +51,7 @@ public:
 
 	void OnSizeEvt(wxSizeEvent& evt);
 
-	void setImage(const wxImage& img, int id = 0);
+	void setImage(const wxImage& img);
 
 	void updateStatus() const;
 
@@ -118,7 +118,6 @@ private:
 	wxPoint updatedMousePos; //!< the last position of the mouse that was considered (only update in the remapping function)
 	Rect view; //!< The currently seen rect from the bitmap in bmp coordinates
 
-	int bmpId;
 	wxBitmap bmp;
 	wxBitmap canvas;
 	ImageRescaler rescaler; // for cached rescaling of downscaled images
@@ -163,23 +162,21 @@ class ImagePanel : public wxPanel, public InputManager, public OutputManager {
 public:
 	ImagePanel(wxWindow * parent, wxFrame * topFrame, const Bitmap * initBmp = nullptr);
 
-	int getBmpId() const;
-
 	void synchronize(); //!< synchronizes with other canvases to show the same rect
 
-	void setImage(const wxImage& img, int id = 0);
+	void setImage(const wxImage& img);
 
 	wxImage getImage();
 
 	void toggleHist();
 
 	// from InputManager
-	virtual bool getInput(Bitmap& inputBmp, int& id) const override;
+	virtual bool getInput(Bitmap& inputBmp, int inputIdx) const override;
 
 	virtual void moduleDone(ModuleBase::ProcessResult result) override;
 
 	// from OutputManager
-	virtual void setOutput(const Bitmap& outputBmp, int id) override;
+	virtual void setOutput(const Bitmap& outputBmp, ModuleId id) override;
 
 	BitmapCanvas * getCanvas() const;
 

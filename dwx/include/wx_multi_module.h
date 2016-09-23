@@ -117,9 +117,9 @@ private:
 };
 
 struct ModuleConnectorDesc {
-	int srcId;
+	ModuleId srcId;
 	int inputIdx;
-	int destId;
+	ModuleId destId;
 	int outputIdx;
 	Vector2 srcPos;
 	Vector2 destPos;
@@ -144,10 +144,10 @@ public:
 
 	void OnEraseBackground(wxEraseEvent& evt);
 
-	void addModuleDescription(int id, const ModuleDescription& md);
+	void addModuleDescription(ModuleId id, const ModuleDescription& md);
 
 	// return type?
-	void destroyModuleNode(int id);
+	void destroyModuleNode(ModuleId id);
 
 protected:
 	bool onMouseMove() override;
@@ -185,23 +185,23 @@ private:
 	ModuleConnectorDesc destroyConnector(int id);
 
 	// some drawing functions
-	void drawModuleNode(wxDC& dc, const ModuleGraphicNode& mgd, int mgdMapId);
+	void drawModuleNode(wxDC& dc, const ModuleGraphicNode& mgd, ModuleId mgdMapId);
 
 	void drawModuleConnector(wxDC& dc, const ModuleConnectorDesc& mcd);
 
 	MultiModuleMode * parent;
-	std::unordered_map<int, ModuleGraphicNode> moduleMap;
+	std::unordered_map<ModuleId, ModuleGraphicNode> moduleMap;
 	std::unordered_map<int, ModuleConnectorDesc> connectorMap;
 	int connectorMapIdGen;
 	ModuleConnectorDesc mouseConnector;
-	int hoveredModuleMapId;
+	ModuleId hoveredModuleMapId;
 	enum {
 		HT_NONE,
 		HT_INPUT,
 		HT_OUTPUT,
 	} hoveredConnectorType;
 	int hoveredModuleConnectorIdx;
-	int selectedModuleMapId;
+	ModuleId selectedModuleMapId;
 };
 
 #endif // __WX_MULTI_MODULE_H__

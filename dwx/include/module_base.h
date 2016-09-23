@@ -6,23 +6,36 @@
 #include "param_base.h"
 #include "color.h"
 #include "bitmap.h"
-#include "convolution.h"
-#include "vector2.h"
 
 class InputManager;
 class OutputManager;
 class ParamManager;
 class ProgressCallback;
 
+using ModuleId = int; //!< unique module id set on allocation
+enum {
+	InvalidModuleId = -1,
+};
+
 class ModuleBase {
+private:
+	static ModuleId getNewModuleId() {
+		static ModuleId id = 0;
+		return id++;
+	}
 protected:
-	unsigned flags;
+	const ModuleId moduleId;
 	ProgressCallback * cb;
 public:
 	ModuleBase()
-		: flags(0U)
+		: moduleId(getNewModuleId())
 		, cb(nullptr)
 	{}
+
+	// returns the module id
+	ModuleId getModuleId() const noexcept {
+		return moduleId;
+	}
 
 	virtual ~ModuleBase() {}
 	// adds an input manager (note there may be more than one (probably))
@@ -44,12 +57,7 @@ public:
 
 	// forces an update of the module
 	virtual void update() {
-		runModule(flags);
-	}
-
-	// sets module flags
-	virtual void setFlags(unsigned _flags) {
-		flags = _flags;
+		runModule();
 	}
 
 	enum ProcessResult {
@@ -61,17 +69,12 @@ public:
 		KPR_ABORTED,
 	};
 
-	// starts the module process (still havent thought of decent flags, but multithreaded is a candidate :)
-	virtual ProcessResult runModule(unsigned flags) = 0;
-
-	// interface for checking the status of processing
-	virtual int percentDone() {
-		return -1;
-	}
+	// starts the module process
+	virtual ProcessResult runModule() = 0;
 };
 
 class NullModule : public ModuleBase {
-	virtual ModuleBase::ProcessResult runModule(unsigned) override {
+	virtual ModuleBase::ProcessResult runModule() override {
 		return ModuleBase::KPR_NO_IMPLEMENTATION;
 	}
 };
@@ -79,8 +82,8 @@ class NullModule : public ModuleBase {
 class InputManager {
 public:
 	virtual ~InputManager() {}
-	// provides a bitmap for processing
-	virtual bool getInput(Bitmap& inputBmp, int& id) const = 0;
+	// provides a bitmap for processing - with the specified index - used by module with more than one input
+	virtual bool getInput(Bitmap& inputBmp, int idx) const = 0;
 
 	// will be called immediately after the module is done
 	virtual void moduleDone(ModuleBase::ProcessResult result) {}
@@ -90,7 +93,7 @@ class OutputManager {
 public:
 	virtual ~OutputManager() {}
 	// sets the provided bitmap and outputs it in a fine matter
-	virtual void setOutput(const Bitmap& outputBmp, int id) = 0;
+	virtual void setOutput(const Bitmap& outputBmp, ModuleId mid) = 0;
 };
 
 #endif // __MODULE_BASE_H__

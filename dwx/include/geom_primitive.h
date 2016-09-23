@@ -81,6 +81,10 @@ public:
 
 	virtual ~GeometricPrimitive() {}
 
+	const bool initialized() const noexcept {
+		return bmp.isOK();
+	}
+
 	const Pixelmap<CType>& getBitmap() const noexcept {
 		return bmp;
 	}
@@ -167,7 +171,7 @@ class Function : public GeometricPrimitive<CType> {
 	std::function<float(float)> fx;
 	std::function<float(int)> mapX;
 public:
-	Function(int width = -1, int height = -1);
+	Function(int width = 0, int height = 0);
 
 	virtual void setFunction(std::function<float(int)>, std::function<float(float)>);
 
@@ -178,7 +182,7 @@ template<class CType>
 class FunctionRaster : public GeometricPrimitive<CType> {
 	std::function<double(double, double)> fxy;
 public:
-	FunctionRaster(int width = -1, int height = -1);
+	FunctionRaster(int width = 0, int height = 0);
 
 	virtual void setFunction(std::function<double(double, double)>);
 
@@ -190,7 +194,7 @@ class FineFunctionRaster : public GeometricPrimitive<CType> {
 	std::function<double(double, double)> fxy;
 	bool treeOutput;
 public:
-	FineFunctionRaster(int width = -1, int height = -1);
+	FineFunctionRaster(int width = 0, int height = 0);
 
 	virtual void setFunction(std::function<double(double, double)>);
 

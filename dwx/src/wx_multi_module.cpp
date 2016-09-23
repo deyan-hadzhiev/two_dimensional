@@ -24,10 +24,10 @@ MultiModuleCanvas::MultiModuleCanvas(MultiModuleMode * _parent)
 	: ScalablePanel(_parent, -4, 8)
 	, parent(_parent)
 	, connectorMapIdGen(0)
-	, hoveredModuleMapId(-1)
+	, hoveredModuleMapId(InvalidModuleId)
 	, hoveredConnectorType(HT_NONE)
 	, hoveredModuleConnectorIdx(0)
-	, selectedModuleMapId(-1)
+	, selectedModuleMapId(InvalidModuleId)
 {
 	SetDoubleBuffered(true);
 
@@ -54,7 +54,7 @@ void MultiModuleCanvas::OnPaint(wxPaintEvent & evt) {
 		}
 	}
 	// now draw the selected module on top of all
-	if (selectedModuleMapId != -1) {
+	if (selectedModuleMapId != InvalidModuleId) {
 		drawModuleNode(dc, moduleMap[selectedModuleMapId], selectedModuleMapId);
 	}
 
@@ -63,7 +63,7 @@ void MultiModuleCanvas::OnPaint(wxPaintEvent & evt) {
 		drawModuleConnector(dc, it.second);
 	}
 	// and draw the mouse connector
-	if (mouseConnector.srcId != -1 || mouseConnector.destId != -1) {
+	if (mouseConnector.srcId != InvalidModuleId || mouseConnector.destId != InvalidModuleId) {
 		drawModuleConnector(dc, mouseConnector);
 	}
 }
@@ -72,7 +72,7 @@ void MultiModuleCanvas::OnEraseBackground(wxEraseEvent & evt) {
 	// disable erase - all will be handled in the paint evt
 }
 
-void MultiModuleCanvas::addModuleDescription(int id, const ModuleDescription & md) {
+void MultiModuleCanvas::addModuleDescription(ModuleId id, const ModuleDescription & md) {
 	// calculate the current center of screen position on the canvas
 	const wxPoint screenCenter(panelSize.GetWidth() / 2, panelSize.GetHeight() / 2);
 	const Vector2 canvasCenter = convertScreenToCanvas(screenCenter);
@@ -81,7 +81,7 @@ void MultiModuleCanvas::addModuleDescription(int id, const ModuleDescription & m
 	Refresh(eraseBkg);
 }
 
-void MultiModuleCanvas::destroyModuleNode(int id) {
+void MultiModuleCanvas::destroyModuleNode(ModuleId id) {
 	DASSERT(id >= 0);
 	// first destroy all the connectors of the module
 	ModuleGraphicNode& mgn = moduleMap[id];
@@ -101,12 +101,12 @@ void MultiModuleCanvas::destroyModuleNode(int id) {
 	moduleMap.erase(id);
 	// finally update selection and hovering
 	if (hoveredModuleMapId == id) {
-		hoveredModuleMapId = -1;
+		hoveredModuleMapId = InvalidModuleId;
 		hoveredConnectorType = HT_NONE;
 		hoveredModuleConnectorIdx = 0;
 	}
 	if (selectedModuleMapId == id) {
-		selectedModuleMapId = -1;
+		selectedModuleMapId = InvalidModuleId;
 		parent->updateSelection(selectedModuleMapId);
 	}
 	// finally destroy the module form the mode panel
@@ -117,11 +117,11 @@ bool MultiModuleCanvas::onMouseMove() {
 	bool panView = true;
 	if (mouseLeftDrag) {
 		// check if the mouse is dragging a connector
-		if (mouseConnector.srcId != -1 || mouseConnector.destId != -1) {
+		if (mouseConnector.srcId != InvalidModuleId || mouseConnector.destId != InvalidModuleId) {
 			reevaluateMouseHover();
 			Refresh(eraseBkg);
 			panView = false;
-		} else if (selectedModuleMapId != -1) {
+		} else if (selectedModuleMapId != InvalidModuleId) {
 			// calculate the difference
 			const wxPoint mouseDiff = mousePos - updatedMousePos;
 			const Vector2 canvasDiff = unscale(Convert::vector(mouseDiff));
@@ -155,16 +155,16 @@ bool MultiModuleCanvas::onMouseMove() {
 }
 
 bool MultiModuleCanvas::onMouseLeftDown() {
-	int intersectionMapId = -1;
+	ModuleId intersectionMapId = InvalidModuleId;
 	const Vector2 canvasMousePos(convertScreenToCanvas(mousePos));
 	// check if the hovered module is the one under the mouse
-	if (hoveredModuleMapId != -1) {
+	if (hoveredModuleMapId != InvalidModuleId) {
 		if (moduleMap[hoveredModuleMapId].rect.inside(canvasMousePos)) {
 			intersectionMapId = hoveredModuleMapId;
 		}
 	}
 	// if not, check all the modules still (redundant?)
-	if (intersectionMapId == -1) {
+	if (intersectionMapId == InvalidModuleId) {
 		for (const auto& it : moduleMap) {
 			if (it.second.rect.inside(canvasMousePos)) {
 				intersectionMapId = it.first;
@@ -174,7 +174,7 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 	}
 	// now check if the mouse is over any of the connectors
 	bool overConnector = false;
-	if (intersectionMapId != -1) {
+	if (intersectionMapId != InvalidModuleId) {
 		ModuleGraphicNode& mgn = moduleMap[intersectionMapId];
 		for (int i = 0; i < mgn.moduleDesc.inputs && !overConnector; ++i) {
 			MGNConnector& mgnc = mgn.inputs[i];
@@ -185,7 +185,7 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 					mouseConnector = destroyConnector(mgnc.connectorId);
 					// this connector's id and state should be updated by the destroy function
 					// so update only the mouseConnector
-					mouseConnector.destId = -1;
+					mouseConnector.destId = InvalidModuleId;
 					mouseConnector.inputIdx = 0;
 					// but the other connector state would be EMTPY, while it should be connected
 					MGNConnector& srcMgnc = moduleMap[mouseConnector.srcId].outputs[mouseConnector.outputIdx];
@@ -193,7 +193,7 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 					srcMgnc.connectorId = -2;
 				} else {
 					// first update the mouse connector
-					mouseConnector.srcId = -1;
+					mouseConnector.srcId = InvalidModuleId;
 					mouseConnector.destId = intersectionMapId;
 					mouseConnector.destPos = mgnc.r.getCenter();
 					mouseConnector.inputIdx = i;
@@ -213,7 +213,7 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 					mouseConnector = destroyConnector(mgnc.connectorId);
 					// this connector's id and state should be updated by the destroy function
 					// so update only the mouseConnector
-					mouseConnector.srcId = -1;
+					mouseConnector.srcId = InvalidModuleId;
 					mouseConnector.outputIdx = 0;
 					// but the other connector state would be EMTPY, while it should be connected
 					MGNConnector& destMgnc = moduleMap[mouseConnector.destId].inputs[mouseConnector.inputIdx];
@@ -223,7 +223,7 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 					mouseConnector.srcId = intersectionMapId;
 					mouseConnector.srcPos = mgnc.r.getCenter();
 					mouseConnector.outputIdx = i;
-					mouseConnector.destId = -1;
+					mouseConnector.destId = InvalidModuleId;
 					mgnc.state = MGNConnector::MGNC_CONNECTED;
 					// hack the connection state change
 					mgnc.connectorId = -2;
@@ -242,21 +242,21 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 
 bool MultiModuleCanvas::onMouseLeftUp() {
 	// if the mouse was dragging a connector reset it
-	if (mouseConnector.srcId != -1 || mouseConnector.destId != -1) {
+	if (mouseConnector.srcId != InvalidModuleId || mouseConnector.destId != InvalidModuleId) {
 		// now check if the mouse connector is over a connector or not
-		if (hoveredModuleMapId != -1) {
+		if (hoveredModuleMapId != InvalidModuleId) {
 			if (hoveredConnectorType == HT_NONE
-				|| (mouseConnector.srcId == -1 && hoveredConnectorType != HT_OUTPUT)
-				|| (mouseConnector.destId == -1 && hoveredConnectorType != HT_INPUT)
+				|| (mouseConnector.srcId == InvalidModuleId && hoveredConnectorType != HT_OUTPUT)
+				|| (mouseConnector.destId == InvalidModuleId && hoveredConnectorType != HT_INPUT)
 				) {
 				disconnectMouseConnector();
 			} else {
-				if (mouseConnector.srcId == -1) {
+				if (mouseConnector.srcId == InvalidModuleId) {
 					mouseConnector.srcId = hoveredModuleMapId;
 					mouseConnector.outputIdx = hoveredModuleConnectorIdx;
 					// the pos is a bit trickier
 					mouseConnector.srcPos = moduleMap[hoveredModuleMapId].outputs[hoveredModuleConnectorIdx].r.getCenter();
-				} else if (mouseConnector.destId == -1) {
+				} else if (mouseConnector.destId == InvalidModuleId) {
 					mouseConnector.destId = hoveredModuleMapId;
 					mouseConnector.inputIdx = hoveredModuleConnectorIdx;
 					// the pos is a bit trickier
@@ -281,7 +281,7 @@ bool MultiModuleCanvas::onMouseLeftUp() {
 
 bool MultiModuleCanvas::onMouseRightDown() {
 	bool refresh = false;
-	if (hoveredModuleMapId != -1) {
+	if (hoveredModuleMapId != InvalidModuleId) {
 		// check if a connector is hovered over
 		if (hoveredConnectorType != HT_NONE) {
 			// check if the connector is connected
@@ -298,8 +298,8 @@ bool MultiModuleCanvas::onMouseRightDown() {
 			destroyModuleNode(hoveredModuleMapId);
 		}
 		refresh = true;
-	} else if (selectedModuleMapId != -1) {
-		selectedModuleMapId = -1;
+	} else if (selectedModuleMapId != InvalidModuleId) {
+		selectedModuleMapId = InvalidModuleId;
 		parent->updateSelection(selectedModuleMapId);
 		refresh = true;
 	}
@@ -308,7 +308,7 @@ bool MultiModuleCanvas::onMouseRightDown() {
 
 bool MultiModuleCanvas::reevaluateMouseHover() {
 	const Vector2 mousePosCanvas(convertScreenToCanvas(mousePos));
-	if (hoveredModuleMapId != -1) {
+	if (hoveredModuleMapId != InvalidModuleId) {
 		ModuleGraphicNode& mgn = moduleMap[hoveredModuleMapId];
 		// check if still hovered
 		if (!mgn.rect.inside(mousePosCanvas)) {
@@ -321,7 +321,7 @@ bool MultiModuleCanvas::reevaluateMouseHover() {
 				mgn.outputs[i].state = (mgn.outputs[i].connectorId != -1 ? MGNConnector::MGNC_CONNECTED : MGNConnector::MGNC_EMPTY);
 			}
 			// reset the hoveredID
-			hoveredModuleMapId = -1;
+			hoveredModuleMapId = InvalidModuleId;
 			Refresh(eraseBkg);
 		}
 	} else {
@@ -334,7 +334,7 @@ bool MultiModuleCanvas::reevaluateMouseHover() {
 		}
 	}
 	bool stateChange = false;
-	if (hoveredModuleMapId != -1) {
+	if (hoveredModuleMapId != InvalidModuleId) {
 		ModuleGraphicNode& mgn = moduleMap[hoveredModuleMapId];
 		bool overConnector = false;
 		// reevaluate the connectors
@@ -375,17 +375,17 @@ bool MultiModuleCanvas::reevaluateMouseHover() {
 
 void MultiModuleCanvas::disconnectMouseConnector() {
 	// disconnect the connector
-	if (mouseConnector.srcId != -1) {
+	if (mouseConnector.srcId != InvalidModuleId) {
 		MGNConnector& mgnc = moduleMap[mouseConnector.srcId].outputs[mouseConnector.outputIdx];
 		mgnc.connectorId = -1;
 		mgnc.state = MGNConnector::MGNC_EMPTY;
-		mouseConnector.srcId = -1;
+		mouseConnector.srcId = InvalidModuleId;
 	}
-	if (mouseConnector.destId != -1) {
+	if (mouseConnector.destId != InvalidModuleId) {
 		MGNConnector& mgnc = moduleMap[mouseConnector.destId].inputs[mouseConnector.inputIdx];
 		mgnc.connectorId = -1;
 		mgnc.state = MGNConnector::MGNC_EMPTY;
-		mouseConnector.destId = -1;
+		mouseConnector.destId = InvalidModuleId;
 	}
 }
 
@@ -429,7 +429,7 @@ ModuleConnectorDesc MultiModuleCanvas::destroyConnector(int id) {
 	return destroyed;
 }
 
-void MultiModuleCanvas::drawModuleNode(wxDC & dc, const ModuleGraphicNode & mgd, int mgdMapId) {
+void MultiModuleCanvas::drawModuleNode(wxDC & dc, const ModuleGraphicNode & mgd, ModuleId mgdMapId) {
 	if (!mgd.rect.intersects(view)) {
 		// the module is not in the view - do not draw as all draw calls will go in vain
 		return;
@@ -478,21 +478,21 @@ void MultiModuleCanvas::drawModuleConnector(wxDC & dc, const ModuleConnectorDesc
 	static const wxPen connectorPen(mmColors[MC_CONNECTOR], 2);
 	bool drawConnector = false;
 	// check if the connector should be drawn at all
-	if (mcd.srcId != mcd.destId && (mcd.srcId == -1 || mcd.destId -1)) {
+	if (mcd.srcId != mcd.destId && (mcd.srcId == InvalidModuleId || mcd.destId == InvalidModuleId)) {
 		// this has to be mouse dragging
 		drawConnector = true;
 	}
 	if (!drawConnector) {
-		if (mcd.srcId != -1 && moduleMap[mcd.srcId].rect.intersects(view)) {
+		if (mcd.srcId != InvalidModuleId && moduleMap[mcd.srcId].rect.intersects(view)) {
 			drawConnector |= true;
 		}
-		if (mcd.destId != -1 && moduleMap[mcd.destId].rect.intersects(view)) {
+		if (mcd.destId != InvalidModuleId && moduleMap[mcd.destId].rect.intersects(view)) {
 			drawConnector |= true;
 		}
 	}
 	if (drawConnector) {
-		const wxPoint srcPos = (mcd.srcId != -1 ? convertCanvasToScreen(mcd.srcPos) : mousePos);
-		const wxPoint destPos = (mcd.destId != -1 ? convertCanvasToScreen(mcd.destPos) : mousePos);
+		const wxPoint srcPos = (mcd.srcId != InvalidModuleId ? convertCanvasToScreen(mcd.srcPos) : mousePos);
+		const wxPoint destPos = (mcd.destId != InvalidModuleId ? convertCanvasToScreen(mcd.destPos) : mousePos);
 		dc.SetPen(connectorPen);
 		dc.DrawLine(srcPos, destPos);
 	}

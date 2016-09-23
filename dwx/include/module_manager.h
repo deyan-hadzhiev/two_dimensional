@@ -6,7 +6,7 @@
 
 #include "module_base.h"
 
-enum ModuleId {
+enum ModuleTypeId {
 	M_VOID = -1,
 	M_IDENTITY = 0,
 	M_NEGATIVE,
@@ -44,14 +44,14 @@ ModuleBase * create() {
 
 class ModuleDescription {
 public:
-	ModuleId id;
+	ModuleTypeId id;
 	ModuleCreator make;
 	std::string name;
 	std::string fullName;
 	int inputs; //!< number of inputs required by the module
 	int outputs; //!< number of outputs provided by the module // for now all provide a single output
 
-	ModuleDescription(ModuleId _id = M_VOID, ModuleCreator _maker = create<NullModule>, const std::string& _name = "void", const std::string& _fullName = "Void", int _inputs = 0, int _outputs = 0)
+	ModuleDescription(ModuleTypeId _id = M_VOID, ModuleCreator _maker = create<NullModule>, const std::string& _name = "void", const std::string& _fullName = "Void", int _inputs = 0, int _outputs = 0)
 		: id(_id)
 		, make(_maker)
 		, name(_name)
@@ -61,7 +61,7 @@ public:
 	{}
 };
 
-extern const ModuleDescription MODULE_DESC[ModuleId::M_COUNT];
+extern const ModuleDescription MODULE_DESC[ModuleTypeId::M_COUNT];
 
 // used for creating modules on the fly
 // handles deallocation
@@ -77,7 +77,7 @@ public:
 	void clear();
 
 	// allocates new module of the specified type and returns the base handle to it
-	ModuleBase * getModule(ModuleId id);
+	ModuleBase * getModule(ModuleTypeId id);
 
 	// destroy module
 	void destroyModule(ModuleBase * moduleHandle);
