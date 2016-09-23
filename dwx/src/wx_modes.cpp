@@ -290,3 +290,18 @@ void MultiModuleMode::updateSelection(int id) {
 		}
 	}
 }
+
+void MultiModuleMode::removeModule(int id) {
+	auto& it = moduleMap.find(id);
+	if (it != moduleMap.end()) {
+		ModuleNodeCollection& mnc = it->second;
+		// TODO - call the abort on the progress handler
+		// first remove the module to prevent further running
+		moduleFactory->destroyModule(mnc.moduleHandle);
+		mnc.moduleHandle = nullptr;
+		// first remove its paramPanel
+		mnc.moduleParamPanel->Destroy();
+		mnc.moduleParamPanel = nullptr;
+
+	}
+}

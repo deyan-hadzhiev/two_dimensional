@@ -54,3 +54,14 @@ ModuleBase * ModuleFactory::getModule(ModuleId id) {
 	return module;
 }
 
+void ModuleFactory::destroyModule(ModuleBase * moduleHandle) {
+	for (auto i = allocatedModules.begin(); i != allocatedModules.end(); ++i) {
+		if (*i == moduleHandle) {
+			*i = nullptr;
+			allocatedModules.erase(i);
+			delete moduleHandle;
+			break;
+		}
+	}
+}
+

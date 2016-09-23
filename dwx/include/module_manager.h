@@ -78,6 +78,9 @@ public:
 
 	// allocates new module of the specified type and returns the base handle to it
 	ModuleBase * getModule(ModuleId id);
+
+	// destroy module
+	void destroyModule(ModuleBase * moduleHandle);
 private:
 	std::vector<ModuleBase*> allocatedModules;
 };

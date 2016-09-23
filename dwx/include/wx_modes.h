@@ -101,6 +101,9 @@ public:
 	// used to bring up the param panel for the module
 	void updateSelection(int id);
 
+	// removes a module
+	void removeModule(int id);
+
 protected:
 	static const ModuleDescription defaultDesc;
 

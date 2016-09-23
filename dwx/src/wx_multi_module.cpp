@@ -109,6 +109,8 @@ void MultiModuleCanvas::destroyModuleNode(int id) {
 		selectedModuleMapId = -1;
 		parent->updateSelection(selectedModuleMapId);
 	}
+	// finally destroy the module form the mode panel
+	parent->removeModule(id);
 }
 
 bool MultiModuleCanvas::onMouseMove() {
