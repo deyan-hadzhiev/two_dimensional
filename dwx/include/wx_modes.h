@@ -2,6 +2,7 @@
 #define __WX_MODES_H__
 
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 
 #include <wx/wx.h>
@@ -77,6 +78,35 @@ protected:
 	ImagePanel * outputPanel;
 };
 
+class FileOpenHandler : public InputManager {
+public:
+	FileOpenHandler(ModuleBase * _moduleHandle)
+		: moduleHandle(_moduleHandle)
+	{}
+
+	// from InputManager
+	bool getInput(Bitmap& bmp, int idx) const override final;
+
+	// own function
+	void setInput(const wxImage& img);
+private:
+	mutable std::mutex bmpMutex;
+	Bitmap inputBmp; //!< the input bitmap
+	ModuleBase * moduleHandle; // for updates on image loads
+};
+
+class FileSaveHandler : public OutputManager {
+public:
+	// from OutputManager
+	void setOutput(const Bitmap& bmp, ModuleId mid) override final;
+
+	// own function
+	void getOutput(wxImage& img) const;
+private:
+	mutable std::mutex bmpMutex;
+	Bitmap outputBmp;
+};
+
 // holds and operates with  the module, its parameters and graphic properties
 class ModuleNodeCollection {
 public:
@@ -99,13 +129,14 @@ public:
 
 	// own functions
 	// used to bring up the param panel for the module
-	void updateSelection(int id);
+	void updateSelection(ModuleId id);
 
 	// removes a module
-	void removeModule(int id);
+	void removeModule(ModuleId id);
 
 protected:
 	static const ModuleDescription defaultDesc;
+	static const wxString imageFileSelector;
 
 	static const int controlsWidth;
 	wxBoxSizer * controlsSizer;
@@ -115,6 +146,8 @@ protected:
 	MultiModuleCanvas * canvas;
 	std::unique_ptr<ModuleDAG> mDag;
 	std::unordered_map<ModuleId, ModuleNodeCollection> moduleMap;
+	std::unordered_map<ModuleId, std::shared_ptr<FileOpenHandler> > inputHandlerMap;
+	std::unordered_map<ModuleId, std::shared_ptr<FileSaveHandler> > outputHandlerMap;
 	ModuleId selectedModule;
 };
 

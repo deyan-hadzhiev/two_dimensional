@@ -36,6 +36,12 @@ const wxItemKind ViewFrame::controlKinds[] = {
 	wxITEM_CHECK,  //!< Histogram
 };
 
+const ModuleEnabled ViewFrame::enabledModules[] = {
+	ModuleEnabled(M_INPUT, false),
+	ModuleEnabled(M_OUTPUT, false),
+	ModuleEnabled(M_HISTOGRAMS, true),
+};
+
 const wxSize ViewFrame::vfMinSize = wxSize(320, 320);
 const wxSize ViewFrame::vfInitSize = wxSize(1024, 768);
 
@@ -69,8 +75,10 @@ ViewFrame::ViewFrame(const wxString& title)
 	, file(nullptr)
 	, fileOpen(nullptr)
 	, fileSave(nullptr)
+	, modes(nullptr)
 	, refreshTimer(this, MID_VF_TIMER)
 	, multiModuleMode(false)
+	, customStyle(VFS_NOTHING_ENABLED)
 {
 	SetMinClientSize(vfMinSize);
 
@@ -92,7 +100,7 @@ ViewFrame::ViewFrame(const wxString& title)
 	menuBar->Append(file, wxT("&File"));
 	Connect(wxID_EXIT, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnQuit));
 
-	wxMenu * modes = new wxMenu;
+	modes = new wxMenu;
 	// append the multi module switch first
 	modes->Append(MID_VF_MULTI_MODULE_SWITCH, wxT("Multi-module mode"), wxT("Switch between single and multi module modes"), wxITEM_CHECK);
 	Connect(MID_VF_MULTI_MODULE_SWITCH, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
@@ -114,18 +122,34 @@ ViewFrame::ViewFrame(const wxString& title)
 	CreateStatusBar(4);
 	SetStatusText(wxT("Select a Mode to begin"));
 
-	setCustomStyle(VFS_NOTHING_ENABLED);
+	setCustomStyle(customStyle);
+	// finally select modules that would be disabled in single mode
+	for (int i = 0; i < _countof(enabledModules); ++i) {
+		enableModule(enabledModules[i].mti, enabledModules[i].single);
+	}
 
 	Update();
 	Refresh();
 }
 
 void ViewFrame::setCustomStyle(unsigned style) {
+	customStyle = style;
 	fileOpen->Enable((style & VFS_FILE_OPEN) != 0);
 	fileSave->Enable((style & VFS_FILE_SAVE) != 0);
 
 	for (unsigned i = 0; (VFS_CNT_RUN << i) < VFS_CNT_LAST && i < _countof(controls); ++i) {
 		controls[i]->Enable((style & (VFS_CNT_RUN << i)) != 0);
+	}
+}
+
+unsigned ViewFrame::getCustomStyle() const noexcept {
+	return customStyle;
+}
+
+void ViewFrame::enableModule(ModuleTypeId moduleTypeId, bool enable) {
+	if (moduleTypeId > M_VOID && moduleTypeId < M_COUNT) {
+		const int menuId = moduleTypeId + MID_VF_MODES_RANGE_START + 1;
+		modes->Enable(menuId, enable);
 	}
 }
 
@@ -143,15 +167,19 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 	}
 	if (MID_VF_MULTI_MODULE_SWITCH == ev.GetId()) {
 		multiModuleMode = !multiModuleMode;
+		if (mPanel) {
+			mPanel->Destroy();
+			mPanel = nullptr;
+			setCustomStyle(VFS_NOTHING_ENABLED);
+		}
 		if (multiModuleMode) {
-			if (mPanel) {
-				mPanel->Destroy();
-				setCustomStyle(VFS_NOTHING_ENABLED);
-			}
 			mPanel = new MultiModuleMode(this, &moduleFactory);
 			SetStatusText(wxT("Using multi module mode"));
 		} else {
 			SetStatusText(wxT("Using single module mode"));
+		}
+		for (int i = 0; i < _countof(enabledModules); ++i) {
+			enableModule(enabledModules[i].mti, multiModuleMode ^ enabledModules[i].single);
 		}
 	}
 	const int modeId = ev.GetId() - MID_VF_MODES_RANGE_START - 1;

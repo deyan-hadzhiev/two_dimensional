@@ -39,13 +39,13 @@ public:
 
 	virtual ~ModuleBase() {}
 	// adds an input manager (note there may be more than one (probably))
-	virtual void addInputManager(InputManager * iman) {}
+	virtual void setInputManager(InputManager * iman) {}
 
 	// adds an output manager (probably not more than one, but who knows...)
-	virtual void addOutputManager(OutputManager * oman) {}
+	virtual void setOutputManager(OutputManager * oman) {}
 
 	// adds a parameter manager for getting user parameters for the module
-	virtual void addParamManager(ParamManager * pman) {}
+	virtual void setParamManager(ParamManager * pman) {}
 
 	virtual void setProgressCallback(ProgressCallback * _cb) {
 		cb = _cb;

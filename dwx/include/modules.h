@@ -45,15 +45,15 @@ public:
 		, pman(nullptr)
 	{}
 
-	void addInputManager(InputManager * _iman) override final {
+	void setInputManager(InputManager * _iman) override final {
 		iman = _iman;
 	}
 
-	void addOutputManager(OutputManager * _oman) override final {
+	void setOutputManager(OutputManager * _oman) override final {
 		oman = _oman;
 	}
 
-	void addParamManager(ParamManager * _pman) override final {
+	void setParamManager(ParamManager * _pman) override final {
 		pman = _pman;
 		for (auto pdesc : paramList) {
 			pman->addParam(pdesc);

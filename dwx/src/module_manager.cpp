@@ -4,6 +4,8 @@
 
 const ModuleDescription MODULE_DESC[ModuleTypeId::M_COUNT] = {
 	ModuleDescription(M_IDENTITY,             create<IdentityModule>,           "identity",             "Identity",             1, 1),
+	ModuleDescription(M_INPUT,                create<IdentityModule>,           "input",                "Image Input",          0, 1),
+	ModuleDescription(M_OUTPUT,               create<IdentityModule>,           "output",               "Image Output",         1, 0),
 	ModuleDescription(M_NEGATIVE,             create<NegativeModule>,           "negative",             "Negative",             1, 1),
 	ModuleDescription(M_TEXT_SEGMENTATION,    create<TextSegmentationModule>,   "text_segmentation",    "Text Segmentation",    1, 1),
 	ModuleDescription(M_SINOSOID,             create<SinosoidModule>,           "sinosoid",             "Sinosoid curve",       0, 1),

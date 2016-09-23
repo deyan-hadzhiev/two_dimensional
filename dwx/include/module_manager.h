@@ -9,6 +9,8 @@
 enum ModuleTypeId {
 	M_VOID = -1,
 	M_IDENTITY = 0,
+	M_INPUT,
+	M_OUTPUT,
 	M_NEGATIVE,
 	M_TEXT_SEGMENTATION,
 	M_SINOSOID,

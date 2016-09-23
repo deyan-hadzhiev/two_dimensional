@@ -17,6 +17,15 @@ public:
 	wxWindowID getId(unsigned count = 1);
 };
 
+struct ModuleEnabled {
+	ModuleTypeId mti;
+	bool single;
+	ModuleEnabled(ModuleTypeId _mti = M_VOID, bool _single = false)
+		: mti(_mti)
+		, single(_single)
+	{}
+};
+
 class ViewFrame : public wxFrame {
 public:
 	ViewFrame(const wxString& title);
@@ -45,6 +54,10 @@ public:
 	};
 	// sets various styles to the view frame like open/save file options enabled, etc
 	void setCustomStyle(unsigned style);
+	// gets the current styles of the view frame
+	unsigned getCustomStyle() const noexcept;
+
+	void enableModule(ModuleTypeId moduleTypeId, bool enable);
 
 	enum MenuItems {
 		MID_VF_FILE_OPEN = wxID_HIGHEST + 1,
@@ -72,6 +85,8 @@ private:
 	static const wxItemKind controlKinds[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // kinds of controls
 	wxMenuItem * controls[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // an array with all the controls
 
+	static const ModuleEnabled enabledModules[];
+
 	// some layout constants
 	static const wxSize vfMinSize;
 	static const wxSize vfInitSize;
@@ -81,10 +96,12 @@ private:
 	wxMenu * file;
 	wxMenuItem * fileOpen;
 	wxMenuItem * fileSave;
+	wxMenu * modes;
 	wxTimer refreshTimer;
 
 	ModuleFactory moduleFactory;
 	bool multiModuleMode;
+	unsigned customStyle;
 };
 
 #endif // __GUIMAIN_H__
