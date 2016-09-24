@@ -40,6 +40,7 @@ const ModuleEnabled ViewFrame::enabledModules[] = {
 	ModuleEnabled(M_INPUT, false),
 	ModuleEnabled(M_OUTPUT, false),
 	ModuleEnabled(M_HISTOGRAMS, true),
+	ModuleEnabled(M_OVERDRAW, false),
 };
 
 const wxSize ViewFrame::vfMinSize = wxSize(320, 320);

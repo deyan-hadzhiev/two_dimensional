@@ -1655,7 +1655,7 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation() {
 	}
 }
 
-ModuleBase::ProcessResult FFTFilter::moduleImplementation() {
+ModuleBase::ProcessResult FFTFilterModule::moduleImplementation() {
 	Bitmap bmp;
 	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
@@ -1764,4 +1764,31 @@ ModuleBase::ProcessResult FFTFilter::moduleImplementation() {
 	} else {
 		return KPR_FATAL_ERROR;
 	}
+}
+
+ModuleBase::ProcessResult OverdrawModule::moduleImplementation() {
+	Bitmap inputs[2];
+	if (!getInput(inputs[0]) || !getInput(inputs[1], 1)) {
+		return KPR_INVALID_INPUT;
+	}
+	if (cb) {
+		cb->setModuleName("Overdraw");
+		cb->setPercentDone(0, 1);
+	}
+	int x = 0;
+	int y = 0;
+	bool invert = 0;
+	if (pman) {
+		pman->getIntParam(x, "x");
+		pman->getIntParam(y, "y");
+		pman->getBoolParam(invert, "invert");
+	}
+	Bitmap& bottomBmp = (invert ? inputs[1] : inputs[0]);
+	Bitmap& topBmp = (invert ? inputs[0] : inputs[1]);
+	bottomBmp.drawBitmap(topBmp, x, y);
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
+	setOutput(bottomBmp);
+	return KPR_OK;
 }

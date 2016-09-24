@@ -34,6 +34,7 @@ enum ModuleTypeId {
 	M_FFT_DOMAIN,
 	M_FFT_COMPRESSION,
 	M_FFT_FILTER,
+	M_OVERDRAW,
 	M_COUNT, //!< must remain to be used for IDs and array sizes
 };
 

@@ -4,7 +4,7 @@
 
 bool ModuleConnector::getInput(Bitmap & bmp, int idx) const {
 	bool res = false;
-	if (idx >= 0 && idx < srcModules.size()) {
+	if (idx >= 0 && idx < srcModules.size() && srcModules[idx] != nullptr) {
 		const ModuleId mid = srcModules[idx]->module->getModuleId();
 		res = getBitmap(bmp, mid);
 	}

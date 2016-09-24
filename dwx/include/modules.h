@@ -454,12 +454,23 @@ public:
 	ModuleBase::ProcessResult moduleImplementation() override final;
 };
 
-class FFTFilter : public AsyncModule {
+class FFTFilterModule : public AsyncModule {
 public:
-	FFTFilter() {
+	FFTFilterModule() {
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_CKERNEL, "kernelFFT", "5"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "normalizeKernel", "true"));
 		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_FLOAT, "normalizationValue", "1.0"));
+	}
+
+	ModuleBase::ProcessResult moduleImplementation() override final;
+};
+
+class OverdrawModule : public AsyncModule {
+public:
+	OverdrawModule() {
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "x", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_INT, "y", "0"));
+		paramList.push_back(ParamDescriptor(this, ParamDescriptor::ParamType::PT_BOOL, "invert", "false"));
 	}
 
 	ModuleBase::ProcessResult moduleImplementation() override final;

@@ -28,7 +28,8 @@ const ModuleDescription MODULE_DESC[ModuleTypeId::M_COUNT] = {
 	ModuleDescription(M_KMEANS,               create<KMeansModule>,             "kmeans",               "K-Means",              1, 1),
 	ModuleDescription(M_FFT_DOMAIN,           create<FFTDomainModule>,          "fft_domain",           "FFTDomain",            1, 1),
 	ModuleDescription(M_FFT_COMPRESSION,      create<FFTCompressionModule>,     "fft_compression",      "FFTCompression",       1, 1),
-	ModuleDescription(M_FFT_FILTER,           create<FFTFilter>,                "fft_filter",           "FFTFilter",            1, 1),
+	ModuleDescription(M_FFT_FILTER,           create<FFTFilterModule>,          "fft_filter",           "FFTFilter",            1, 1),
+	ModuleDescription(M_OVERDRAW,             create<OverdrawModule>,           "overdraw",             "Overdraw",             2, 1),
 };
 
 /* ModuleFactory */
