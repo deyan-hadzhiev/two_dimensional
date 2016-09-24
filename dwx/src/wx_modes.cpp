@@ -213,6 +213,7 @@ bool FileOpenHandler::getInput(Bitmap & bmp, int idx) const {
 	if (inputBmp.isOK()) {
 		std::lock_guard<std::mutex> lk(bmpMutex);
 		bmp = inputBmp;
+		res = true;
 	}
 	return res;
 }
@@ -236,8 +237,13 @@ void FileOpenHandler::setInput(const wxImage & img) {
 
 void FileSaveHandler::setOutput(const Bitmap & bmp, ModuleId mid) {
 	if (bmp.isOK()) {
-		std::lock_guard<std::mutex> lk(bmpMutex);
-		outputBmp = bmp;
+		{
+			std::lock_guard<std::mutex> lk(bmpMutex);
+			outputBmp = bmp;
+		}
+		if (externalOutput != nullptr) {
+			externalOutput->setOutput(bmp, mid);
+		}
 	}
 }
 
@@ -249,6 +255,10 @@ void FileSaveHandler::getOutput(wxImage & img) const {
 			reinterpret_cast<unsigned char *>(outputBmp.getDataPtr()),
 			true);
 	}
+}
+
+void FileSaveHandler::setExternalOutput(OutputManager * oman) {
+	externalOutput = oman;
 }
 
 ModuleNodeCollection::ModuleNodeCollection(const ModuleDescription & _moduleDesc, ModuleBase * _moduleHandle, ParamPanel * _moduleParamPanel)
@@ -360,6 +370,23 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 		}
 		break;
 	}
+	case (ViewFrame::MID_VF_CNT_RUN): {
+		std::vector<ModuleId> invalidateList;
+		if (selectedModule != InvalidModuleId) {
+			invalidateList.push_back(selectedModule);
+		} else {
+			// push all modules with 0 inputs to invalidate the whole configuration
+			for (const auto& moduleIt : moduleMap) {
+				const ModuleNodeCollection& mnc = moduleIt.second;
+				if (mnc.moduleDesc.inputs == 0) {
+					invalidateList.push_back(moduleIt.first);
+				}
+			}
+		}
+		// call the invalidation
+		mDag->invalidateModules(invalidateList);
+		break;
+	}
 	default:
 		break;
 	}
@@ -372,7 +399,7 @@ void MultiModuleMode::addModule(const ModuleDescription & md) {
 	ParamPanel * moduleParamPanel = new ParamPanel(controlsPanel, this, false);
 	// hide the panel and add it to the sizer
 	moduleParamPanel->Show(false);
-	controlsSizer->Add(moduleParamPanel, 0, wxEXPAND);
+	controlsSizer->Add(moduleParamPanel, 0, wxEXPAND | wxALL, ModePanel::panelBorder);
 	// and add the param panel to the module
 	moduleHandle->setParamManager(moduleParamPanel);
 	// if the module is output or input it has special managers
@@ -390,6 +417,11 @@ void MultiModuleMode::addModule(const ModuleDescription & md) {
 	ModuleDescription& mmd = moduleMap[mid].moduleDesc;
 	const std::string mmdMapIdStr = std::to_string(mid);
 	mmd.fullName += std::string(" ") + mmdMapIdStr;
+
+	// add the module to the dag, before adding it to the canvas
+	mDag->addModule(moduleHandle, mmd);
+
+	// add the module to the canvas to be shown
 	canvas->addModuleDescription(mid, mmd);
 }
 
@@ -402,12 +434,16 @@ void MultiModuleMode::updateSelection(ModuleId id) {
 		unsigned modifiedStyle = currentFrameStyle;
 		// get currently selected module
 		if (selectedModule != -1) {
-			ModuleNodeCollection& mnc = moduleMap[selectedModule];
-			// hide the param panel
-			mnc.moduleParamPanel->Show(false);
-			// update the styles
-			modifiedStyle = currentFrameStyle & ~ViewFrame::VFS_OPEN_SAVE;
-			refresh = true;
+			// check if the module still exists
+			auto mncIt = moduleMap.find(selectedModule);
+			if (mncIt != moduleMap.end()) {
+				ModuleNodeCollection& mnc = mncIt->second;
+				// hide the param panel
+				mnc.moduleParamPanel->Show(false);
+				// update the styles
+				modifiedStyle = currentFrameStyle & ~ViewFrame::VFS_OPEN_SAVE;
+				refresh = true;
+			}
 		}
 		if (id != -1) {
 			ModuleNodeCollection& mnc = moduleMap[id];
@@ -452,12 +488,18 @@ void MultiModuleMode::updateSelection(ModuleId id) {
 }
 
 void MultiModuleMode::removeModule(ModuleId id) {
+	// if the removed module is selected - update the selection
+	if (selectedModule == id) {
+		updateSelection(InvalidModuleId);
+	}
+	// first remove the module from the dag
+	mDag->removeModule(id);
 	// remove any image dialogs of the module
 	auto& dlgIt = imgDlgMap.find(id);
 	if (dlgIt != imgDlgMap.end()) {
 		dlgIt->second->Destroy();
 		imgDlgMap.erase(id);
-		// there should also be an module id holder associated with the moduleId
+		// there should also be a module id holder associated with the moduleId
 		delete moduleIdHolderMap[id];
 		moduleIdHolderMap.erase(id);
 	}
@@ -482,6 +524,19 @@ void MultiModuleMode::removeModule(ModuleId id) {
 	}
 }
 
+EdgeId MultiModuleMode::addConnection(ModuleId srcId, ModuleId destId, int destSrcIdx) {
+	return mDag->addConnector(srcId, destId, destSrcIdx);
+}
+
+void MultiModuleMode::removeConnection(EdgeId eid) {
+	mDag->removeConnector(eid);
+}
+
+bool MultiModuleMode::validConnection(ModuleId srcId, ModuleId destId, int destSrcIdx) {
+	// TODO
+	return true;
+}
+
 void MultiModuleMode::OnShowImage(wxCommandEvent & evt) {
 	if (selectedModule != InvalidModuleId) {
 		auto it = imgDlgMap.find(selectedModule);
@@ -489,12 +544,21 @@ void MultiModuleMode::OnShowImage(wxCommandEvent & evt) {
 		if (it != imgDlgMap.end()) {
 			dlg = it->second;
 		} else {
-			const std::string moduleName = moduleMap[selectedModule].moduleDesc.fullName;
+			ModuleNodeCollection& mnc = moduleMap[selectedModule];
+			const std::string moduleName = mnc.moduleDesc.fullName;
 			dlg = new ImageDialog(this, viewFrame, moduleName);
 			imgDlgMap[selectedModule] = dlg;
 			ModuleIdHolder * idHandle = new ModuleIdHolder;
 			idHandle->mid = selectedModule;
 			dlg->Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(MultiModuleMode::OnImageDlgClosed), idHandle, this);
+			OutputManager * exOman = dlg->getImagePanel();
+			// add it as an output handler based on the type of the module (output modules are special - duh)
+			if (mnc.moduleDesc.id == M_OUTPUT) {
+				// add it to the output handlers
+				outputHandlerMap[selectedModule]->setExternalOutput(exOman);
+			} else {
+				mDag->setExternalOutput(selectedModule, exOman);
+			}
 		}
 		dlg->Show();
 		showImageButton->Hide();

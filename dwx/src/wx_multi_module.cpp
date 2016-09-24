@@ -23,7 +23,6 @@ const wxColour MultiModuleCanvas::mmColors[MC_COUNT] = {
 MultiModuleCanvas::MultiModuleCanvas(MultiModuleMode * _parent)
 	: ScalablePanel(_parent, -4, 8)
 	, parent(_parent)
-	, connectorMapIdGen(0)
 	, hoveredModuleMapId(InvalidModuleId)
 	, hoveredConnectorType(HT_NONE)
 	, hoveredModuleConnectorIdx(0)
@@ -83,6 +82,8 @@ void MultiModuleCanvas::addModuleDescription(ModuleId id, const ModuleDescriptio
 
 void MultiModuleCanvas::destroyModuleNode(ModuleId id) {
 	DASSERT(id >= 0);
+	// destroy the module from the mode panel
+	parent->removeModule(id);
 	// first destroy all the connectors of the module
 	ModuleGraphicNode& mgn = moduleMap[id];
 	for (int i = 0; i < mgn.moduleDesc.inputs; ++i) {
@@ -109,8 +110,6 @@ void MultiModuleCanvas::destroyModuleNode(ModuleId id) {
 		selectedModuleMapId = InvalidModuleId;
 		parent->updateSelection(selectedModuleMapId);
 	}
-	// finally destroy the module form the mode panel
-	parent->removeModule(id);
 }
 
 bool MultiModuleCanvas::onMouseMove() {
@@ -393,30 +392,31 @@ bool MultiModuleCanvas::createConnector(const ModuleConnectorDesc & mcd) {
 	bool validConnection = true;
 	// TODO : check if the connection is valid - no loops, etc
 	if (validConnection) {
-		connectorMap[connectorMapIdGen] = mcd;
+		const EdgeId edgeId = parent->addConnection(mcd.srcId, mcd.destId, mcd.inputIdx);
+		connectorMap[edgeId] = mcd;
 		// now update the appropriate module map connectors
 		MGNConnector& outputConnector = moduleMap[mcd.srcId].outputs[mcd.outputIdx];
 		if (outputConnector.connectorId != -1 && outputConnector.connectorId != -2) {
 			destroyConnector(outputConnector.connectorId);
 		}
 		outputConnector.state = MGNConnector::MGNC_CONNECTED;
-		outputConnector.connectorId = connectorMapIdGen;
+		outputConnector.connectorId = edgeId;
 
 		MGNConnector& inputConnector = moduleMap[mcd.destId].inputs[mcd.inputIdx];
 		if (inputConnector.connectorId != -1 && inputConnector.connectorId != -2) {
 			destroyConnector(inputConnector.connectorId);
 		}
 		inputConnector.state = MGNConnector::MGNC_CONNECTED;
-		inputConnector.connectorId = connectorMapIdGen;
-
-		// increase the id generator
-		connectorMapIdGen++;
+		inputConnector.connectorId = edgeId;
 	}
 	return validConnection;
 }
 
-ModuleConnectorDesc MultiModuleCanvas::destroyConnector(int id) {
+ModuleConnectorDesc MultiModuleCanvas::destroyConnector(EdgeId id) {
 	DASSERT(id >= 0);
+	// first destroy the connection in the parent (and DAG)
+	parent->removeConnection(id);
+
 	ModuleConnectorDesc destroyed = connectorMap[id];
 	connectorMap.erase(id);
 	// now detach the connected modules

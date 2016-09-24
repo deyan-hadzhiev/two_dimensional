@@ -6,3 +6,4 @@ TODO:
 4. Add GUI dark theme
 5. Grayscale channels (both mean and naturall intensity)
 6. Implement Alpha color dialog (not sure if necessary)
+7. Multi module selection

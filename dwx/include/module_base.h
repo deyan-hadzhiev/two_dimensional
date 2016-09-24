@@ -38,14 +38,17 @@ public:
 	}
 
 	virtual ~ModuleBase() {}
-	// adds an input manager (note there may be more than one (probably))
+	// adds an input manager (multiple inputs are handled by the manager itself)
 	virtual void setInputManager(InputManager * iman) {}
+	virtual InputManager * getInputManager() const { return nullptr; }
 
-	// adds an output manager (probably not more than one, but who knows...)
+	// adds an output manager (always only one input -> mulitplying the result is the manager job)
 	virtual void setOutputManager(OutputManager * oman) {}
+	virtual OutputManager * getOutputManager() const { return nullptr; }
 
 	// adds a parameter manager for getting user parameters for the module
 	virtual void setParamManager(ParamManager * pman) {}
+	// add a getter?
 
 	virtual void setProgressCallback(ProgressCallback * _cb) {
 		cb = _cb;

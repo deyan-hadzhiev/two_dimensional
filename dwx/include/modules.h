@@ -49,8 +49,16 @@ public:
 		iman = _iman;
 	}
 
+	InputManager * getInputManager() const override final {
+		return  iman;
+	}
+
 	void setOutputManager(OutputManager * _oman) override final {
 		oman = _oman;
+	}
+
+	OutputManager * getOutputManager() const override final {
+		return oman;
 	}
 
 	void setParamManager(ParamManager * _pman) override final {

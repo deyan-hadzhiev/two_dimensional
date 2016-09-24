@@ -5,9 +5,10 @@
 #include <wx/panel.h>
 #include <wx/dcbuffer.h>
 
-#include "wx_bitmap_canvas.h"
 #include "module_base.h"
 #include "module_manager.h"
+#include "module_dag.h"
+#include "wx_bitmap_canvas.h"
 
 struct MGNConnector {
 	enum State {
@@ -17,12 +18,12 @@ struct MGNConnector {
 		MGNC_COUNT, // last
 	} state;
 	Rect r;
-	int connectorId;
+	EdgeId connectorId;
 
 	MGNConnector()
 		: state(MGNC_EMPTY)
 		, r()
-		, connectorId(-1)
+		, connectorId(InvalidEdgeId)
 	{}
 };
 
@@ -182,7 +183,7 @@ private:
 	bool createConnector(const ModuleConnectorDesc& mcd);
 
 	// returns the destroyed connector
-	ModuleConnectorDesc destroyConnector(int id);
+	ModuleConnectorDesc destroyConnector(EdgeId id);
 
 	// some drawing functions
 	void drawModuleNode(wxDC& dc, const ModuleGraphicNode& mgd, ModuleId mgdMapId);
@@ -191,8 +192,7 @@ private:
 
 	MultiModuleMode * parent;
 	std::unordered_map<ModuleId, ModuleGraphicNode> moduleMap;
-	std::unordered_map<int, ModuleConnectorDesc> connectorMap;
-	int connectorMapIdGen;
+	std::unordered_map<EdgeId, ModuleConnectorDesc> connectorMap;
 	ModuleConnectorDesc mouseConnector;
 	ModuleId hoveredModuleMapId;
 	enum {

@@ -97,14 +97,22 @@ private:
 
 class FileSaveHandler : public OutputManager {
 public:
+	FileSaveHandler()
+		: externalOutput(nullptr)
+	{}
+
 	// from OutputManager
 	void setOutput(const Bitmap& bmp, ModuleId mid) override final;
 
 	// own function
 	void getOutput(wxImage& img) const;
+
+	// for the image preview
+	void setExternalOutput(OutputManager * oman);
 private:
 	mutable std::mutex bmpMutex;
 	Bitmap outputBmp;
+	OutputManager * externalOutput;
 };
 
 // holds and operates with  the module, its parameters and graphic properties
@@ -126,6 +134,7 @@ public:
 	// derived from ModePanel
 	virtual void onCommandMenu(wxCommandEvent& ev) override;
 
+	// adds a module to the dag and maps
 	virtual void addModule(const ModuleDescription& md) override;
 
 	// own functions
@@ -134,6 +143,15 @@ public:
 
 	// removes a module
 	void removeModule(ModuleId id);
+
+	// add connection
+	EdgeId addConnection(ModuleId srcId, ModuleId destId, int destSrcIdx);
+
+	// remove connection
+	void removeConnection(EdgeId eid);
+
+	// check validitiy of a connection
+	bool validConnection(ModuleId srcId, ModuleId destId, int destSrcIdx);
 
 	// open image dlg handler
 	void OnShowImage(wxCommandEvent& evt);
