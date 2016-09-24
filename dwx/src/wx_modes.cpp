@@ -539,45 +539,13 @@ bool MultiModuleMode::validConnection(ModuleId srcId, ModuleId destId, int destS
 
 void MultiModuleMode::OnShowImage(wxCommandEvent & evt) {
 	if (selectedModule != InvalidModuleId) {
-		auto it = imgDlgMap.find(selectedModule);
-		ImageDialog * dlg = nullptr;
-		if (it != imgDlgMap.end()) {
-			dlg = it->second;
-		} else {
-			ModuleNodeCollection& mnc = moduleMap[selectedModule];
-			const std::string moduleName = mnc.moduleDesc.fullName;
-			dlg = new ImageDialog(this, viewFrame, moduleName);
-			imgDlgMap[selectedModule] = dlg;
-			ModuleIdHolder * idHandle = new ModuleIdHolder;
-			idHandle->mid = selectedModule;
-			dlg->Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(MultiModuleMode::OnImageDlgClosed), idHandle, this);
-			OutputManager * exOman = dlg->getImagePanel();
-			// add it as an output handler based on the type of the module (output modules are special - duh)
-			if (mnc.moduleDesc.id == M_OUTPUT) {
-				// add it to the output handlers
-				outputHandlerMap[selectedModule]->setExternalOutput(exOman);
-			} else {
-				mDag->setExternalOutput(selectedModule, exOman);
-			}
-		}
-		dlg->Show();
-		showImageButton->Hide();
-		hideImageButton->Show();
-		Layout();
-		Update();
+		showImageDialog(selectedModule, true);
 	}
 }
 
 void MultiModuleMode::OnHideImage(wxCommandEvent & evt) {
 	if (selectedModule != InvalidModuleId) {
-		auto it = imgDlgMap.find(selectedModule);
-		if (it != imgDlgMap.end()) {
-			it->second->Hide();
-		}
-		hideImageButton->Hide();
-		showImageButton->Show();
-		Layout();
-		Update();
+		showImageDialog(selectedModule, false);
 	}
 }
 
@@ -585,12 +553,54 @@ void MultiModuleMode::OnImageDlgClosed(wxCloseEvent & evt) {
 	ModuleIdHolder * idHandle = dynamic_cast<ModuleIdHolder*>(evt.GetEventUserData());
 	if (idHandle) {
 		const ModuleId mid = idHandle->mid;
-		imgDlgMap[mid]->Hide();
-		if (mid == selectedModule) {
-			hideImageButton->Hide();
-			showImageButton->Show();
-			Layout();
-			Update();
+		showImageDialog(mid, false);
+	}
+}
+
+void MultiModuleMode::toggleImageShow(ModuleId mid) {
+	if (mid != InvalidModuleId) {
+		// check if the image dialog is shown
+		auto imgIt = imgDlgMap.find(mid);
+		bool shown = false;
+		if (imgIt != imgDlgMap.end() && imgIt->second->IsShown()) {
+			shown = true;
+		}
+		showImageDialog(mid, !shown);
+	}
+}
+
+void MultiModuleMode::showImageDialog(ModuleId mid, bool show) {
+	if (mid != InvalidModuleId) {
+		auto it = imgDlgMap.find(mid);
+		ImageDialog * dlg = nullptr;
+		if (it != imgDlgMap.end()) {
+			dlg = it->second;
+		} else if (show) {
+			ModuleNodeCollection& mnc = moduleMap[mid];
+			const std::string moduleName = mnc.moduleDesc.fullName;
+			dlg = new ImageDialog(this, viewFrame, moduleName);
+			imgDlgMap[mid] = dlg;
+			ModuleIdHolder * idHandle = new ModuleIdHolder;
+			idHandle->mid = mid;
+			dlg->Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(MultiModuleMode::OnImageDlgClosed), idHandle, this);
+			OutputManager * exOman = dlg->getImagePanel();
+			// add it as an output handler based on the type of the module (output modules are special - duh)
+			if (mnc.moduleDesc.id == M_OUTPUT) {
+				// add it to the output handlers
+				outputHandlerMap[mid]->setExternalOutput(exOman);
+			} else {
+				mDag->setExternalOutput(mid, exOman);
+			}
+		}
+		// if this function was called with no show - still the dialog may not be shown
+		if (dlg) {
+			dlg->Show(show);
+			if (mid == selectedModule) {
+				showImageButton->Show(!show);
+				hideImageButton->Show(show);
+				Layout();
+				Update();
+			}
 		}
 	}
 }

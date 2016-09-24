@@ -23,6 +23,7 @@ ScalablePanel::ScalablePanel(wxWindow * _parent, const int _minZoom, const int _
 	Connect(wxEVT_MOUSEWHEEL, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_MOTION, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_LEFT_DOWN, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
+	Connect(wxEVT_LEFT_DCLICK, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_LEFT_UP, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_RIGHT_DOWN, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
 	Connect(wxEVT_RIGHT_UP, wxMouseEventHandler(ScalablePanel::OnMouseEvent), NULL, this);
@@ -48,6 +49,13 @@ void ScalablePanel::OnMouseEvent(wxMouseEvent & evt) {
 		SetFocus(); // necessary for Win 7
 		mouseLeftDrag = true;
 		const bool refresh = onMouseLeftDown();
+		if (refresh) {
+			Refresh(eraseBkg);
+		}
+		updatedMousePos = mousePos;
+	} else if (evType == wxEVT_LEFT_DCLICK) {
+		mousePos = wxPoint(evt.GetX(), evt.GetY());
+		const bool refresh = onMouseDoubleLeftDown();
 		if (refresh) {
 			Refresh(eraseBkg);
 		}

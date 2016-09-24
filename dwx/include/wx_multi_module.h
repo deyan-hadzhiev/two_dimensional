@@ -8,6 +8,7 @@
 #include "module_base.h"
 #include "module_manager.h"
 #include "module_dag.h"
+#include "wx_scalable.h"
 #include "wx_bitmap_canvas.h"
 
 struct MGNConnector {
@@ -151,12 +152,11 @@ public:
 	void destroyModuleNode(ModuleId id);
 
 protected:
+	// mouse overrides
 	bool onMouseMove() override;
-
 	bool onMouseLeftDown() override;
-
+	bool onMouseDoubleLeftDown() override;
 	bool onMouseLeftUp() override;
-
 	bool onMouseRightDown() override;
 
 private:

@@ -160,7 +160,12 @@ public:
 
 	void OnImageDlgClosed(wxCloseEvent& evt);
 
+	void toggleImageShow(ModuleId mid);
+
 protected:
+	// helper function for showing and hiding the image dialog
+	void showImageDialog(ModuleId mid, bool show);
+
 	static const ModuleDescription defaultDesc;
 	static const wxString imageFileSelector;
 

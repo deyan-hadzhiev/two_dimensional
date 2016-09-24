@@ -67,13 +67,13 @@ protected:
 	// @returns true if the view should be panned
 	virtual bool onMouseMove() { return true; }
 
-	virtual bool onMouseLeftDown() { return true; }
-
-	virtual bool onMouseLeftUp() { return true; }
-
-	virtual bool onMouseRightDown() { return true; }
-
-	virtual bool onMouseRightUp() { return true; }
+	// mouse click events
+	// @returns true if the panel should be refreshed
+	virtual bool onMouseLeftDown() { return false; }
+	virtual bool onMouseDoubleLeftDown() { return false; }
+	virtual bool onMouseLeftUp() { return false; }
+	virtual bool onMouseRightDown() { return false; }
+	virtual bool onMouseRightUp() { return false; }
 
 	template<class Scalable>
 	Scalable scale(Scalable input) const {

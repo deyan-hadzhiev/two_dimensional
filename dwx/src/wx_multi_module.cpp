@@ -239,6 +239,13 @@ bool MultiModuleCanvas::onMouseLeftDown() {
 	return refreshCanvas || overConnector;
 }
 
+bool MultiModuleCanvas::onMouseDoubleLeftDown() {
+	if (selectedModuleMapId != InvalidModuleId) {
+		parent->toggleImageShow(selectedModuleMapId);
+	}
+	return false;
+}
+
 bool MultiModuleCanvas::onMouseLeftUp() {
 	// if the mouse was dragging a connector reset it
 	if (mouseConnector.srcId != InvalidModuleId || mouseConnector.destId != InvalidModuleId) {
