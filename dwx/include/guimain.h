@@ -79,6 +79,8 @@ public:
 
 		MID_VF_LAST_ID, //!< The last id used for starting id for custom event handlers (like the ParamPanel)
 	};
+
+	void popupModes();
 private:
 
 	static const wxString controlNames[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // names of all the controls

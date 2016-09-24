@@ -569,6 +569,10 @@ void MultiModuleMode::toggleImageShow(ModuleId mid) {
 	}
 }
 
+void MultiModuleMode::popupModes() {
+	viewFrame->popupModes();
+}
+
 void MultiModuleMode::showImageDialog(ModuleId mid, bool show) {
 	if (mid != InvalidModuleId) {
 		auto it = imgDlgMap.find(mid);

@@ -153,14 +153,14 @@ public:
 	// check validitiy of a connection
 	bool validConnection(ModuleId srcId, ModuleId destId, int destSrcIdx);
 
-	// open image dlg handler
+	// image dialog manipulators
 	void OnShowImage(wxCommandEvent& evt);
-
 	void OnHideImage(wxCommandEvent& evt);
-
 	void OnImageDlgClosed(wxCloseEvent& evt);
-
 	void toggleImageShow(ModuleId mid);
+
+	// popup menu of parent
+	void popupModes();
 
 protected:
 	// helper function for showing and hiding the image dialog

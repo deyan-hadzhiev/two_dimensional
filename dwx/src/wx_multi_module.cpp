@@ -27,6 +27,7 @@ MultiModuleCanvas::MultiModuleCanvas(MultiModuleMode * _parent)
 	, hoveredConnectorType(HT_NONE)
 	, hoveredModuleConnectorIdx(0)
 	, selectedModuleMapId(InvalidModuleId)
+	, popupEvent(false)
 {
 	SetDoubleBuffered(true);
 
@@ -72,10 +73,17 @@ void MultiModuleCanvas::OnEraseBackground(wxEraseEvent & evt) {
 }
 
 void MultiModuleCanvas::addModuleDescription(ModuleId id, const ModuleDescription & md) {
-	// calculate the current center of screen position on the canvas
-	const wxPoint screenCenter(panelSize.GetWidth() / 2, panelSize.GetHeight() / 2);
-	const Vector2 canvasCenter = convertScreenToCanvas(screenCenter);
-	const Vector2 modulePos = canvasCenter - static_cast<Vector2>(ModuleGraphicNode::nodeSize) / 2.0f;
+	Vector2 modulePos;
+	// check if this module generation is from a popup menu or not
+	if (popupEvent) {
+		// create it from last mouse pos
+		modulePos = convertScreenToCanvas(mousePos);
+	} else {
+		// calculate the current center of screen position on the canvas
+		const wxPoint screenCenter(panelSize.GetWidth() / 2, panelSize.GetHeight() / 2);
+		const Vector2 canvasCenter = convertScreenToCanvas(screenCenter);
+		modulePos = canvasCenter - static_cast<Vector2>(ModuleGraphicNode::nodeSize) / 2.0f;
+	}
 	moduleMap[id] = ModuleGraphicNode(md, Rect(modulePos, ModuleGraphicNode::nodeSize));
 	Refresh(eraseBkg);
 }
@@ -286,7 +294,8 @@ bool MultiModuleCanvas::onMouseLeftUp() {
 }
 
 bool MultiModuleCanvas::onMouseRightDown() {
-	bool refresh = false;
+	bool refresh = reevaluateMouseHover();
+	bool popupModes = false;
 	if (hoveredModuleMapId != InvalidModuleId) {
 		// check if a connector is hovered over
 		if (hoveredConnectorType != HT_NONE) {
@@ -308,6 +317,14 @@ bool MultiModuleCanvas::onMouseRightDown() {
 		selectedModuleMapId = InvalidModuleId;
 		parent->updateSelection(selectedModuleMapId);
 		refresh = true;
+		popupModes = true;
+	} else {
+		popupModes = true;
+	}
+	if (popupModes) {
+		popupEvent = true;
+		parent->popupModes();
+		popupEvent = false;
 	}
 	return refresh;
 }

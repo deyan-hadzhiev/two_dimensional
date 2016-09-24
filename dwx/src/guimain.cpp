@@ -106,10 +106,43 @@ ViewFrame::ViewFrame(const wxString& title)
 	modes->Append(MID_VF_MULTI_MODULE_SWITCH, wxT("Multi-module mode"), wxT("Switch between single and multi module modes"), wxITEM_CHECK);
 	Connect(MID_VF_MULTI_MODULE_SWITCH, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
 	modes->AppendSeparator();
+	// create groups
+	enum {
+		MG_GENERATOR = 0,
+		MG_SINGLE_INPUT,
+		MG_MULTI_INPUT,
+		MG_COUNT, // last
+	};
+	const wxString modesGroupDesc[MG_COUNT] = {
+		wxT("Generators"),
+		wxT("Single input"),
+		wxT("Miltiple input"),
+	};
+	wxMenu * modeGroups[MG_COUNT] = { nullptr };
+	for (int i = 0; i < _countof(modeGroups); ++i) {
+		modeGroups[i] = new wxMenu;
+	}
+
 	for (unsigned modei = MID_VF_MODES_RANGE_START + 1; modei < MID_VF_MODES_RANGE_END; ++modei) {
-		modes->Append(modei, MODULE_DESC[modei - MID_VF_MODES_RANGE_START - 1].fullName);
+		const ModuleDescription& mdi = MODULE_DESC[modei - MID_VF_MODES_RANGE_START - 1];
+		if (mdi.id == M_INPUT || mdi.id == M_OUTPUT) {
+			modes->Append(modei, mdi.fullName);
+		} else if (mdi.inputs == 0) {
+			modeGroups[MG_GENERATOR]->Append(modei, mdi.fullName);
+		} else if (mdi.inputs == 1) {
+			modeGroups[MG_SINGLE_INPUT]->Append(modei, mdi.fullName);
+		} else if (mdi.inputs > 1) {
+			modeGroups[MG_MULTI_INPUT]->Append(modei, mdi.fullName);
+		}
+		//modes->Append(modei, MODULE_DESC[modei - MID_VF_MODES_RANGE_START - 1].fullName);
 		Connect(modei, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
 	}
+	// add the groups later, to have them after any special modules
+	modes->AppendSeparator();
+	for (int i = 0; i < _countof(modeGroups); ++i) {
+		modes->AppendSubMenu(modeGroups[i], modesGroupDesc[i]);
+	}
+
 	menuBar->Append(modes, wxT("&Modes"));
 	wxMenu * control = new wxMenu;
 	for (int i = 0; i < _countof(controls); ++i) {
@@ -152,6 +185,10 @@ void ViewFrame::enableModule(ModuleTypeId moduleTypeId, bool enable) {
 		const int menuId = moduleTypeId + MID_VF_MODES_RANGE_START + 1;
 		modes->Enable(menuId, enable);
 	}
+}
+
+void ViewFrame::popupModes() {
+	PopupMenu(modes);
 }
 
 void ViewFrame::OnQuit(wxCommandEvent &) {
