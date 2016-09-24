@@ -2,49 +2,62 @@
 #define __PROGRESS_H__
 
 #include <string>
-#include <atomic>
 #include <mutex>
 
 #include "util.h"
 
 class ProgressCallback {
-	std::atomic<bool> abortFlag;
-	std::atomic<int64> fractionsDone;
-	std::atomic<int64> fractionMax;
-	std::atomic<int64> duration;
+	mutable bool dirty;
+	bool abortFlag;
+	int64 fractionsDone;
+	int64 fractionMax;
+	int64 duration;
 	mutable std::mutex nameMutex;
 	std::string moduleName;
 public:
 	ProgressCallback()
-		: abortFlag(false)
+		: dirty(true)
+		, abortFlag(false)
 		, fractionsDone(0)
 		, fractionMax(1)
 		, duration(0)
 		, moduleName("None")
 	{}
 
-	void setAbortFlag() noexcept {
+	inline void setAbortFlag() noexcept {
 		abortFlag = true;
 	}
 
-	bool getAbortFlag() const noexcept {
+	inline bool getAbortFlag() const noexcept {
 		return abortFlag;
 	}
 
-	void setPercentDone(int64 _fractionsDone, int64 _fractionMax) noexcept {
+	inline void setPercentDone(int64 _fractionsDone, int64 _fractionMax) noexcept {
 		fractionsDone = _fractionsDone;
 		fractionMax = _fractionMax;
+		dirty = true;
 	}
 
-	float getPercentDone() const noexcept {
+	inline float getPercentDone() const noexcept {
+		dirty = false;
 		return static_cast<float>((fractionsDone * 10000) / fractionMax) / 100.0f;
 	}
 
-	void setDuration(int64 _duration) noexcept {
+	inline float getFractionDone() const noexcept {
+		dirty = false;
+		return static_cast<float>(fractionsDone) / static_cast<float>(fractionMax);
+	}
+
+	inline bool getDirty() const noexcept {
+		return dirty;
+	}
+
+	inline void setDuration(int64 _duration) noexcept {
+		dirty = true;
 		duration = _duration;
 	}
 
-	int64 getDuration() const noexcept {
+	inline int64 getDuration() const noexcept {
 		return duration;
 	}
 
@@ -59,6 +72,7 @@ public:
 	}
 
 	void reset() {
+		dirty = true;
 		abortFlag = false;
 		fractionsDone = 0;
 		fractionMax = 1;
@@ -66,6 +80,5 @@ public:
 		moduleName = std::string("None");
 	}
 };
-
 
 #endif // __PROGRESS_H__

@@ -1,6 +1,6 @@
 #include "module_manager.h"
 #include "module_dag.h"
-
+#include "progress.h"
 
 bool ModuleConnector::getInput(Bitmap & bmp, int idx) const {
 	bool res = false;
@@ -222,6 +222,11 @@ void ModuleDAG::invalidateModules(const std::vector<ModuleId>& invalidateList) {
 	// TODO - create a dependency list to update all depending modules and connectors
 	for (auto it : invalidateList) {
 		ModuleNode * mn = moduleMap[it];
+		// manually reset the abort flag (TODO - in a separate loop, because they should be reset before any updates are triggered)
+		ProgressCallback * mcb = mn->module->getProgressCallback();
+		if (mcb) {
+			mcb->reset();
+		}
 		mn->module->update();
 	}
 }
@@ -270,7 +275,7 @@ ConnectorId ModuleDAG::addModuleConnection(ModuleId srcId, ModuleId destId, int 
 	destNode->inputConnector = connId;
 	// after this is done - update the src module
 	// TODO - cache the source result and only invalidate the dest
-	srcNode->module->update();
+	srcNode->module->runModule();
 
 	return connId;
 }

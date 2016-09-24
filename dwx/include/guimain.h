@@ -81,6 +81,7 @@ public:
 	};
 
 	void popupModes();
+
 private:
 
 	static const wxString controlNames[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // names of all the controls

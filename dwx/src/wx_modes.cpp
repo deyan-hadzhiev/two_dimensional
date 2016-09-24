@@ -231,7 +231,7 @@ void FileOpenHandler::setInput(const wxImage & img) {
 	}
 
 	if (updated && moduleHandle != nullptr) {
-		moduleHandle->update();
+		moduleHandle->runModule();
 	}
 }
 
@@ -265,7 +265,11 @@ ModuleNodeCollection::ModuleNodeCollection(const ModuleDescription & _moduleDesc
 	: moduleDesc(_moduleDesc)
 	, moduleHandle(_moduleHandle)
 	, moduleParamPanel(_moduleParamPanel)
-{}
+	, progCallback(new ProgressCallback)
+{
+	// add the progress callback to the module instance
+	moduleHandle->setProgressCallback(progCallback.get());
+}
 
 const ModuleDescription MultiModuleMode::defaultDesc = ModuleDescription();
 const wxString MultiModuleMode::imageFileSelector = wxT("png or jpeg images (*.png;*.jpeg;*.jpg;*.bmp)|*.png;*.jpeg;*.jpg;*.bmp");
@@ -387,6 +391,13 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 		mDag->invalidateModules(invalidateList);
 		break;
 	}
+	case (ViewFrame::MID_VF_CNT_STOP): {
+		// set the abort flag on all modules
+		for (auto it : moduleMap) {
+			it.second.progCallback->setAbortFlag();
+		}
+		break;
+	}
 	default:
 		break;
 	}
@@ -423,6 +434,8 @@ void MultiModuleMode::addModule(const ModuleDescription & md) {
 
 	// add the module to the canvas to be shown
 	canvas->addModuleDescription(mid, mmd);
+	// add the progress callback too
+	canvas->addModuleProgress(mid, moduleMap[mid].progCallback);
 }
 
 void MultiModuleMode::updateSelection(ModuleId id) {
@@ -506,7 +519,10 @@ void MultiModuleMode::removeModule(ModuleId id) {
 	auto& it = moduleMap.find(id);
 	if (it != moduleMap.end()) {
 		ModuleNodeCollection& mnc = it->second;
-		// TODO - call the abort on the progress handler
+		// don't touch the progress callback - it will be safely deleted with the ModuleNodeCollection
+		// and it must not be changed in the ModuleBase, because it is not guarded against changes from
+		// other threads
+		mnc.progCallback->setAbortFlag();
 		// if the module has special input/output handlers - remove them
 		if (mnc.moduleDesc.id == M_INPUT) {
 			inputHandlerMap.erase(id);

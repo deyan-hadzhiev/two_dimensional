@@ -121,6 +121,7 @@ public:
 	ModuleDescription moduleDesc;
 	ModuleBase * moduleHandle;
 	ParamPanel * moduleParamPanel;
+	std::shared_ptr<ProgressCallback> progCallback;
 
 	ModuleNodeCollection() = default;
 	ModuleNodeCollection(const ModuleDescription& _moduleDesc, ModuleBase * _moduleHandle, ParamPanel * _moduleParamPanel);

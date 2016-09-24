@@ -53,6 +53,9 @@ public:
 	virtual void setProgressCallback(ProgressCallback * _cb) {
 		cb = _cb;
 	}
+	virtual ProgressCallback * getProgressCallback() const {
+		return cb;
+	}
 
 	virtual std::string getName() const {
 		return std::string("None");

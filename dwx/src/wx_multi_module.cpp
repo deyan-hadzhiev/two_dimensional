@@ -18,7 +18,11 @@ const wxColour MultiModuleCanvas::mmColors[MC_COUNT] = {
 	wxColour(0x3239dd), // MC_CONNECTOR_EMPTY
 	wxColour(0xa3d7b8), // MC_CONNECTOR_HOVER
 	wxColour(0xc48f40), // MC_CONNECTOR
+	wxColour(0x201d1d), // MC_PROGRESS_BKG
+	wxColour(0xc261ba), // MC_PROGRESS
 };
+
+const wxWindowID MultiModuleCanvas::MULTI_MODULE_TIMER_ID = WinIDProvider::getProvider().getId();
 
 MultiModuleCanvas::MultiModuleCanvas(MultiModuleMode * _parent)
 	: ScalablePanel(_parent, -4, 8)
@@ -28,12 +32,30 @@ MultiModuleCanvas::MultiModuleCanvas(MultiModuleMode * _parent)
 	, hoveredModuleConnectorIdx(0)
 	, selectedModuleMapId(InvalidModuleId)
 	, popupEvent(false)
+	, refreshTimer(this, MULTI_MODULE_TIMER_ID)
 {
 	SetDoubleBuffered(true);
 
 	// connect paint events
 	Connect(wxEVT_PAINT, wxPaintEventHandler(MultiModuleCanvas::OnPaint), NULL, this);
 	Connect(wxEVT_ERASE_BACKGROUND, wxEraseEventHandler(MultiModuleCanvas::OnEraseBackground), NULL, this);
+
+	// Connect idle and timer events for refreshing
+	Connect(wxEVT_IDLE, wxIdleEventHandler(MultiModuleCanvas::OnIdle), NULL, this);
+	Connect(MULTI_MODULE_TIMER_ID, wxEVT_TIMER, wxTimerEventHandler(MultiModuleCanvas::OnTimer), NULL, this);
+	refreshTimer.Start(64); // ~ 15 eps (events per second)
+}
+
+void MultiModuleCanvas::OnIdle(wxIdleEvent & evt) {
+	if (checkProgressUpdates()) {
+		Refresh(eraseBkg);
+	}
+}
+
+void MultiModuleCanvas::OnTimer(wxTimerEvent & evt) {
+	if (checkProgressUpdates()) {
+		Refresh(eraseBkg);
+	}
 }
 
 void MultiModuleCanvas::OnPaint(wxPaintEvent & evt) {
@@ -88,6 +110,13 @@ void MultiModuleCanvas::addModuleDescription(ModuleId id, const ModuleDescriptio
 	Refresh(eraseBkg);
 }
 
+void MultiModuleCanvas::addModuleProgress(ModuleId id, const std::shared_ptr<ProgressCallback>& cb) {
+	const auto& cbIt = progressMap.find(id);
+	if (cbIt == progressMap.end()) {
+		progressMap[id] = cb;
+	}
+}
+
 void MultiModuleCanvas::destroyModuleNode(ModuleId id) {
 	DASSERT(id >= 0);
 	// destroy the module from the mode panel
@@ -108,6 +137,8 @@ void MultiModuleCanvas::destroyModuleNode(ModuleId id) {
 	}
 	// then destroy the module itself from the moduleMap
 	moduleMap.erase(id);
+	// destroy the progress callback associated with the module (if any?)
+	progressMap.erase(id);
 	// finally update selection and hovering
 	if (hoveredModuleMapId == id) {
 		hoveredModuleMapId = InvalidModuleId;
@@ -467,6 +498,9 @@ void MultiModuleCanvas::drawModuleNode(wxDC & dc, const ModuleGraphicNode & mgd,
 		wxBrush(mmColors[MC_CONNECTOR_HOVER]),
 		wxBrush(mmColors[MC_CONNECTOR]),
 	};
+	static const wxPen progressPen(mmColors[MC_PROGRESS], 2);
+	static const wxBrush progressBrush(mmColors[MC_PROGRESS]);
+	static const wxBrush progressBkgBrush(mmColors[MC_PROGRESS_BKG]);
 
 	// first draw the rectangle
 	const wxRect nodeRect(
@@ -490,12 +524,48 @@ void MultiModuleCanvas::drawModuleNode(wxDC & dc, const ModuleGraphicNode & mgd,
 		dc.DrawCircle(connCenter, scaledRadius);
 	}
 
-	// draw the node name
+	// draw module progress, if there is a progress callback
+	const auto& cbIt = progressMap.find(mgdMapId);
+	wxString progressText;
+	if (cbIt != progressMap.end()) {
+		const float fractionDone = cbIt->second->getFractionDone();
+		const wxPoint progTopLeft = convertCanvasToScreen(mgd.progRect.getTopLeft());
+		const wxPoint progBottomRight = convertCanvasToScreen(mgd.progRect.getBottomRight());
+		const int progWidth = progBottomRight.x - progTopLeft.x;
+		const int progHeight = progBottomRight.y - progTopLeft.y;
+		const int doneWidth = static_cast<int>((progBottomRight.x - progTopLeft.x) * fractionDone);
+		const int restWidth = progWidth - doneWidth;
+		dc.SetPen(progressPen);
+		if (doneWidth >= 0) {
+			dc.SetBrush(progressBrush);
+			dc.DrawRectangle(progTopLeft.x, progTopLeft.y, doneWidth, progHeight);
+		}
+		if (restWidth >= 0) {
+			dc.SetBrush(progressBkgBrush);
+			dc.DrawRectangle(progTopLeft.x + doneWidth, progTopLeft.y, restWidth, progHeight);
+		}
+		const int64 duration = cbIt->second->getDuration();
+		if (duration == 0) {
+			// print the percent done
+			progressText.Printf("%6.2f %%", fractionDone * 100.0f);
+		} else {
+			// print the last duration
+			progressText.Printf("%d.%03ds", static_cast<int>(duration / 1000), static_cast<int>(duration % 1000));
+		}
+	}
+
+	// draw the node name and progress info
 	dc.SetTextForeground(mmColors[MC_NODE_TEXT]);
-	// TODO - some logic for the scaling
 	const wxSize textExtent = dc.GetTextExtent(mgd.moduleDesc.fullName);
+	const wxSize progressExtent = (progressText.IsEmpty() ? wxSize(0, 0) : dc.GetTextExtent(progressText));
 	const int textX = (nodeRect.GetWidth() - textExtent.GetWidth()) / 2;
-	dc.DrawText(mgd.moduleDesc.fullName, nodeRect.x + textX, nodeRect.y + 10);
+	const int progressX = (nodeRect.GetWidth() - progressExtent.GetWidth()) / 2;
+	int textY = nodeRect.GetHeight() / 9;
+	int progressY = 4 * textY;
+	dc.DrawText(mgd.moduleDesc.fullName, nodeRect.x + textX, nodeRect.y + textY);
+	if (!progressText.IsEmpty()) {
+		dc.DrawText(progressText, nodeRect.x + progressX, nodeRect.y + progressY);
+	}
 }
 
 void MultiModuleCanvas::drawModuleConnector(wxDC & dc, const ModuleConnectorDesc & mcd) {
@@ -520,4 +590,13 @@ void MultiModuleCanvas::drawModuleConnector(wxDC & dc, const ModuleConnectorDesc
 		dc.SetPen(connectorPen);
 		dc.DrawLine(srcPos, destPos);
 	}
+}
+
+bool MultiModuleCanvas::checkProgressUpdates() const {
+	for (auto cbIt : progressMap) {
+		if (cbIt.second->getDirty()) {
+			return true;
+		}
+	}
+	return false;
 }
