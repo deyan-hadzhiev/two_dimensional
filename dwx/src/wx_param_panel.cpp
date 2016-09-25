@@ -90,7 +90,7 @@ void CKernelTableDlg::setKernel(const ConvolutionKernel & kernel) {
 void CKernelTableDlg::setKernelSide(int s) {
 	if (s > 0 && (s != kernelSide || 0 == kernelSide) && (s & 1) != 0) {
 		// clear previous param controls
-		for (auto rit = kernelParams.rbegin(); rit != kernelParams.rend(); ++rit) {
+		for (auto& rit = kernelParams.rbegin(); rit != kernelParams.rend(); ++rit) {
 			(*rit)->Disconnect(wxEVT_TEXT_ENTER, wxCommandEventHandler(CKernelPanel::OnKernelChange), NULL, this);
 			(*rit)->Destroy();
 		}
@@ -1210,14 +1210,14 @@ void ParamPanel::addParam(const ParamDescriptor & pd) {
 }
 
 void ParamPanel::enableParam(const std::string & paramName, bool enable) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto pdIt = paramIdMap.find(paramIt->second);
+		const auto& pdIt = paramIdMap.find(paramIt->second);
 		if (pdIt != paramIdMap.end()) {
 			const ParamDescriptor& pd = pdIt->second;
 			switch (pd.type) {
 			case(ParamDescriptor::ParamType::PT_BOOL): {
-				const auto ctrlIt = checkBoxMap.find(paramIt->second);
+				const auto& ctrlIt = checkBoxMap.find(paramIt->second);
 				if (ctrlIt != checkBoxMap.end()) {
 					ctrlIt->second->Enable(enable);
 				}
@@ -1227,7 +1227,7 @@ void ParamPanel::enableParam(const std::string & paramName, bool enable) {
 			case(ParamDescriptor::ParamType::PT_INT64):
 			case(ParamDescriptor::ParamType::PT_FLOAT):
 			case(ParamDescriptor::ParamType::PT_STRING): {
-				const auto ctrlIt = textCtrlMap.find(paramIt->second);
+				const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 				if (ctrlIt != textCtrlMap.end()) {
 					ctrlIt->second->Enable(enable);
 				}
@@ -1246,7 +1246,7 @@ void ParamPanel::enableParam(const std::string & paramName, bool enable) {
 				break;
 			}
 			case(ParamDescriptor::ParamType::PT_ENUM): {
-				const auto ctrlIt = choiceMap.find(paramIt->second);
+				const auto& ctrlIt = choiceMap.find(paramIt->second);
 				if (ctrlIt != choiceMap.end()) {
 					ctrlIt->second->Enable(enable);
 				}
@@ -1275,13 +1275,13 @@ void ParamPanel::onImageChange(int width, int height) {
 }
 
 void ParamPanel::setStringParam(const std::string & value, const std::string & paramName) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			ctrlIt->second->ChangeValue(value);
 		} else {
-			const auto bspCtrlIt = bigStringMap.find(paramIt->second);
+			const auto& bspCtrlIt = bigStringMap.find(paramIt->second);
 			if (bspCtrlIt != bigStringMap.end()) {
 				bspCtrlIt->second->ChangeValue(value);
 			}
@@ -1290,15 +1290,15 @@ void ParamPanel::setStringParam(const std::string & value, const std::string & p
 }
 
 bool ParamPanel::getStringParam(std::string & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			value = std::string(ctrlIt->second->GetValue());
 			return true;
 		} else {
 			// also check for bigString params
-			const auto bspCtrlIt = bigStringMap.find(paramIt->second);
+			const auto& bspCtrlIt = bigStringMap.find(paramIt->second);
 			if (bspCtrlIt != bigStringMap.end()) {
 				value = std::string(bspCtrlIt->second->GetValue());
 				return true;
@@ -1309,9 +1309,9 @@ bool ParamPanel::getStringParam(std::string & value, const std::string & paramNa
 }
 
 void ParamPanel::setIntParam(const int & value, const std::string & paramName) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			const wxString valueStr = wxString::Format("%d", value);
 			ctrlIt->second->ChangeValue(valueStr);
@@ -1320,9 +1320,9 @@ void ParamPanel::setIntParam(const int & value, const std::string & paramName) {
 }
 
 bool ParamPanel::getIntParam(int & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			value = atoi(ctrlIt->second->GetValue().c_str());
 			return true;
@@ -1332,9 +1332,9 @@ bool ParamPanel::getIntParam(int & value, const std::string & paramName) const {
 }
 
 void ParamPanel::setInt64Param(const int64 & value, const std::string & paramName) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			const wxString valueStr = wxString::Format("%lld", value);
 			ctrlIt->second->ChangeValue(valueStr);
@@ -1343,9 +1343,9 @@ void ParamPanel::setInt64Param(const int64 & value, const std::string & paramNam
 }
 
 bool ParamPanel::getInt64Param(int64 & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			value = _atoi64(ctrlIt->second->GetValue().c_str());
 			return true;
@@ -1355,9 +1355,9 @@ bool ParamPanel::getInt64Param(int64 & value, const std::string & paramName) con
 }
 
 void ParamPanel::setFloatParam(const float & value, const std::string & paramName) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			const wxString valueStr = wxString::Format("%f", value);
 			ctrlIt->second->ChangeValue(valueStr);
@@ -1366,9 +1366,9 @@ void ParamPanel::setFloatParam(const float & value, const std::string & paramNam
 }
 
 bool ParamPanel::getFloatParam(float & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = textCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = textCtrlMap.find(paramIt->second);
 		if (ctrlIt != textCtrlMap.end()) {
 			value = atof(ctrlIt->second->GetValue().c_str());
 			return true;
@@ -1378,9 +1378,9 @@ bool ParamPanel::getFloatParam(float & value, const std::string & paramName) con
 }
 
 void ParamPanel::setBoolParam(const bool & value, const std::string & paramName) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = checkBoxMap.find(paramIt->second);
+		const auto& ctrlIt = checkBoxMap.find(paramIt->second);
 		if (ctrlIt != checkBoxMap.end()) {
 			ctrlIt->second->SetValue(value);
 		}
@@ -1388,9 +1388,9 @@ void ParamPanel::setBoolParam(const bool & value, const std::string & paramName)
 }
 
 bool ParamPanel::getBoolParam(bool & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = checkBoxMap.find(paramIt->second);
+		const auto& ctrlIt = checkBoxMap.find(paramIt->second);
 		if (ctrlIt != checkBoxMap.end()) {
 			value = ctrlIt->second->GetValue();
 			return true;
@@ -1404,9 +1404,9 @@ void ParamPanel::setCKernelParam(const ConvolutionKernel & value, const std::str
 }
 
 bool ParamPanel::getCKernelParam(ConvolutionKernel & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = kernelMap.find(paramIt->second);
+		const auto& ctrlIt = kernelMap.find(paramIt->second);
 		if (ctrlIt != kernelMap.end()) {
 			value = ctrlIt->second->GetValue();
 			return true;
@@ -1416,9 +1416,9 @@ bool ParamPanel::getCKernelParam(ConvolutionKernel & value, const std::string & 
 }
 
 void ParamPanel::setEnumParam(const unsigned & value, const std::string & paramName) {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = choiceMap.find(paramIt->second);
+		const auto& ctrlIt = choiceMap.find(paramIt->second);
 		if (ctrlIt != choiceMap.end()) {
 			ctrlIt->second->SetSelection(static_cast<int>(value));
 		}
@@ -1426,9 +1426,9 @@ void ParamPanel::setEnumParam(const unsigned & value, const std::string & paramN
 }
 
 bool ParamPanel::getEnumParam(unsigned & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = choiceMap.find(paramIt->second);
+		const auto& ctrlIt = choiceMap.find(paramIt->second);
 		if (ctrlIt != choiceMap.end()) {
 			const int selection = ctrlIt->second->GetSelection();
 			if (selection == wxNOT_FOUND) {
@@ -1447,9 +1447,9 @@ void ParamPanel::setVectorParam(const Vector2 & value, const std::string & param
 }
 
 bool ParamPanel::getVectorParam(Vector2 & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = pairTextCtrlMap.find(paramIt->second);
+		const auto& ctrlIt = pairTextCtrlMap.find(paramIt->second);
 		if (ctrlIt != pairTextCtrlMap.end()) {
 			value.x = atof(ctrlIt->second.first->GetValue().c_str());
 			value.y = atof(ctrlIt->second.second->GetValue().c_str());
@@ -1464,9 +1464,9 @@ void ParamPanel::setColorParam(const Color & value, const std::string & paramNam
 }
 
 bool ParamPanel::getColorParam(Color & value, const std::string & paramName) const {
-	const auto paramIt = paramMap.find(paramName);
+	const auto& paramIt = paramMap.find(paramName);
 	if (paramIt != paramMap.end()) {
-		const auto ctrlIt = colorMap.find(paramIt->second);
+		const auto& ctrlIt = colorMap.find(paramIt->second);
 		if (ctrlIt != colorMap.end()) {
 			const wxColour val = ctrlIt->second->GetValue();
 			value = Color(val.Red(), val.Green(), val.Blue());
@@ -1482,7 +1482,7 @@ void ParamPanel::resizeParent() {
 
 void ParamPanel::OnParamSoftChange(wxCommandEvent & ev) {
 	const int evtId = ev.GetId();
-	auto pdIt = paramIdMap.find(evtId);
+	const auto& pdIt = paramIdMap.find(evtId);
 	if (pdIt != paramIdMap.end()) {
 		const ParamDescriptor& pd = pdIt->second;
 		if (pd.changeHandler != nullptr) {
@@ -1565,7 +1565,7 @@ void ParamPanel::OnParamSoftChange(wxCommandEvent & ev) {
 
 void ParamPanel::OnParamChange(wxCommandEvent & ev) {
 	const int evtId = ev.GetId();
-	auto pdIt = paramIdMap.find(evtId);
+	const auto& pdIt = paramIdMap.find(evtId);
 	if (pdIt != paramIdMap.end()) {
 		ParamDescriptor& pd = pdIt->second;
 		pd.module->update();

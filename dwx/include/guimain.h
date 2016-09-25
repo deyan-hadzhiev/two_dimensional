@@ -84,9 +84,14 @@ public:
 
 private:
 
-	static const wxString controlNames[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // names of all the controls
-	static const wxItemKind controlKinds[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // kinds of controls
-	wxMenuItem * controls[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1]; // an array with all the controls
+	struct ControlMenuDescription {
+		wxMenuItem * menuItem;
+		const wxWindowID menuId;
+		const wxString menuName;
+		const wxItemKind menuKind;
+		const ViewFrameStyles enableMask;
+	};
+	ControlMenuDescription controls[MID_VF_CNT_RANGE_END - MID_VF_CNT_RANGE_START - 1];
 
 	static const ModuleEnabled enabledModules[];
 

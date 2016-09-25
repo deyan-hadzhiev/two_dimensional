@@ -316,7 +316,7 @@ MultiModuleMode::MultiModuleMode(ViewFrame * vf, ModuleFactory * mf)
 
 MultiModuleMode::~MultiModuleMode() {
 	// destroy everything that is not automatically destroyed by wx
-	for (auto it : moduleIdHolderMap) {
+	for (auto& it : moduleIdHolderMap) {
 		delete it.second;
 		it.second = nullptr;
 	}
@@ -326,7 +326,7 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 	switch (ev.GetId()) {
 	case (ViewFrame::MID_VF_FILE_OPEN): {
 		if (selectedModule != InvalidModuleId) {
-			auto it = inputHandlerMap.find(selectedModule);
+			const auto& it = inputHandlerMap.find(selectedModule);
 			if (it != inputHandlerMap.end() && it->second) {
 				const wxStandardPaths& stdPaths = wxStandardPaths::Get();
 				wxFileDialog fdlg(this, wxT("Open input image file"), stdPaths.GetUserDir(wxStandardPaths::Dir_Pictures), wxT(""), imageFileSelector, wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -345,7 +345,7 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 	case (ViewFrame::MID_VF_FILE_SAVE): {
 		if (selectedModule != InvalidModuleId) {
-			auto it = outputHandlerMap.find(selectedModule);
+			const auto& it = outputHandlerMap.find(selectedModule);
 			if (it != outputHandlerMap.end() && it->second) {
 				const wxStandardPaths& stdPaths = wxStandardPaths::Get();
 				wxFileDialog fdlg(this, wxT("Save output image file"), stdPaths.GetUserDir(wxStandardPaths::Dir_Pictures), wxT(""), imageFileSelector, wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
@@ -393,7 +393,7 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 	}
 	case (ViewFrame::MID_VF_CNT_STOP): {
 		// set the abort flag on all modules
-		for (auto it : moduleMap) {
+		for (const auto& it : moduleMap) {
 			it.second.progCallback->setAbortFlag();
 		}
 		break;
@@ -448,7 +448,7 @@ void MultiModuleMode::updateSelection(ModuleId id) {
 		// get currently selected module
 		if (selectedModule != -1) {
 			// check if the module still exists
-			auto mncIt = moduleMap.find(selectedModule);
+			const auto& mncIt = moduleMap.find(selectedModule);
 			if (mncIt != moduleMap.end()) {
 				ModuleNodeCollection& mnc = mncIt->second;
 				// hide the param panel
@@ -508,7 +508,7 @@ void MultiModuleMode::removeModule(ModuleId id) {
 	// first remove the module from the dag
 	mDag->removeModule(id);
 	// remove any image dialogs of the module
-	auto& dlgIt = imgDlgMap.find(id);
+	const auto& dlgIt = imgDlgMap.find(id);
 	if (dlgIt != imgDlgMap.end()) {
 		dlgIt->second->Destroy();
 		imgDlgMap.erase(id);
@@ -516,7 +516,7 @@ void MultiModuleMode::removeModule(ModuleId id) {
 		delete moduleIdHolderMap[id];
 		moduleIdHolderMap.erase(id);
 	}
-	auto& it = moduleMap.find(id);
+	const auto& it = moduleMap.find(id);
 	if (it != moduleMap.end()) {
 		ModuleNodeCollection& mnc = it->second;
 		// don't touch the progress callback - it will be safely deleted with the ModuleNodeCollection
@@ -576,7 +576,7 @@ void MultiModuleMode::OnImageDlgClosed(wxCloseEvent & evt) {
 void MultiModuleMode::toggleImageShow(ModuleId mid) {
 	if (mid != InvalidModuleId) {
 		// check if the image dialog is shown
-		auto imgIt = imgDlgMap.find(mid);
+		const auto& imgIt = imgDlgMap.find(mid);
 		bool shown = false;
 		if (imgIt != imgDlgMap.end() && imgIt->second->IsShown()) {
 			shown = true;
@@ -591,7 +591,7 @@ void MultiModuleMode::popupModes() {
 
 void MultiModuleMode::showImageDialog(ModuleId mid, bool show) {
 	if (mid != InvalidModuleId) {
-		auto it = imgDlgMap.find(mid);
+		const auto& it = imgDlgMap.find(mid);
 		ImageDialog * dlg = nullptr;
 		if (it != imgDlgMap.end()) {
 			dlg = it->second;

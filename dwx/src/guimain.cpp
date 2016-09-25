@@ -22,20 +22,6 @@ public:
 	virtual bool OnInit() override;
 };
 
-const wxString ViewFrame::controlNames[] = {
-	wxT("&Run\tF5"),
-	wxT("&Stop\tShift+F5"),
-	wxT("&Compare\tCtrl+C"),
-	wxT("&Histogram\tF6"),
-};
-
-const wxItemKind ViewFrame::controlKinds[] = {
-	wxITEM_NORMAL, //!< Run
-	wxITEM_NORMAL, //!< Stop
-	wxITEM_CHECK,  //!< Compare
-	wxITEM_CHECK,  //!< Histogram
-};
-
 const ModuleEnabled ViewFrame::enabledModules[] = {
 	ModuleEnabled(M_INPUT, false),
 	ModuleEnabled(M_OUTPUT, false),
@@ -70,7 +56,12 @@ bool ViewApp::OnInit() {
 
 ViewFrame::ViewFrame(const wxString& title)
 	: wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, vfInitSize)
-	, controls{nullptr}
+	, controls {
+		{ nullptr, MID_VF_CNT_RUN,       wxString("&Run\tF5"),         wxITEM_NORMAL, VFS_CNT_RUN},
+		{ nullptr, MID_VF_CNT_STOP,      wxString("&Stop\tShift+F5"),  wxITEM_NORMAL, VFS_CNT_STOP},
+		{ nullptr, MID_VF_CNT_COMPARE,   wxString("&Compare\tCtrl+C"), wxITEM_CHECK,  VFS_CNT_COMPARE},
+		{ nullptr, MID_VF_CNT_HISTOGRAM, wxString("&Histogram\tF6"),   wxITEM_CHECK,  VFS_CNT_HISTOGRAM},
+	}
 	, mPanel(nullptr)
 	, menuBar(nullptr)
 	, file(nullptr)
@@ -113,14 +104,16 @@ ViewFrame::ViewFrame(const wxString& title)
 		MG_MULTI_INPUT,
 		MG_COUNT, // last
 	};
-	const wxString modesGroupDesc[MG_COUNT] = {
-		wxT("Generators"),
-		wxT("Single input"),
-		wxT("Miltiple input"),
+	struct {
+		wxMenu * menuHandle;
+		wxString menuLabel;
+	} modeGroups[MG_COUNT] = {
+		{ nullptr, wxString("Generators")},
+		{ nullptr, wxString("Single input")},
+		{ nullptr, wxString("Multiple input")},
 	};
-	wxMenu * modeGroups[MG_COUNT] = { nullptr };
-	for (int i = 0; i < _countof(modeGroups); ++i) {
-		modeGroups[i] = new wxMenu;
+	for (auto& mgi : modeGroups) {
+		mgi.menuHandle = new wxMenu;
 	}
 
 	for (unsigned modei = MID_VF_MODES_RANGE_START + 1; modei < MID_VF_MODES_RANGE_END; ++modei) {
@@ -128,29 +121,28 @@ ViewFrame::ViewFrame(const wxString& title)
 		if (mdi.id == M_INPUT || mdi.id == M_OUTPUT) {
 			modes->Append(modei, mdi.fullName);
 		} else if (mdi.inputs == 0) {
-			modeGroups[MG_GENERATOR]->Append(modei, mdi.fullName);
+			modeGroups[MG_GENERATOR].menuHandle->Append(modei, mdi.fullName);
 		} else if (mdi.inputs == 1) {
-			modeGroups[MG_SINGLE_INPUT]->Append(modei, mdi.fullName);
+			modeGroups[MG_SINGLE_INPUT].menuHandle->Append(modei, mdi.fullName);
 		} else if (mdi.inputs > 1) {
-			modeGroups[MG_MULTI_INPUT]->Append(modei, mdi.fullName);
+			modeGroups[MG_MULTI_INPUT].menuHandle->Append(modei, mdi.fullName);
 		}
-		//modes->Append(modei, MODULE_DESC[modei - MID_VF_MODES_RANGE_START - 1].fullName);
 		Connect(modei, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnMenuModeSelect));
 	}
 	// add the groups later, to have them after any special modules
 	modes->AppendSeparator();
-	for (int i = 0; i < _countof(modeGroups); ++i) {
-		modes->AppendSubMenu(modeGroups[i], modesGroupDesc[i]);
+	for (auto& mgi : modeGroups) {
+		modes->AppendSubMenu(mgi.menuHandle, mgi.menuLabel);
 	}
 
 	menuBar->Append(modes, wxT("&Modes"));
-	wxMenu * control = new wxMenu;
-	for (int i = 0; i < _countof(controls); ++i) {
-		controls[i] = new wxMenuItem(control, i + MID_VF_CNT_RANGE_START + 1, controlNames[i], wxEmptyString, controlKinds[i]);
-		control->Append(controls[i]);
-		Connect(i + MID_VF_CNT_RANGE_START + 1, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
+	wxMenu * controlMenu = new wxMenu;
+	for (auto& cm : controls) {
+		cm.menuItem = new wxMenuItem(controlMenu, cm.menuId, cm.menuName, wxEmptyString, cm.menuKind);
+		controlMenu->Append(cm.menuItem);
+		Connect(cm.menuId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ViewFrame::OnCustomMenuSelect));
 	}
-	menuBar->Append(control, wxT("Control"));
+	menuBar->Append(controlMenu, wxT("Control"));
 
 	SetMenuBar(menuBar);
 	CreateStatusBar(4);
@@ -158,8 +150,8 @@ ViewFrame::ViewFrame(const wxString& title)
 
 	setCustomStyle(customStyle);
 	// finally select modules that would be disabled in single mode
-	for (int i = 0; i < _countof(enabledModules); ++i) {
-		enableModule(enabledModules[i].mti, enabledModules[i].single);
+	for (auto& eni : enabledModules) {
+		enableModule(eni.mti, eni.single);
 	}
 
 	Update();
@@ -171,8 +163,8 @@ void ViewFrame::setCustomStyle(unsigned style) {
 	fileOpen->Enable((style & VFS_FILE_OPEN) != 0);
 	fileSave->Enable((style & VFS_FILE_SAVE) != 0);
 
-	for (unsigned i = 0; (VFS_CNT_RUN << i) < VFS_CNT_LAST && i < _countof(controls); ++i) {
-		controls[i]->Enable((style & (VFS_CNT_RUN << i)) != 0);
+	for (auto& cm : controls) {
+		cm.menuItem->Enable((style & cm.enableMask) != 0);
 	}
 }
 
@@ -216,8 +208,8 @@ void ViewFrame::OnMenuModeSelect(wxCommandEvent & ev) {
 		} else {
 			SetStatusText(wxT("Using single module mode"));
 		}
-		for (int i = 0; i < _countof(enabledModules); ++i) {
-			enableModule(enabledModules[i].mti, multiModuleMode ^ enabledModules[i].single);
+		for (auto& em : enabledModules) {
+			enableModule(em.mti, multiModuleMode ^ em.single);
 		}
 	}
 	const int modeId = ev.GetId() - MID_VF_MODES_RANGE_START - 1;

@@ -593,7 +593,7 @@ void MultiModuleCanvas::drawModuleConnector(wxDC & dc, const ModuleConnectorDesc
 }
 
 bool MultiModuleCanvas::checkProgressUpdates() const {
-	for (auto cbIt : progressMap) {
+	for (const auto& cbIt : progressMap) {
 		if (cbIt.second->getDirty()) {
 			return true;
 		}

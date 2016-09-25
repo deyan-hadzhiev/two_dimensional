@@ -17,7 +17,7 @@ void ModuleConnector::setOutput(const Bitmap & bmp, ModuleId mid) {
 		bmpMap[mid] = std::shared_ptr<Bitmap>(new Bitmap(bmp));
 	}
 	// check for external output manager
-	auto it = externalOutputMap.find(mid);
+	const auto& it = externalOutputMap.find(mid);
 	if (it != externalOutputMap.end() && it->second) {
 		it->second->setOutput(bmp, mid);
 	}
@@ -27,7 +27,7 @@ void ModuleConnector::setOutput(const Bitmap & bmp, ModuleId mid) {
 
 bool ModuleConnector::getBitmap(Bitmap & bmp, ModuleId mid) const {
 	bool res = false;
-	const auto it = bmpMap.find(mid);
+	const auto& it = bmpMap.find(mid);
 	if (it != bmpMap.end() && it->second) {
 		std::lock_guard<std::mutex> lk(bmpMapMutex);
 		bmp = *(it->second);
@@ -102,7 +102,7 @@ bool ModuleConnector::removeConnection(int destSrcIdx) {
 void ModuleConnector::setExternalOutput(ModuleId mid, OutputManager * oman) {
 	externalOutputMap[mid] = oman;
 	// check if there is already any output and add it to the OutputManager
-	auto bmpIt = bmpMap.find(mid);
+	const auto& bmpIt = bmpMap.find(mid);
 	if (oman != nullptr && bmpIt != bmpMap.end() && bmpIt->second->isOK()) {
 		std::lock_guard<std::mutex> lk(bmpMapMutex);
 		oman->setOutput(*(bmpIt->second), mid);
@@ -115,11 +115,11 @@ ModuleDAG::ModuleDAG()
 {}
 
 ModuleDAG::~ModuleDAG() {
-	for (auto node : moduleMap) {
+	for (auto& node : moduleMap) {
 		delete node.second;
 		node.second = nullptr;
 	}
-	for (auto connector : connectorMap) {
+	for (auto& connector : connectorMap) {
 		delete connector.second;
 		connector.second = nullptr;
 	}
@@ -135,7 +135,7 @@ void ModuleDAG::addModule(ModuleBase * moduleInstance, const ModuleDescription& 
 }
 
 void ModuleDAG::removeModule(ModuleId mid) {
-	auto mnIt = moduleMap.find(mid);
+	const auto& mnIt = moduleMap.find(mid);
 	if (mnIt != moduleMap.end()) {
 		ModuleNode * mn = mnIt->second;
 		// first remove all connected edges
@@ -158,7 +158,7 @@ void ModuleDAG::removeModule(ModuleId mid) {
 EdgeId ModuleDAG::addConnector(ModuleId srcId, ModuleId destId, int destSrcIdx) {
 	// TODO - valid checks
 	// remove existing edges on the source node
-	auto srcNodeIt = moduleMap.find(srcId);
+	const auto& srcNodeIt = moduleMap.find(srcId);
 	if (srcNodeIt != moduleMap.end()) {
 		ModuleNode * srcNode = srcNodeIt->second;
 		if (srcNode->output != InvalidEdgeId) {
@@ -166,7 +166,7 @@ EdgeId ModuleDAG::addConnector(ModuleId srcId, ModuleId destId, int destSrcIdx) 
 		}
 	}
 	// remove exising edges on the destination node
-	auto destNodeIt = moduleMap.find(destId);
+	const auto& destNodeIt = moduleMap.find(destId);
 	if (destNodeIt != moduleMap.end()) {
 		ModuleNode * destNode = destNodeIt->second;
 		// still check the src dest idx
@@ -197,7 +197,7 @@ EdgeId ModuleDAG::addConnector(ModuleId srcId, ModuleId destId, int destSrcIdx) 
 
 void ModuleDAG::removeConnector(EdgeId eid) {
 	// check if it is not already removed (possible with gui updates)
-	auto eIt = edgeMap.find(eid);
+	const auto& eIt = edgeMap.find(eid);
 	if (eIt != edgeMap.end()) {
 		const SimpleConnector& sc = eIt->second;
 		// first detach the module connector
@@ -220,7 +220,7 @@ void ModuleDAG::removeConnector(EdgeId eid) {
 
 void ModuleDAG::invalidateModules(const std::vector<ModuleId>& invalidateList) {
 	// TODO - create a dependency list to update all depending modules and connectors
-	for (auto it : invalidateList) {
+	for (const auto& it : invalidateList) {
 		ModuleNode * mn = moduleMap[it];
 		// manually reset the abort flag (TODO - in a separate loop, because they should be reset before any updates are triggered)
 		ProgressCallback * mcb = mn->module->getProgressCallback();
@@ -249,8 +249,8 @@ void ModuleDAG::setExternalOutput(ModuleId mid, OutputManager * oman) {
 
 ConnectorId ModuleDAG::addModuleConnection(ModuleId srcId, ModuleId destId, int destSrcIdx) {
 	// first get the dest id
-	const auto destIt = moduleMap.find(destId);
-	const auto srcIt = moduleMap.find(srcId);
+	const auto& destIt = moduleMap.find(destId);
+	const auto& srcIt = moduleMap.find(srcId);
 	if (destIt == moduleMap.end() || srcIt == moduleMap.end())
 		return InvalidConnectorId;
 	ModuleNode * srcNode = srcIt->second;
