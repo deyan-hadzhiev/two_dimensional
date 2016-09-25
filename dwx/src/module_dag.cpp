@@ -109,6 +109,8 @@ void ModuleConnector::setExternalOutput(ModuleId mid, OutputManager * oman) {
 	}
 }
 
+// ModuleDAG
+
 ModuleDAG::ModuleDAG()
 	: connectorCount(0)
 	, edgeCount(0)
