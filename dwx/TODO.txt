@@ -1,9 +1,10 @@
 TODO:
 
 1. Node based module system and UI with option for saving configurations (json?)
-2. Add alpha channel
-3. Drag'n'drop pictures (and configuration for the node system)
-4. Add GUI dark theme
-5. Grayscale channels (both mean and naturall intensity)
-6. Implement Alpha color dialog (not sure if necessary)
-7. Multi module selection
+2. Rework module chain to work with float/double Pixelmaps internall to avoid precision loss between operations
+3. Add alpha channel
+4. Drag'n'drop pictures (and configuration for the node system)
+5. Add GUI dark theme
+6. Grayscale channels (both mean and natural intensity)
+7. Implement Alpha color dialog (not sure if necessary)
+8. Multi module selection

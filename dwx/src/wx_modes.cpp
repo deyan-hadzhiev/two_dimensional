@@ -560,11 +560,6 @@ void MultiModuleMode::removeConnection(EdgeId eid) {
 	mDag->removeConnector(eid);
 }
 
-bool MultiModuleMode::validConnection(ModuleId srcId, ModuleId destId, int destSrcIdx) {
-	// TODO
-	return true;
-}
-
 void MultiModuleMode::OnShowImage(wxCommandEvent & evt) {
 	if (selectedModule != InvalidModuleId) {
 		showImageDialog(selectedModule, true);

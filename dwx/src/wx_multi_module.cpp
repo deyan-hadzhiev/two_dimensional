@@ -311,8 +311,10 @@ bool MultiModuleCanvas::onMouseLeftUp() {
 				if (mouseConnector.srcId == mouseConnector.destId) {
 					disconnectMouseConnector();
 				} else {
-					// now create the connector (check validity?)
-					createConnector(mouseConnector);
+					// now create the connector - if not a valid connector - fix up the state of the distant edge
+					if (!createConnector(mouseConnector)) {
+						disconnectMouseConnector();
+					}
 					// reset the mouse connector
 					mouseConnector = ModuleConnectorDesc();
 				}
@@ -444,10 +446,9 @@ void MultiModuleCanvas::disconnectMouseConnector() {
 }
 
 bool MultiModuleCanvas::createConnector(const ModuleConnectorDesc & mcd) {
-	bool validConnection = true;
-	// TODO : check if the connection is valid - no loops, etc
-	if (validConnection) {
-		const EdgeId edgeId = parent->addConnection(mcd.srcId, mcd.destId, mcd.inputIdx);
+	// directly try to add the connection - if it is not valid the index will be invalid
+	const EdgeId edgeId = parent->addConnection(mcd.srcId, mcd.destId, mcd.inputIdx);
+	if (edgeId != InvalidEdgeId) {
 		connectorMap[edgeId] = mcd;
 		// now update the appropriate module map connectors
 		MGNConnector& outputConnector = moduleMap[mcd.srcId].outputs[mcd.outputIdx];
@@ -464,7 +465,7 @@ bool MultiModuleCanvas::createConnector(const ModuleConnectorDesc & mcd) {
 		inputConnector.state = MGNConnector::MGNC_CONNECTED;
 		inputConnector.connectorId = edgeId;
 	}
-	return validConnection;
+	return edgeId != InvalidEdgeId;
 }
 
 ModuleConnectorDesc MultiModuleCanvas::destroyConnector(EdgeId id) {

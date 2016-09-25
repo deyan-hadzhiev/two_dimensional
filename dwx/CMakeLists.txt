@@ -34,6 +34,7 @@ set (HEADERS
 	include/drect.h
 	include/fft_butterfly.h
 	include/geom_primitive.h
+	include/graph.h
 	include/guimain.h
 	include/kmeans.h
 	include/matrix2.h

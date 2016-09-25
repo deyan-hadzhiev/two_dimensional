@@ -151,9 +151,6 @@ public:
 	// remove connection
 	void removeConnection(EdgeId eid);
 
-	// check validitiy of a connection
-	bool validConnection(ModuleId srcId, ModuleId destId, int destSrcIdx);
-
 	// image dialog manipulators
 	void OnShowImage(wxCommandEvent& evt);
 	void OnHideImage(wxCommandEvent& evt);

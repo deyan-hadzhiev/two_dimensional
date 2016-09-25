@@ -1,3 +1,4 @@
+#include "graph.h"
 #include "module_manager.h"
 #include "module_dag.h"
 #include "progress.h"
@@ -134,11 +135,16 @@ void ModuleDAG::addModule(ModuleBase * moduleInstance, const ModuleDescription& 
 	ModuleNode * node = new ModuleNode(moduleInstance, md);
 	const ModuleId mid = moduleInstance->getModuleId();
 	moduleMap[mid] = node;
+	// add the module to the graph
+	graph.addNode(mid);
 }
 
 void ModuleDAG::removeModule(ModuleId mid) {
 	const auto& mnIt = moduleMap.find(mid);
 	if (mnIt != moduleMap.end()) {
+		// remove the module from the graph
+		graph.removeNode(mid);
+
 		ModuleNode * mn = mnIt->second;
 		// first remove all connected edges
 		if (mn->output != InvalidEdgeId) {
@@ -158,27 +164,50 @@ void ModuleDAG::removeModule(ModuleId mid) {
 }
 
 EdgeId ModuleDAG::addConnector(ModuleId srcId, ModuleId destId, int destSrcIdx) {
-	// TODO - valid checks
-	// remove existing edges on the source node
+	// check if the connection will retain the dag valid (no cycles - remember?)
 	const auto& srcNodeIt = moduleMap.find(srcId);
-	if (srcNodeIt != moduleMap.end()) {
-		ModuleNode * srcNode = srcNodeIt->second;
-		if (srcNode->output != InvalidEdgeId) {
-			removeConnector(srcNode->output);
-		}
+	const auto& destNodeIt = moduleMap.find(destId);
+	if (srcNodeIt == moduleMap.end() || destNodeIt == moduleMap.end()) {
+		// invalid module ids
+		return InvalidEdgeId;
+	}
+	Graph<ModuleId> checkGraph(graph);
+	ModuleNode * srcNode = srcNodeIt->second;
+	if (srcNode->output != InvalidEdgeId) {
+		// so there is an edge out of this module - remove it from the check graph
+		const SimpleConnector& sc = edgeMap[srcNode->output];
+		checkGraph.removeEdge(sc.srcId, sc.destId);
+	}
+	ModuleNode * destNode = destNodeIt->second;
+	if (destSrcIdx >= 0 &&
+		destSrcIdx < destNode->moduleDesc.inputs &&
+		destNode->inputs[destSrcIdx] != InvalidEdgeId
+		) {
+		const SimpleConnector& sc = edgeMap[destNode->inputs[destSrcIdx]];
+		checkGraph.removeEdge(sc.srcId, sc.destId);
+	}
+	// now add the new edge to the check graph
+	checkGraph.addEdge(srcId, destId);
+	// directly check if the graph remains a DAG
+	if (!checkGraph.isDAG()) {
+		return InvalidEdgeId;
+	}
+
+	// remove existing edges on the source node
+	if (srcNode->output != InvalidEdgeId) {
+		removeConnector(srcNode->output);
 	}
 	// remove exising edges on the destination node
-	const auto& destNodeIt = moduleMap.find(destId);
-	if (destNodeIt != moduleMap.end()) {
-		ModuleNode * destNode = destNodeIt->second;
-		// still check the src dest idx
-		if (destSrcIdx >= 0 &&
-			destSrcIdx < destNode->moduleDesc.inputs &&
-			destNode->inputs[destSrcIdx] != InvalidEdgeId
-			) {
-			removeConnector(destNode->inputs[destSrcIdx]);
-		}
+	// still check the src dest idx
+	if (destSrcIdx >= 0 &&
+		destSrcIdx < destNode->moduleDesc.inputs &&
+		destNode->inputs[destSrcIdx] != InvalidEdgeId
+		) {
+		removeConnector(destNode->inputs[destSrcIdx]);
 	}
+
+	// add the edge to the graph (overlapping edges should have been removed by removeConnector(..)
+	graph.addEdge(srcId, destId);
 
 	EdgeId res = edgeCount;
 	SimpleConnector sc(srcId, destId, destSrcIdx);
@@ -202,6 +231,8 @@ void ModuleDAG::removeConnector(EdgeId eid) {
 	const auto& eIt = edgeMap.find(eid);
 	if (eIt != edgeMap.end()) {
 		const SimpleConnector& sc = eIt->second;
+		// remove the simple connection from the graph
+		graph.removeEdge(sc.srcId, sc.destId);
 		// first detach the module connector
 		ModuleConnector * mc = connectorMap[sc.connId];
 		const bool removeConnector = mc->removeConnection(sc.destSrcIdx);
@@ -257,7 +288,7 @@ ConnectorId ModuleDAG::addModuleConnection(ModuleId srcId, ModuleId destId, int 
 		return InvalidConnectorId;
 	ModuleNode * srcNode = srcIt->second;
 	ModuleNode * destNode = destIt->second;
-	// TODO check for multiple inputs
+	// TODO check for multiple inputs -> later observation (what - is this still neccessary?)
 	ModuleConnector * mc = nullptr;
 	ConnectorId connId = InvalidConnectorId;
 	if (destNode->inputConnector != InvalidConnectorId) {

@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "bitmap.h"
+#include "graph.h"
 #include "module_base.h"
 
 using ConnectorId = int;
@@ -113,6 +114,8 @@ public:
 
 private:
 	ConnectorId addModuleConnection(ModuleId srcId, ModuleId destId, int destSrcIdx);
+
+	Graph<ModuleId> graph; //!< a graph containing the full connection for checks and lists
 
 	std::unordered_map<ModuleId, ModuleNode*> moduleMap;
 	std::unordered_map<ConnectorId, ModuleConnector*> connectorMap;
