@@ -179,7 +179,7 @@ void InputOutputMode::setInput(const wxImage & input) {
 }
 
 GeometricOutput::GeometricOutput(ViewFrame * vf, ModuleBase * _module)
-	: ModePanel(vf, false, ViewFrame::VFS_CNT_RUN)
+	: ModePanel(vf, false, ViewFrame::VFS_ALL_ENABLED & ~(ViewFrame::VFS_FILE_OPEN | ViewFrame::VFS_CNT_COMPARE))
 	, module(_module)
 	, outputPanel(nullptr)
 {
@@ -199,8 +199,20 @@ GeometricOutput::GeometricOutput(ViewFrame * vf, ModuleBase * _module)
 void GeometricOutput::onCommandMenu(wxCommandEvent & ev) {
 	switch (ev.GetId())
 	{
-	case(ViewFrame::MID_VF_CNT_RUN) : {
+	case(ViewFrame::MID_VF_FILE_SAVE): {
+		// TODO
+		break;
+	}
+	case(ViewFrame::MID_VF_CNT_RUN): {
 		module->runModule();
+		break;
+	}
+	case(ViewFrame::MID_VF_CNT_STOP): {
+		cb.setAbortFlag();
+		break;
+	}
+	case(ViewFrame::MID_VF_CNT_HISTOGRAM): {
+		outputPanel->toggleHist();
 		break;
 	}
 	default:

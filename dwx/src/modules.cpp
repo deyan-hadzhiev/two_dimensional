@@ -36,15 +36,21 @@ ModuleBase::ProcessResult SimpleModule::runModule() {
 }
 
 void AsyncModule::moduleLoop(AsyncModule * k) {
+	DASSERT(k->state == State::AKS_INIT);
+	State initState = State::AKS_INIT;
+	k->state.compare_exchange_weak(initState, State::AKS_FINISHED);
 	while(k->state != State::AKS_TERMINATED) {
 		std::unique_lock<std::mutex> lk(k->moduleMutex);
-		if (k->state == State::AKS_FINISHED || k->state == State::AKS_INIT) {
+		if (k->state == State::AKS_FINISHED) {
 			k->ev.wait(lk);
 		}
 		if (k->state != State::AKS_TERMINATED) {
 			// if started from dirty state directly change to running
 			State dirty = State::AKS_DIRTY;
-			k->state.compare_exchange_weak(dirty, State::AKS_RUNNING);
+			if (k->state.compare_exchange_strong(dirty, State::AKS_RUNNING) && k->cb != nullptr) {
+				// reset the callback flags
+				k->cb->reset();
+			}
 			const auto start = std::chrono::steady_clock::now();
 			k->moduleImplementation();
 			const auto end = std::chrono::steady_clock::now();
@@ -54,7 +60,7 @@ void AsyncModule::moduleLoop(AsyncModule * k) {
 			}
 			// be carefull not to change the state!!!
 			State fin = State::AKS_RUNNING; // expected state
-			k->state.compare_exchange_weak(fin, State::AKS_FINISHED);
+			k->state.compare_exchange_strong(fin, State::AKS_FINISHED);
 		}
 	}
 }
@@ -85,13 +91,17 @@ AsyncModule::State AsyncModule::getState() const {
 }
 
 void AsyncModule::update() {
-	state = State::AKS_DIRTY;
+	State finished = State::AKS_FINISHED;
+	state.compare_exchange_strong(finished, State::AKS_DIRTY);
+	State running = State::AKS_RUNNING;
+	// if it is running - also raise the abort flag - it will be reset before rerun
+	if (state.compare_exchange_strong(running, State::AKS_DIRTY) && cb != nullptr) {
+		cb->setAbortFlag();
+	}
 	ev.notify_one();
 }
 
 ModuleBase::ProcessResult AsyncModule::runModule() {
-	if (cb)
-		cb->reset();
 	update();
 	return KPR_RUNNING;
 }
