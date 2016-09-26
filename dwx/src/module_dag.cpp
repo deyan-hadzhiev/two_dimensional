@@ -3,6 +3,44 @@
 #include "module_dag.h"
 #include "progress.h"
 
+void TemporaryOutput::setOutput(const Bitmap & bmp, ModuleId mid) {
+	{
+		std::lock_guard<std::mutex> lk(bmpMutex);
+		storedMid = mid;
+		storedBmp = bmp;
+	}
+	if (externalOutput != nullptr) {
+		externalOutput->setOutput(bmp, mid);
+	}
+}
+
+void TemporaryOutput::setBitmapToManager(OutputManager * external) const {
+	// carefull of self assignments which will lead to a deadlock
+	// still theoretically it is possible to achieve a deadlock if the external
+	// output manager has a chained output manager that happens to be this instance ... be carefull!
+	if (storedMid != InvalidModuleId &&
+		storedBmp.isOK() &&
+		external != nullptr &&
+		static_cast<const OutputManager*>(this) != external
+		) {
+		std::lock_guard<std::mutex> lk(bmpMutex);
+		external->setOutput(storedBmp, storedMid);
+	}
+}
+
+void TemporaryOutput::setExternalOutput(OutputManager * oman) {
+	externalOutput = oman;
+	if (externalOutput != nullptr && storedMid != InvalidModuleId && storedBmp.isOK()) {
+		externalOutput->setOutput(storedBmp, storedMid);
+	}
+}
+
+OutputManager * TemporaryOutput::getExternalOutput() const {
+	return externalOutput;
+}
+
+// ModuleConnector
+
 bool ModuleConnector::getInput(Bitmap & bmp, int idx) const {
 	bool res = false;
 	if (idx >= 0 && idx < srcModules.size() && srcModules[idx] != nullptr) {
@@ -22,8 +60,17 @@ void ModuleConnector::setOutput(const Bitmap & bmp, ModuleId mid) {
 	if (it != externalOutputMap.end() && it->second) {
 		it->second->setOutput(bmp, mid);
 	}
-	// TODO check if all the inputs are ready
-	destModule->module->update();
+	const int srcIndex = srcIndexMap[mid];
+	validInputs[srcIndex] = bmp.isOK();
+	// check if all inputs are ok
+	bool allOk = true;
+	for (const auto& vi : validInputs) {
+		allOk = allOk && vi;
+	}
+	if (allOk) {
+		// update the destination module
+		destModule->module->update();
+	}
 }
 
 bool ModuleConnector::getBitmap(Bitmap & bmp, ModuleId mid) const {
@@ -40,16 +87,19 @@ bool ModuleConnector::getBitmap(Bitmap & bmp, ModuleId mid) const {
 void ModuleConnector::setDestModule(ModuleNode * moduleNode) {
 	destModule = moduleNode;
 	moduleNode->module->setInputManager(this);
+	validInputs.resize(moduleNode->moduleDesc.inputs);
 }
 
 void ModuleConnector::setSrcModule(ModuleNode * moduleNode, int srcIdx) {
 	// can not have a source module without a dest one
 	if (destModule != nullptr) {
-		// now check if the vector is resize properly
+		// now check if the vector is resized properly
 		if (srcModules.size() != destModule->moduleDesc.inputs) {
 			srcModules.resize(destModule->moduleDesc.inputs, nullptr);
 		}
 		srcModules[srcIdx] = moduleNode;
+		validInputs[srcIdx] = false;
+		srcIndexMap[moduleNode->module->getModuleId()] = srcIdx;
 		// before setting the output manager check the module for external outputs
 		OutputManager * externalOman = moduleNode->module->getOutputManager();
 		if (externalOman != nullptr) {
@@ -60,22 +110,39 @@ void ModuleConnector::setSrcModule(ModuleNode * moduleNode, int srcIdx) {
 	}
 }
 
-bool ModuleConnector::removeConnection(int destSrcIdx) {
+bool ModuleConnector::removeConnection(int destSrcIdx, TemporaryOutput * tempOman) {
 	ModuleNode * srcNode = srcModules[destSrcIdx];
 	if (srcNode != nullptr) {
 		srcModules[destSrcIdx] = nullptr;
 		const ModuleId mid = srcNode->module->getModuleId();
+		srcIndexMap.erase(mid);
+		const auto& bmpIt = bmpMap.find(mid);
+		// set the temporary oman to the module
+		if (tempOman != nullptr) {
+			srcNode->module->setOutputManager(tempOman);
+			// also set the input if it is valid
+			if (validInputs[destSrcIdx] && bmpIt != bmpMap.end()) {
+				std::lock_guard<std::mutex> lk(bmpMapMutex);
+				tempOman->setOutput(*(bmpIt->second), mid);
+			}
+		}
 		// if the module had an external output manager - set it instead of this - otherwise set to null
 		const auto& extOmanIt = externalOutputMap.find(mid);
 		if (extOmanIt != externalOutputMap.end()) {
-			srcNode->module->setOutputManager(extOmanIt->second);
+			if (tempOman != nullptr) {
+				tempOman->setExternalOutput(extOmanIt->second);
+			} else {
+				// fallback code - the tempOman should not be nullptr
+				srcNode->module->setOutputManager(extOmanIt->second);
+			}
 			// remove the output manager from the map
 			externalOutputMap.erase(mid);
-		} else {
+		} else if (tempOman == nullptr) {
+			// this code doubles, but I'm lazy to rework it
 			srcNode->module->setOutputManager(nullptr);
 		}
+		validInputs[destSrcIdx] = false;
 		// also free memory from this input
-		const auto& bmpIt = bmpMap.find(mid);
 		if (bmpIt != bmpMap.end()) {
 			std::lock_guard<std::mutex> lk(bmpMapMutex);
 			// just erase the entry in the map - the shared_ptr will take care of the rest
@@ -137,6 +204,10 @@ void ModuleDAG::addModule(ModuleBase * moduleInstance, const ModuleDescription& 
 	moduleMap[mid] = node;
 	// add the module to the graph
 	graph.addNode(mid);
+	// create a temporary output manager for the module
+	std::shared_ptr<TemporaryOutput> tempOutput(new TemporaryOutput());
+	moduleInstance->setOutputManager(tempOutput.get());
+	tempOutputMap[mid] = tempOutput;
 }
 
 void ModuleDAG::removeModule(ModuleId mid) {
@@ -160,6 +231,8 @@ void ModuleDAG::removeModule(ModuleId mid) {
 		delete mn;
 		moduleMap[mid] = nullptr;
 		moduleMap.erase(mid);
+		// erase any temporary output managers attached to the module
+		tempOutputMap.erase(mid);
 	}
 }
 
@@ -233,9 +306,21 @@ void ModuleDAG::removeConnector(EdgeId eid) {
 		const SimpleConnector& sc = eIt->second;
 		// remove the simple connection from the graph
 		graph.removeEdge(sc.srcId, sc.destId);
-		// first detach the module connector
+		// create a new temporary manager when detaching a module - we don't know if there are
+		// external managers attached, but we always will create a temporary manager
+		TemporaryOutput * tempOman = nullptr;
+		const auto& tempOutputIt = tempOutputMap.find(sc.srcId);
+		if (tempOutputIt != tempOutputMap.end()) {
+			// this is strange - it was left by something?
+			tempOman = tempOutputIt->second.get();
+		} else {
+			std::shared_ptr<TemporaryOutput> tempOmanPtr(new TemporaryOutput);
+			tempOutputMap[sc.srcId] = tempOmanPtr;
+			tempOman = tempOmanPtr.get();
+		}
+		// detach the module connector and add the temporary output manager to be attached
 		ModuleConnector * mc = connectorMap[sc.connId];
-		const bool removeConnector = mc->removeConnection(sc.destSrcIdx);
+		const bool removeConnector = mc->removeConnection(sc.destSrcIdx, tempOman);
 		if (removeConnector) {
 			delete mc;
 			connectorMap[sc.connId] = nullptr;
@@ -269,13 +354,13 @@ void ModuleDAG::setExternalOutput(ModuleId mid, OutputManager * oman) {
 	if (mn->outputConnector != InvalidConnectorId) {
 		connectorMap[mn->outputConnector]->setExternalOutput(mid, oman);
 	} else {
-		// directly attach it to the module
-		mn->module->setOutputManager(oman);
-		// reevaluate the module so it can report its output to the new manager
-		if (oman != nullptr) {
-			// TODO - optimize with a temporary output manager held by the DAG
-			// to avoid module reevaluation
-			mn->module->update();
+		// if there is no connector - add it as an external output to the temporary one
+		auto& tempOutputIt = tempOutputMap.find(mid);
+		if (tempOutputIt != tempOutputMap.end()) {
+			tempOutputIt->second->setExternalOutput(oman);
+		} else {
+			// this should not happen, but still
+			mn->module->setOutputManager(oman);
 		}
 	}
 }
@@ -300,15 +385,30 @@ ConnectorId ModuleDAG::addModuleConnection(ModuleId srcId, ModuleId destId, int 
 		connectorMap[connId] = mc;
 		connectorCount++; // increase the connector id count
 	}
+	// before setting the srcNode - remove its output manager - it will be deleted soon
+	srcNode->module->setOutputManager(nullptr);
 	// set the nodes in the connector
 	mc->setDestModule(destNode);
 	mc->setSrcModule(srcNode, destSrcIdx);
 	// set the connector in the nodes
 	srcNode->outputConnector = connId;
 	destNode->inputConnector = connId;
-	// after this is done - update the src module
-	// TODO - cache the source result and only invalidate the dest
-	srcNode->module->runModule();
+	// get the temporary connector for the module and send its output to the new connector
+	// delete it afterwards - we don't need it for now
+	const auto& tempOutputIt = tempOutputMap.find(srcId);
+	if (tempOutputIt != tempOutputMap.end()) {
+		tempOutputIt->second->setBitmapToManager(mc);
+		// if the temporary output manager has an external manager - add it as external to the connector
+		OutputManager * extOman = tempOutputIt->second->getExternalOutput();
+		if (extOman) {
+			mc->setExternalOutput(srcId, extOman);
+		}
+		// now it is save to erase the temporary output manager
+		tempOutputMap.erase(srcId);
+	} else {
+		// this should not occur, unless a bug is introduced - still it is better than nothing
+		srcNode->module->update();
+	}
 
 	return connId;
 }

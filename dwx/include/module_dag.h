@@ -56,11 +56,44 @@ public:
 	ConnectorId outputConnector;
 };
 
+// used for temporary storing an output to be reused when new connections or external outputs are added
+// to avoid unneccessary module updates - still should be kept only until a valid connection is made
+class TemporaryOutput
+	: public OutputManager
+{
+public:
+	TemporaryOutput()
+		: storedMid(InvalidModuleId)
+		, externalOutput(nullptr)
+	{}
+
+	// from OutputManager
+	void setOutput(const Bitmap& bmp, ModuleId mid) override final;
+
+	// own functions
+	void setBitmapToManager(OutputManager * external) const;
+
+	void setExternalOutput(OutputManager * oman);
+
+	// beware - nullptr
+	OutputManager * getExternalOutput() const;
+
+private:
+	mutable std::mutex bmpMutex;
+	ModuleId storedMid;
+	Bitmap storedBmp;
+	OutputManager * externalOutput;
+};
+
 class ModuleConnector
 	: public InputManager
 	, public OutputManager
 {
 public:
+	ModuleConnector()
+		: destModule(nullptr)
+	{}
+
 	// from InputManager
 	bool getInput(Bitmap& bmp, int idx) const override final;
 
@@ -76,9 +109,9 @@ public:
 	// add a source module
 	void setSrcModule(ModuleNode * moduleNode, int srcIdx);
 
-	// remove connection
+	// remove connection and provide a temporary output manager to save any valid outputs
 	// returns true if this was the last connection held by the connector and it should be removed
-	bool removeConnection(int destSrcIdx);
+	bool removeConnection(int destSrcIdx, TemporaryOutput * tempOman);
 
 	// adds external output to the module
 	void setExternalOutput(ModuleId mid, OutputManager * oman);
@@ -88,6 +121,8 @@ private:
 	std::unordered_map<ModuleId, std::shared_ptr<Bitmap> > bmpMap;
 	// this map is used for storing external output managers and chain them when the module is finished
 	std::unordered_map<ModuleId, OutputManager*> externalOutputMap;
+	std::unordered_map<ModuleId, int> srcIndexMap;
+	std::vector<bool> validInputs;
 	std::vector<ModuleNode*> srcModules;
 	ModuleNode* destModule;
 };
@@ -122,6 +157,9 @@ private:
 	ConnectorId connectorCount;
 	std::unordered_map<EdgeId, SimpleConnector> edgeMap;
 	EdgeId edgeCount;
+
+	// temporary output holders
+	std::unordered_map<ModuleId, std::shared_ptr<TemporaryOutput> > tempOutputMap;
 };
 
 #endif // __MODULE_DAG_H__
