@@ -120,10 +120,16 @@ ModuleBase::ProcessResult NegativeModule::moduleImplementation() {
 	Bitmap bmp;
 	if (!getInput(bmp))
 		return ModuleBase::KPR_INVALID_INPUT;
+	if (cb) {
+		cb->setPercentDone(0, 1);
+	}
 	auto negativePix = [](Color a) -> Color {
 		return Color(255, 255, 255) - a;
 	};
 	bmp.remap(negativePix);
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	setOutput(bmp);
 	return ModuleBase::KPR_OK;
 }
@@ -153,6 +159,9 @@ ModuleBase::ProcessResult TextSegmentationModule::moduleImplementation() {
 	Bitmap bmp;
 	if (!getInput(bmp))
 		return ModuleBase::KPR_INVALID_INPUT;
+	if (cb) {
+		cb->setPercentDone(0, 1);
+	}
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	int threshold = 25;
@@ -252,6 +261,10 @@ ModuleBase::ProcessResult TextSegmentationModule::moduleImplementation() {
 			}
 		}
 	}
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
+
 	setOutput(bmp);
 	return ModuleBase::KPR_OK;
 }
@@ -277,6 +290,9 @@ ModuleBase::ProcessResult GeometricModule::moduleImplementation() {
 	if (width <= 0 || height <= 0) {
 		return KPR_INVALID_INPUT;
 	}
+	if (cb) {
+		cb->setPercentDone(0, 1);
+	}
 	dirtySize = (width != pWidth || height != pHeight);
 	if (dirtySize || !primitive->initialized()) {
 		primitive->resize(width, height);
@@ -301,6 +317,9 @@ ModuleBase::ProcessResult GeometricModule::moduleImplementation() {
 		primitive->setParam(pd.name, value);
 	}
 	primitive->draw(dflags);
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	Bitmap bmp = primitive->getBitmap();
 	SimpleModule::setOutput(bmp);
 	if (iman)
@@ -961,6 +980,9 @@ ModuleBase::ProcessResult ShearModule::moduleImplementation() {
 	if (!getInput(bmp)) {
 		return KPR_INVALID_INPUT;
 	}
+	if (cb) {
+		cb->setPercentDone(0, 1);
+	}
 	const int bw = bmp.getWidth();
 	const int bh = bmp.getHeight();
 	const int cx = bw / 2;
@@ -1042,6 +1064,7 @@ ModuleBase::ProcessResult HistogramModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Histogram");
+		cb->setPercentDone(0, 1);
 	}
 	int outWidth = 512;
 	int outHeight = 255;
@@ -1074,11 +1097,14 @@ ModuleBase::ProcessResult HistogramModule::moduleImplementation() {
 	std::vector<uint32> prevConvolution = intensityChannel;
 	drawIntensityHisto(subHisto, prevConvolution, maxIntensity);
 	bmpOut.drawBitmap(subHisto, 0, 0);
-	for (int i = 1; i < histCount; ++i) {
+	for (int i = 1; i < histCount && !getAbortState(); ++i) {
 		std::vector<uint32> convoluted = convolute(prevConvolution, convVec);
 		drawIntensityHisto(subHisto, convoluted, maxIntensity);
 		bmpOut.drawBitmap(subHisto, 0, i * (subHeight + 1));
 		prevConvolution = convoluted;
+		if (cb) {
+			cb->setPercentDone(i, histCount - 1);
+		}
 	}
 	setOutput(bmpOut);
 	return KPR_OK;
@@ -1123,6 +1149,7 @@ ModuleBase::ProcessResult ThresholdModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Threshold");
+		cb->setPercentDone(0, 1);
 	}
 	const int w = bmp.getWidth();
 	const int h = bmp.getHeight();
@@ -1136,9 +1163,12 @@ ModuleBase::ProcessResult ThresholdModule::moduleImplementation() {
 	const Color* inData = bmp.getDataPtr();
 	Color* outData = bmpOut.getDataPtr();
 	const int n = w * h;
-	for (int i = 0; i < n; ++i) {
+	for (int i = 0; i < n && !getAbortState(); ++i) {
 		const int intensity = inData[i].intensity();
 		outData[i] = (lower <= intensity && intensity <= upper ? inData[i] : Color());
+		if (cb) {
+			cb->setPercentDone(i + 1, n);
+		}
 	}
 	setOutput(bmpOut);
 	return KPR_OK;
@@ -1243,6 +1273,7 @@ ModuleBase::ProcessResult RelocateModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Relocate");
+		cb->setPercentDone(0, 1);
 	}
 	int nx = 0;
 	int ny = 0;
@@ -1252,6 +1283,9 @@ ModuleBase::ProcessResult RelocateModule::moduleImplementation() {
 	}
 	Bitmap out;
 	bool res = bmp.relocate(out, nx, ny);
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	if (res) {
 		setOutput(out);
 		return KPR_OK;
@@ -1267,6 +1301,7 @@ ModuleBase::ProcessResult CropModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Crop");
+		cb->setPercentDone(0, 1);
 	}
 	int nx = 0;
 	int ny = 0;
@@ -1280,6 +1315,9 @@ ModuleBase::ProcessResult CropModule::moduleImplementation() {
 	}
 	Bitmap out;
 	bool res = bmp.crop(out, nx, ny, nw, nh);
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	if (res) {
 		setOutput(out);
 		return KPR_OK;
@@ -1295,6 +1333,7 @@ ModuleBase::ProcessResult MirrorModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Mirror");
+		cb->setPercentDone(0, 1);
 	}
 	bool mx = true;
 	bool my = true;
@@ -1305,6 +1344,9 @@ ModuleBase::ProcessResult MirrorModule::moduleImplementation() {
 	unsigned axes = (mx ? PA_X_AXIS : PA_NONE) | (my ? PA_Y_AXIS : PA_NONE);
 	Bitmap out;
 	bool res = bmp.mirror(out, static_cast<PixelmapAxis>(axes));
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	if (res) {
 		setOutput(out);
 		return KPR_OK;
@@ -1320,6 +1362,7 @@ ModuleBase::ProcessResult ExpandModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Expand");
+		cb->setPercentDone(0, 1);
 	}
 	unsigned fillType = 0;
 	int ew = 0;
@@ -1335,6 +1378,9 @@ ModuleBase::ProcessResult ExpandModule::moduleImplementation() {
 	}
 	Bitmap out;
 	bool res = bmp.expand(out, ew, eh, ex, ey, static_cast<EdgeFillType>(fillType));
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	if (res) {
 		setOutput(out);
 		return KPR_OK;
@@ -1350,6 +1396,7 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("Channel");
+		cb->setPercentDone(0, 1);
 	}
 	unsigned channel = 0;
 	if (pman) {
@@ -1359,6 +1406,9 @@ ModuleBase::ProcessResult ChannelModule::moduleImplementation() {
 	const int dimProd = bmp.getDimensionProduct();
 	std::unique_ptr<uint8[]> channelData(new uint8[dimProd]);
 	bool res = bmp.getChannel(channelData.get(), static_cast<ColorChannel>(channel));
+	if (cb) {
+		cb->setPercentDone(1, 1);
+	}
 	if (res) {
 		out.setChannel(channelData.get(), static_cast<ColorChannel>(channel));
 		setOutput(out);
@@ -1561,6 +1611,7 @@ ModuleBase::ProcessResult FFTCompressionModule::moduleImplementation() {
 	}
 	if (cb) {
 		cb->setModuleName("FFTCompression");
+		cb->setPercentDone(0, 1);
 	}
 	float percent = 100.0f;
 	if (pman) {

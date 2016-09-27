@@ -528,7 +528,8 @@ void MultiModuleCanvas::drawModuleNode(wxDC & dc, const ModuleGraphicNode & mgd,
 	// draw module progress, if there is a progress callback
 	const auto& cbIt = progressMap.find(mgdMapId);
 	wxString progressText;
-	if (cbIt != progressMap.end()) {
+	const bool progressModule = (mgd.moduleDesc.id != M_INPUT && mgd.moduleDesc.id != M_OUTPUT && mgd.moduleDesc.id != M_IDENTITY);
+	if (cbIt != progressMap.end() && progressModule) {
 		const float fractionDone = cbIt->second->getFractionDone();
 		const wxPoint progTopLeft = convertCanvasToScreen(mgd.progRect.getTopLeft());
 		const wxPoint progBottomRight = convertCanvasToScreen(mgd.progRect.getBottomRight());
