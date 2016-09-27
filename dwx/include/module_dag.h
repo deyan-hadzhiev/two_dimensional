@@ -116,6 +116,8 @@ public:
 	// adds external output to the module
 	void setExternalOutput(ModuleId mid, OutputManager * oman);
 
+	void invalidateModule(ModuleId mid);
+
 private:
 	mutable std::mutex bmpMapMutex;
 	std::unordered_map<ModuleId, std::shared_ptr<Bitmap> > bmpMap;
@@ -140,7 +142,9 @@ public:
 
 	void removeConnector(EdgeId eid);
 
-	void invalidateModules(const std::vector<ModuleId>& invalidateList);
+	// module ID of the module to be invalidated or an InvalidModuleId if all modules should
+	// be invalidated and reevaluated
+	void invalidateModules(ModuleId invalidatedModule);
 
 	// this function connects an external output manager to the module
 	// if the module is already connected - it attaches it to the connector

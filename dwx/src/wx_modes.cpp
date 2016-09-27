@@ -387,20 +387,9 @@ void MultiModuleMode::onCommandMenu(wxCommandEvent & ev) {
 		break;
 	}
 	case (ViewFrame::MID_VF_CNT_RUN): {
-		std::vector<ModuleId> invalidateList;
-		if (selectedModule != InvalidModuleId) {
-			invalidateList.push_back(selectedModule);
-		} else {
-			// push all modules with 0 inputs to invalidate the whole configuration
-			for (const auto& moduleIt : moduleMap) {
-				const ModuleNodeCollection& mnc = moduleIt.second;
-				if (mnc.moduleDesc.inputs == 0) {
-					invalidateList.push_back(moduleIt.first);
-				}
-			}
-		}
-		// call the invalidation
-		mDag->invalidateModules(invalidateList);
+		mDag->invalidateModules(selectedModule);
+		// afterwards update the gui to account for updates
+		canvas->Refresh(false);
 		break;
 	}
 	case (ViewFrame::MID_VF_CNT_STOP): {

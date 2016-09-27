@@ -1,3 +1,6 @@
+#include <unordered_map>
+#include <unordered_set>
+
 #include "graph.h"
 #include "module_manager.h"
 #include "module_dag.h"
@@ -177,6 +180,13 @@ void ModuleConnector::setExternalOutput(ModuleId mid, OutputManager * oman) {
 	}
 }
 
+void ModuleConnector::invalidateModule(ModuleId mid) {
+	const auto& midIndexIt = srcIndexMap.find(mid);
+	if (midIndexIt != srcIndexMap.end()) {
+		validInputs[midIndexIt->second] = false;
+	}
+}
+
 // ModuleDAG
 
 ModuleDAG::ModuleDAG()
@@ -336,16 +346,48 @@ void ModuleDAG::removeConnector(EdgeId eid) {
 	}
 }
 
-void ModuleDAG::invalidateModules(const std::vector<ModuleId>& invalidateList) {
-	// TODO - create a dependency list to update all depending modules and connectors
-	for (const auto& it : invalidateList) {
-		ModuleNode * mn = moduleMap[it];
-		// manually reset the abort flag (TODO - in a separate loop, because they should be reset before any updates are triggered)
-		ProgressCallback * mcb = mn->module->getProgressCallback();
-		if (mcb) {
-			mcb->reset();
+void ModuleDAG::invalidateModules(ModuleId invalidatedModule) {
+	// if this is a valid module -> create a dependency list to be invalidated
+	std::vector<ModuleId> directUpdateList;
+	if (invalidatedModule != InvalidModuleId) {
+		directUpdateList.push_back(invalidatedModule);
+	} else {
+		// make the same but for a list obtained from the graph with 0 inputs currently
+		directUpdateList = graph.listNodesInValency(0);
+	}
+	std::unordered_set<ModuleId> dependencyList;
+	std::vector<ModuleId> moduleDeps; // keep it outside to minimize reallocation
+	// so now for each module in the direct update list - add its dependant modules
+	for (const auto& mid : directUpdateList) {
+		moduleDeps.clear();
+		graph.BFS(moduleDeps, mid);
+		// now add all modueles to the dependency list (including the module itself)
+		for (const auto& depMid : moduleDeps) {
+			dependencyList.insert(moduleDeps.begin(), moduleDeps.end());
 		}
-		mn->module->update();
+	}
+	// first invalidate all modules in the dependencyList
+	for (const auto& mid : dependencyList) {
+		auto& moduleIt = moduleMap.find(mid);
+		if (moduleIt != moduleMap.end()) {
+			ModuleNode * mNode = moduleIt->second;
+			auto& connectorIt = connectorMap.find(mNode->outputConnector);
+			if (connectorIt != connectorMap.end()) {
+				connectorIt->second->invalidateModule(mid);
+			}
+			// also reset the progress of the module (for GUI mainly)
+			ProgressCallback * mcb = mNode->module->getProgressCallback();
+			if (mcb) {
+				mcb->reset();
+			}
+		}
+	}
+	// and finally update all the direct modules
+	for (const auto& mid : directUpdateList) {
+		auto& moduleIt = moduleMap.find(mid);
+		if (moduleIt != moduleMap.end()) {
+			moduleIt->second->module->update();
+		}
 	}
 }
 
