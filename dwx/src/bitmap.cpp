@@ -20,10 +20,12 @@
 #include <memory>
 #include <stdio.h>
 #include <algorithm>
+
 #include "bitmap.h"
 #include "color.h"
 #include "constants.h"
 #include "ascii_table.h"
+#include "progress.h"
 
 FloatBitmap::FloatBitmap() noexcept
 	: width(-1)
@@ -260,12 +262,12 @@ template bool Pixelmap<TColor<Complex> >::getChannel<Complex>(Complex *, ColorCh
 template bool Pixelmap<Color>::setChannel<uint8>(const uint8 *, ColorChannel);
 template bool Pixelmap<TColor<Complex> >::setChannel<Complex>(const Complex *, ColorChannel);
 
-template bool Pixelmap<Color>::downscale<TColor<uint16> >(Pixelmap<Color>&, const int, const int) const;
-template bool Pixelmap<Color>::downscale<Color>(Pixelmap<Color>&, const int, const int) const;
-template bool Pixelmap<Color>::downscale<TColor<float> >(Pixelmap<Color>&, const int, const int) const;
-template bool Pixelmap<Color>::downscale<TColor<double> >(Pixelmap<Color>&, const int, const int) const;
+template bool Pixelmap<Color>::downscale<TColor<uint16> >(Pixelmap<Color>&, const int, const int, ProgressCallback *) const;
+template bool Pixelmap<Color>::downscale<Color>(Pixelmap<Color>&, const int, const int, ProgressCallback *) const;
+template bool Pixelmap<Color>::downscale<TColor<float> >(Pixelmap<Color>&, const int, const int, ProgressCallback *) const;
+template bool Pixelmap<Color>::downscale<TColor<double> >(Pixelmap<Color>&, const int, const int, ProgressCallback *) const;
 
-template bool Pixelmap<Color>::upscale<TColor<double> >(Pixelmap<Color>&, const int, const int, UpscaleFiltering filterType) const;
+template bool Pixelmap<Color>::upscale<TColor<double> >(Pixelmap<Color>&, const int, const int, UpscaleFiltering filterType, ProgressCallback *) const;
 
 template<class ColorType>
 Pixelmap<ColorType>::Pixelmap() noexcept
@@ -562,28 +564,36 @@ const ColorType * Pixelmap<ColorType>::operator[](int row) const noexcept {
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::mirror(PixelmapAxis axis) {
+bool Pixelmap<ColorType>::mirror(PixelmapAxis axis, ProgressCallback * pcb) {
 	if (!this->isOK()) {
 		return false;
 	} else if (PA_NONE == axis) {
 		return true;
 	}
+	const int itersVertical = ((axis & PA_Y_AXIS) != 0 ? height / 2 : 0);
+	const int totalIterations = itersVertical + ((axis & PA_X_AXIS) != 0 ? height : 0);
 	if ((axis & PA_Y_AXIS) != 0) {
 		std::unique_ptr<ColorType[]> tmp(new ColorType[width]);
 		const int halfHeight = height / 2;
 		const int rowSize = width * sizeof(ColorType);
-		for (int y = 0, yy = height - 1; y < halfHeight; ++y, --yy) {
+		for (int y = 0, yy = height - 1; y < halfHeight && (!pcb || !pcb->getAbortFlag()); ++y, --yy) {
 			memcpy(tmp.get(), data + y * width, rowSize);
 			memcpy(data + y * width, data + yy * width, rowSize);
 			memcpy(data + yy * width, tmp.get(), rowSize);
+			if (pcb) {
+				pcb->setPercentDone(y + 1, totalIterations);
+			}
 		}
 	}
 	if ((axis & PA_X_AXIS) != 0) {
 		const int halfWidth = width / 2;
-		for (int y = 0; y < height; ++y) {
+		for (int y = 0; y < height && (!pcb || !pcb->getAbortFlag()); ++y) {
 			ColorType * rowData = data + y * width;
 			for (int x = 0, xx = width - 1; x < halfWidth; ++x, --xx) {
 				std::swap(rowData[x], rowData[xx]);
+			}
+			if (pcb) {
+				pcb->setPercentDone(itersVertical + y + 1, totalIterations);
 			}
 		}
 	}
@@ -591,27 +601,30 @@ bool Pixelmap<ColorType>::mirror(PixelmapAxis axis) {
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis) const {
+bool Pixelmap<ColorType>::mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis, ProgressCallback * pcb) const {
 	if (!this->isOK() || this == &mirrored) {
 		return false;
 	}
 	mirrored = *this;
-	return mirrored.mirror(axis);
+	return mirrored.mirror(axis, pcb);
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::crop(const int x, const int y, const int w, const int h) {
+bool Pixelmap<ColorType>::crop(const int x, const int y, const int w, const int h, ProgressCallback * pcb) {
 	if (!this->isOK() || x < 0 || y < 0 || x + w > width || y + h > height) {
 		return false;
 	}
 	// create the data for the cropped image
 	ColorType * croppedData = new ColorType[w * h];
 	// now copy over the data
-	for (int cy = 0; cy < h; ++cy) {
+	for (int cy = 0; cy < h && (!pcb || !pcb->getAbortFlag()); ++cy) {
 		// copy whole row at a time
 		ColorType * dest = croppedData + cy * w;
 		const ColorType * src = data + (y + cy) * width + x;
 		memcpy(dest, src, w * sizeof(ColorType));
+		if (pcb) {
+			pcb->setPercentDone(cy + 1, h);
+		}
 	}
 	// use freeMem() since it may change in the future
 	freeMem();
@@ -623,7 +636,7 @@ bool Pixelmap<ColorType>::crop(const int x, const int y, const int w, const int 
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const {
+bool Pixelmap<ColorType>::crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h, ProgressCallback * pcb) const {
 	if (!this->isOK() || this == &cropped || x < 0 || y < 0 || x + w > width || y + h > height) {
 		return false;
 	}
@@ -631,17 +644,20 @@ bool Pixelmap<ColorType>::crop(Pixelmap<ColorType>& cropped, const int x, const 
 	cropped.generateEmptyImage(w, h);
 	ColorType * croppedData = cropped.getDataPtr();
 	// now copy over the data
-	for (int cy = 0; cy < h; ++cy) {
+	for (int cy = 0; cy < h && (!pcb || !pcb->getAbortFlag()); ++cy) {
 		// copy whole row at a time
 		ColorType * dest = croppedData + cy * w;
 		const ColorType * src = data + (y + cy) * width + x;
 		memcpy(dest, src, w * sizeof(ColorType));
+		if (pcb) {
+			pcb->setPercentDone(cy + 1, h);
+		}
 	}
 	return true;
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::expand(const int w, const int h, const int x, const int y, EdgeFillType fillType) {
+bool Pixelmap<ColorType>::expand(const int w, const int h, const int x, const int y, EdgeFillType fillType, ProgressCallback * pcb) {
 	if (!this->isOK() || w < 0 || h < 0) {
 		return false;
 	} else if (0 == w && 0 == h) {
@@ -783,34 +799,37 @@ bool Pixelmap<ColorType>::expand(const int w, const int h, const int x, const in
 				}
 			}
 		}
-		for (int i = 0; i < fullCount; ++i) {
+		for (int i = 0; i < fullCount && (!pcb || !pcb->getAbortFlag()); ++i) {
 			const PixelmapDraw& drawn = drawArray[i];
 			drawBitmap(*(drawn.second), drawn.first.x, drawn.first.y);
+			if (pcb) {
+				pcb->setPercentDone(i + 1, fullCount);
+			}
 		}
 	}
 	return true;
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType) const {
+bool Pixelmap<ColorType>::expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType, ProgressCallback * pcb) const {
 	if (!this->isOK() || this == &expanded || w < 0 || h < 0) {
 		return false;
 	}
 	expanded = *this;
-	return expanded.expand(w, h, x, y, fillType);
+	return expanded.expand(w, h, x, y, fillType, pcb);
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::relocate(const int nx, const int ny) {
+bool Pixelmap<ColorType>::relocate(const int nx, const int ny, ProgressCallback * pcb) {
 	if (!this->isOK() || nx < 0 || nx >= width || ny < 0 || ny >= height) {
 		return false;
 	}
 	Pixelmap<ColorType> tmp(*this);
-	return tmp.relocate(*this, nx, ny);
+	return tmp.relocate(*this, nx, ny, pcb);
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx, const int ny) const {
+bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx, const int ny, ProgressCallback * pcb) const {
 	if (!this->isOK() || this == &relocated || nx < 0 || nx >= width || ny < 0 || ny >= height) {
 		return false;
 	}
@@ -820,7 +839,7 @@ bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx,
 	const int rwidth = width - nx;
 	const int bheight = height - ny;
 	if (nx != 0) {
-		for (int y = 0; y < height; ++y) {
+		for (int y = 0; y < height && (!pcb || !pcb->getAbortFlag()); ++y) {
 			const int yDest = (y + ny) % height;
 			const ColorType * src = data + y * width;
 			ColorType * lDest = relocatedData + yDest * width;
@@ -829,6 +848,9 @@ bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx,
 			// now the left part
 			const ColorType * lsrc = src + rwidth;
 			memcpy(lDest, lsrc, nx * sizeof(ColorType));
+			if (pcb) {
+				pcb->setPercentDone(y + 1, height);
+			}
 		}
 	} else {
 		// first copy the first ny rows
@@ -836,9 +858,18 @@ bool Pixelmap<ColorType>::relocate(Pixelmap<ColorType>& relocated, const int nx,
 		const int rsize = bheight * width;
 		ColorType * dest = relocatedData + rsize; // bheight * width
 		memcpy(dest, data, size * sizeof(ColorType));
+		if (pcb) {
+			pcb->setPercentDone(size, width * height);
+			if (pcb->getAbortFlag()) {
+				return false;
+			}
+		}
 		// then copy the remiaining
 		const ColorType * src = data + size; // ny * width
 		memcpy(relocatedData, src, rsize * sizeof(ColorType));
+		if (pcb) {
+			pcb->setPercentDone(width * height, width * height);
+		}
 	}
 
 	return true;
@@ -874,7 +905,7 @@ bool Pixelmap<ColorType>::setChannel(const ChannelScalar * channel, ColorChannel
 
 template<class ColorType>
 template<class IntermediateColorType>
-bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const {
+bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight, ProgressCallback * pcb) const {
 	if (!this->isOK() || this == &downScaled || downWidth <= 0 || downWidth > width || downHeight <= 0 || downHeight > height) {
 		return false;
 	} else if (downWidth == width && downHeight == height) {
@@ -906,12 +937,18 @@ bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int d
 	IntermediateColorType * srcData = srcPmp.getDataPtr();
 	IntermediateColorType * destData = destPmp.getDataPtr();
 
+	const int widthIters = (width != downWidth ? height : 0);
+	const int totalIters = widthIters + (height != downHeight ? downWidth : downHeight);
+
 	if (width != downWidth) {
 		std::unique_ptr<IntermediateColorType[]> row(new IntermediateColorType[width]);
 		const float * widthCoefficients = coeffsCache.getCoefficients(width, downWidth);
-		for (int y = 0; y < height; ++y) {
+		for (int y = 0; y < height && (!pcb || !pcb->getAbortFlag()); ++y) {
 			arrayResize(srcData + (y * width), width, row.get(), downWidth, widthCoefficients);
 			memcpy(srcData + (y * width), row.get(), downWidth * sizeof(IntermediateColorType));
+			if (pcb) {
+				pcb->setPercentDone(y + 1, totalIters);
+			}
 		}
 	}
 
@@ -919,7 +956,7 @@ bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int d
 		std::unique_ptr<IntermediateColorType[]> column(new IntermediateColorType[height]);
 		std::unique_ptr<IntermediateColorType[]> newColumn(new IntermediateColorType[downHeight]);
 		const float * heightCoefficients = coeffsCache.getCoefficients(height, downHeight);
-		for (int x = 0; x < downWidth; ++x) {
+		for (int x = 0; x < downWidth && (!pcb || !pcb->getAbortFlag()); ++x) {
 			for (int y = 0; y < height; ++y) {
 				column[y] = srcData[x + y * width]; // this has to use the previous width
 			}
@@ -927,10 +964,16 @@ bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int d
 			for (int y = 0; y < downHeight; ++y) {
 				destData[x + y * downWidth] = newColumn[y];
 			}
+			if (pcb) {
+				pcb->setPercentDone(x + widthIters + 1, totalIters);
+			}
 		}
 	} else {
-		for (int y = 0; y < downHeight; ++y) {
+		for (int y = 0; y < downHeight && (!pcb || !pcb->getAbortFlag()); ++y) {
 			memcpy(destData + (y * downWidth), srcData + (y * width), downWidth * sizeof(IntermediateColorType));
+			if (pcb) {
+				pcb->setPercentDone(y + widthIters + 1, totalIters);
+			}
 		}
 	}
 	downScaled = Pixelmap<ColorType>(destPmp);
@@ -939,7 +982,7 @@ bool Pixelmap<ColorType>::downscale(Pixelmap<ColorType>& downScaled, const int d
 
 template<class ColorType>
 template<class IntermediateColorType>
-bool Pixelmap<ColorType>::upscale(Pixelmap<ColorType>& upScaled, const int upWidth, const int upHeight, UpscaleFiltering filterType) const {
+bool Pixelmap<ColorType>::upscale(Pixelmap<ColorType>& upScaled, const int upWidth, const int upHeight, UpscaleFiltering filterType, ProgressCallback * pcb) const {
 	if (!isOK() || upWidth < width || upHeight < height) {
 		return false;
 	} else if (upWidth == width && upHeight == height) {
@@ -951,23 +994,32 @@ bool Pixelmap<ColorType>::upscale(Pixelmap<ColorType>& upScaled, const int upWid
 	const double ratioHeight = height / static_cast<double>(upHeight);
 	ColorType * upData = upScaled.getDataPtr();
 	if (UF_NEAREST_NEIGHBOUR == filterType) {
-		for (int y = 0; y < upHeight; ++y) {
+		for (int y = 0; y < upHeight && (!pcb || !pcb->getAbortFlag()); ++y) {
 			for (int x = 0; x < upWidth; ++x) {
 				const int downY = clamp(nearestInt(y * ratioHeight), 0, height - 1);
 				const int downX = clamp(nearestInt(x * ratioWidth), 0, width - 1);
 				upData[y * upWidth + x] = data[downY * width + downX];
 			}
+			if (pcb) {
+				pcb->setPercentDone(y + 1, upHeight);
+			}
 		}
 	} else if (UF_BILINEAR == filterType) {
-		for (int y = 0; y < upHeight; ++y) {
+		for (int y = 0; y < upHeight && (!pcb || !pcb->getAbortFlag()); ++y) {
 			for (int x = 0; x < upWidth; ++x) {
 				upData[y * upWidth + x] = getBilinearFilteredPixel<IntermediateColorType>(static_cast<float>(x * ratioWidth), static_cast<float>(y * ratioHeight), EFT_STRETCH);
 			}
+			if (pcb) {
+				pcb->setPercentDone(y + 1, upHeight);
+			}
 		}
 	} else if (UF_BICUBIC == filterType) {
-		for (int y = 0; y < upHeight; ++y) {
+		for (int y = 0; y < upHeight && (!pcb || !pcb->getAbortFlag()); ++y) {
 			for (int x = 0; x < upWidth; ++x) {
 				upData[y * upWidth + x] = getBicubicFilteredPixel<IntermediateColorType>(static_cast<float>(x * ratioWidth), static_cast<float>(y * ratioHeight), EFT_STRETCH);
+			}
+			if (pcb) {
+				pcb->setPercentDone(y + 1, upHeight);
 			}
 		}
 	}
@@ -976,7 +1028,7 @@ bool Pixelmap<ColorType>::upscale(Pixelmap<ColorType>& upScaled, const int upWid
 }
 
 template<class ColorType>
-bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, const int y) noexcept {
+bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, const int y, ProgressCallback * pcb) noexcept {
 	if (!subBmp.isOK() || !this->isOK() || this == &subBmp)
 		return false;
 	const int sw = subBmp.getWidth();
@@ -999,17 +1051,23 @@ bool Pixelmap<ColorType>::drawBitmap(Pixelmap<ColorType> & subBmp, const int x, 
 			return false;
 		}
 		const ColorType * subData = subBmp.getDataPtr();
-		for (int yy = 0; yy < dh; ++yy) {
+		for (int yy = 0; yy < dh && (!pcb || !pcb->getAbortFlag()); ++yy) {
 			const ColorType * src = subData + (sy + yy) * sw + sx;
 			ColorType * dest = data + (dy + yy) * width + dx;
 			memcpy(dest, src, dw * sizeof(ColorType));
+			if (pcb) {
+				pcb->setPercentDone(yy + 1, dh);
+			}
 		}
 	} else {
 		const ColorType * subData = subBmp.getDataPtr();
-		for (int sy = 0; sy < sh; ++sy) {
+		for (int sy = 0; sy < sh && (!pcb || !pcb->getAbortFlag()); ++sy) {
 			ColorType * dest = data + (y + sy) * width + x;
 			// copy the whole row with the destinations width as size
 			memcpy(dest, subData + sy * sw, sw * sizeof(ColorType));
+			if (pcb) {
+				pcb->setPercentDone(sy + 1, sh);
+			}
 		}
 	}
 	return true;

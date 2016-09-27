@@ -4,7 +4,9 @@
 #include <functional>
 #include <vector>
 #include <memory>
+
 #include "color.h"
+#include "progress.h"
 
 // point in discrete 2d space
 class Point {
@@ -143,39 +145,39 @@ public:
 	bool setChannel(const ChannelScalar * channel, ColorChannel cc);
 
 	// mirrors the pixelmap in-place
-	bool mirror(PixelmapAxis axis);
+	bool mirror(PixelmapAxis axis, ProgressCallback * pcb = nullptr);
 
 	// mirrors the pixelmap in the output pixelmap
-	bool mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis) const;
+	bool mirror(Pixelmap<ColorType>& mirrored, PixelmapAxis axis, ProgressCallback * pcb = nullptr) const;
 
 	// crops the rectangle with top left (x, y) and w width and h height in place
-	bool crop(const int x, const int y, const int w, const int h);
+	bool crop(const int x, const int y, const int w, const int h, ProgressCallback * pcb = nullptr);
 
 	// crops the rectangle with top left (x, y) and w width and h height in a specified pixelmap
-	bool crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h) const;
+	bool crop(Pixelmap<ColorType>& cropped, const int x, const int y, const int w, const int h, ProgressCallback * pcb = nullptr) const;
 
 	// expands the bitmap with specified width and height (and remaps the current (0, 0) -> (x, y))
-	bool expand(const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK);
+	bool expand(const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK, ProgressCallback * pcb = nullptr);
 
 	// expands the bitmap with specified width and height (and remaps the current (0, 0) -> (x, y))
-	bool expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK) const;
+	bool expand(Pixelmap<ColorType>& expanded, const int w, const int h, const int x, const int y, EdgeFillType fillType = EdgeFillType::EFT_BLANK, ProgressCallback * pcb = nullptr) const;
 
 	// relocates the pixelmap (0, 0) -> (x, y) using a temporary Pixelmap
-	bool relocate(const int x, const int y);
+	bool relocate(const int x, const int y, ProgressCallback * pcb = nullptr);
 
 	// relocates the pixelmap (0, 0) -> (x, y)
-	bool relocate(Pixelmap<ColorType>& relocated, const int x, const int y) const;
+	bool relocate(Pixelmap<ColorType>& relocated, const int x, const int y, ProgressCallback * pcb = nullptr) const;
 
 	// downscales the bitmap using fractions
 	template<class IntermediateColorType>
-	bool downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight) const;
+	bool downscale(Pixelmap<ColorType>& downScaled, const int downWidth, const int downHeight, ProgressCallback * pcb = nullptr) const;
 
 	// upscales the bitmap using the provided upscale type
 	template<class IntermediateColorType>
-	bool upscale(Pixelmap<ColorType>& upScaled, const int upWidth, const int upHeight, UpscaleFiltering filterType = UF_BILINEAR) const;
+	bool upscale(Pixelmap<ColorType>& upScaled, const int upWidth, const int upHeight, UpscaleFiltering filterType = UF_BILINEAR, ProgressCallback * pcb = nullptr) const;
 
 	// draws a smaller bitmap into a larger one -> return false if the bitmap won't fit
-	bool drawBitmap(Pixelmap<ColorType>& subBmp, const int x, const int y) noexcept;
+	bool drawBitmap(Pixelmap<ColorType>& subBmp, const int x, const int y, ProgressCallback * pcb = nullptr) noexcept;
 
 	// draws a line colinear with the supplied axis, with coord offset and from start to end
 	bool drawAxisAlignedLine(int start, int end, int coord, PixelmapAxis axis, const ColorType& color);

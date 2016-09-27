@@ -1216,13 +1216,13 @@ ModuleBase::ProcessResult DownScaleModule::moduleImplementation() {
 	Bitmap out;
 	bool res = false;
 	if (0 == meduimType) {
-		res = bmp.downscale<TColor<uint16> >(out, width, height);
+		res = bmp.downscale<TColor<uint16> >(out, width, height, cb);
 	} else if (1 == meduimType) {
-		res = bmp.downscale<Color>(out, width, height);
+		res = bmp.downscale<Color>(out, width, height, cb);
 	} else if (2 == meduimType) {
-		res = bmp.downscale<TColor<float> >(out, width, height);
+		res = bmp.downscale<TColor<float> >(out, width, height, cb);
 	} else if (3 == meduimType) {
-		res = bmp.downscale<TColor<double> >(out, width, height);
+		res = bmp.downscale<TColor<double> >(out, width, height, cb);
 	}
 	if (cb) {
 		cb->setPercentDone(1, 1);
@@ -1254,7 +1254,7 @@ ModuleBase::ProcessResult UpScaleModule::moduleImplementation() {
 	}
 	Bitmap out;
 	bool res = false;
-	res = bmp.upscale<TColor<double> >(out, width, height, static_cast<UpscaleFiltering>(filterType));
+	res = bmp.upscale<TColor<double> >(out, width, height, static_cast<UpscaleFiltering>(filterType), cb);
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
@@ -1282,7 +1282,7 @@ ModuleBase::ProcessResult RelocateModule::moduleImplementation() {
 		pman->getIntParam(ny, "relocateY");
 	}
 	Bitmap out;
-	bool res = bmp.relocate(out, nx, ny);
+	bool res = bmp.relocate(out, nx, ny, cb);
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
@@ -1314,7 +1314,7 @@ ModuleBase::ProcessResult CropModule::moduleImplementation() {
 		pman->getIntParam(nh, "cropHeight");
 	}
 	Bitmap out;
-	bool res = bmp.crop(out, nx, ny, nw, nh);
+	bool res = bmp.crop(out, nx, ny, nw, nh, cb);
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
@@ -1343,7 +1343,7 @@ ModuleBase::ProcessResult MirrorModule::moduleImplementation() {
 	}
 	unsigned axes = (mx ? PA_X_AXIS : PA_NONE) | (my ? PA_Y_AXIS : PA_NONE);
 	Bitmap out;
-	bool res = bmp.mirror(out, static_cast<PixelmapAxis>(axes));
+	bool res = bmp.mirror(out, static_cast<PixelmapAxis>(axes), cb);
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
@@ -1377,7 +1377,7 @@ ModuleBase::ProcessResult ExpandModule::moduleImplementation() {
 		pman->getIntParam(ey, "expandY");
 	}
 	Bitmap out;
-	bool res = bmp.expand(out, ew, eh, ex, ey, static_cast<EdgeFillType>(fillType));
+	bool res = bmp.expand(out, ew, eh, ex, ey, static_cast<EdgeFillType>(fillType), cb);
 	if (cb) {
 		cb->setPercentDone(1, 1);
 	}
